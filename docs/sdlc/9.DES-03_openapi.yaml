@@ -1,0 +1,249 @@
+openapi: 3.0.3
+info:
+  title: Wholesale Marketplace API
+  version: 1.0.0
+  description: >
+    DES-03 — عقود API للمنصة (النواة). المرجع الملزم: SRS REQ-02.
+    كل المبالغ Decimal بعملة الدولة. المصادقة: Bearer JWT قصير العمر + كوكي تجديد HttpOnly.
+servers:
+  - url: https://api.example.com/v1
+tags:
+  - name: auth
+  - name: catalog
+  - name: market
+  - name: orders
+  - name: payments
+  - name: driver
+  - name: admin
+
+paths:
+  /auth/otp/request:
+    post:
+      tags: [auth]
+      summary: طلب رمز تحقق (SRS-AUT-01)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [phone], properties: { phone: { type: string, example: "+9665xxxxxxx" } } }
+      responses:
+        "204": { description: أُرسل الرمز. لا يُعاد الرمز في الاستجابة إطلاقاً }
+        "429": { description: تجاوز حد الإرسال (5/ساعة) }
+
+  /auth/otp/verify:
+    post:
+      tags: [auth]
+      summary: تحقق وإصدار جلسة
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [phone, otp], properties: { phone: { type: string }, otp: { type: string, minLength: 6, maxLength: 6 } } }
+      responses:
+        "200":
+          description: access_token في الجسم، وrefresh في كوكي HttpOnly
+          content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } }
+        "423": { description: قفل مؤقت بعد 3 محاولات (SRS-AUT-01) }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: تجديد الجلسة من كوكي التجديد
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } } }
+
+  /merchants/kyc:
+    post:
+      tags: [auth]
+      summary: رفع توثيق التاجر (SRS-AUT-03)
+      security: [{ bearer: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [cr_number, vat_number, cr_document]
+              properties:
+                cr_number: { type: string }
+                vat_number: { type: string, pattern: "^3\\d{13}3$" }
+                cr_document: { type: string, format: binary }
+      responses: { "202": { description: قيد المراجعة } }
+
+  /categories:
+    get:
+      tags: [catalog]
+      summary: شجرة التصنيفات للدولة الحالية
+      parameters: [{ $ref: "#/components/parameters/Country" }, { $ref: "#/components/parameters/Locale" }]
+      responses: { "200": { description: OK } }
+
+  /products:
+    get:
+      tags: [catalog]
+      summary: بحث وتصفح (SRS-CAT-02)
+      parameters:
+        - { $ref: "#/components/parameters/Country" }
+        - { $ref: "#/components/parameters/Locale" }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: category_id, in: query, schema: { type: integer } }
+        - { name: supplier_id, in: query, schema: { type: string } }
+        - { name: sort, in: query, schema: { type: string, enum: [price, savings, sales] } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        "200":
+          description: أسعار الجملة والشرائح تُحجب لغير التاجر الموثق (SRS-PRC-02)
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ProductCard" } } } }
+
+  /products/{id}:
+    get:
+      tags: [catalog]
+      summary: تفاصيل المنتج
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses: { "200": { description: OK } }
+
+  /products/{id}/market:
+    get:
+      tags: [market]
+      summary: مؤشر السوق للمنتج (SRS-MKT-03/04)
+      description: حركة 30/90 يوماً تتطلب اشتراكاً مميزاً — وإلا 402
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: history, in: query, schema: { type: integer, enum: [0, 30, 90], default: 0 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MarketIndex" } } } }
+        "402": { description: يتطلب الباقة المميزة }
+
+  /orders:
+    post:
+      tags: [orders]
+      summary: إنشاء طلب (تقسيم آلي متعدد الموردين — SRS-ORD-03)
+      security: [{ bearer: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, address, payment_method]
+              properties:
+                items: { type: array, items: { type: object, required: [supplier_product_id, qty], properties: { supplier_product_id: { type: integer }, qty: { type: integer, minimum: 1 } } } }
+                address: { type: object }
+                payment_method: { type: string, enum: [card, mada, apple_pay, wallet, cod] }
+      responses:
+        "201": { description: أُنشئ بمرجع موحد وطلبات فرعية }
+        "409": { description: نفاد مخزون — الخصم الذري أخفق (SRS-ORD-02) }
+    get:
+      tags: [orders]
+      summary: طلباتي
+      security: [{ bearer: [] }]
+      responses: { "200": { description: OK } }
+
+  /orders/{id}:
+    get:
+      tags: [orders]
+      summary: تفاصيل الطلب وحالته وسجل انتقالاته
+      security: [{ bearer: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "200": { description: OK } }
+
+  /orders/{id}/track:
+    get:
+      tags: [orders]
+      summary: موقع الشحنة الحي (SRS-DLV-01)
+      security: [{ bearer: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { "200": { description: آخر موقع + زمن متوقع } }
+
+  /rfq:
+    post:
+      tags: [orders]
+      summary: طلب عرض سعر للكميات (SRS-PRC-03)
+      security: [{ bearer: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [product_id, qty, deadline_hours], properties: { product_id: { type: integer }, qty: { type: integer }, deadline_hours: { type: integer, minimum: 24, maximum: 168 } } }
+      responses: { "201": { description: OK } }
+
+  /payments/webhook/{gateway}:
+    post:
+      tags: [payments]
+      summary: استقبال إشعار بوابة الدفع (SRS-PAY-01)
+      description: يتحقق التوقيع قبل أي معالجة، وIdempotency-Key يمنع التكرار
+      parameters: [{ name: gateway, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: عولج }
+        "401": { description: توقيع غير صالح — يُسجل ويُرفض }
+
+  /wallet/entries:
+    get:
+      tags: [payments]
+      summary: كشف المحفظة (دفتر القيود — SRS-PAY-02)
+      security: [{ bearer: [] }]
+      responses: { "200": { description: OK } }
+
+  /driver/tasks:
+    get:
+      tags: [driver]
+      summary: مهام السائق (تدعم العمل دون اتصال — SRS-DLV-04)
+      security: [{ bearer: [] }]
+      responses: { "200": { description: OK } }
+
+  /driver/tasks/{id}/pod:
+    post:
+      tags: [driver]
+      summary: إثبات التسليم — إلزامي قبل الإغلاق (SRS-DLV-02)
+      security: [{ bearer: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, required: [pod_type], properties: { pod_type: { type: string, enum: [signature, photo, otp] }, file: { type: string, format: binary }, otp: { type: string } } }
+      responses: { "200": { description: أُغلقت المهمة } }
+
+  /admin/reports/sales:
+    get:
+      tags: [admin]
+      summary: تقرير المبيعات القابل للتصدير (SRS-ADM-01)
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [json, xlsx], default: json } }
+      responses: { "200": { description: OK } }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Country: { name: X-Country, in: header, required: true, schema: { type: string, example: SA } }
+    Locale: { name: Accept-Language, in: header, schema: { type: string, enum: [ar, en], default: ar } }
+  schemas:
+    Session:
+      type: object
+      properties:
+        access_token: { type: string }
+        expires_in: { type: integer, example: 900 }
+        role: { type: string, enum: [guest, consumer, merchant, supplier, driver, operator, admin] }
+    ProductCard:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, description: مترجم حسب Accept-Language }
+        supplier: { type: string }
+        price: { type: string, example: "42.00", description: حسب الدور — تجزئة للمستهلك وجملة للتاجر }
+        currency: { type: string, example: SAR }
+        moq: { type: integer, nullable: true, description: للتاجر فقط }
+        market_badge:
+          type: object
+          nullable: true
+          description: تظهر فقط عند التوفير ≥ 2% (SRS-MKT-03)
+          properties:
+            savings_pct: { type: integer, example: 8 }
+            sources: { type: integer, example: 6 }
+            confidence: { type: string, enum: [low, medium, high] }
+            updated_at: { type: string, format: date }
+    MarketIndex:
+      type: object
+      properties:
+        avg_price: { type: string, example: "46.50" }
+        sources_count: { type: integer }
+        confidence: { type: string, enum: [low, medium, high] }
+        index_date: { type: string, format: date }
+        history: { type: array, items: { type: object, properties: { date: { type: string, format: date }, price: { type: string } } } }
