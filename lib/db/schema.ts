@@ -483,6 +483,39 @@ export const stockMovement = pgTable('stock_movement', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT REVIEWS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const productReview = pgTable('product_review', {
+  id:         uuid(),
+  productId:  text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  userId:     text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  orderId:    text('orderId').references(() => order.id, { onDelete: 'set null' }),
+  rating:     integer('rating').notNull(),              // 1–5
+  title:      text('title'),
+  body:       text('body').notNull(),
+  helpfulCount: integer('helpfulCount').notNull().default(0),
+  verified:   boolean('verified').notNull().default(false), // purchased and delivered
+  createdAt:  now(),
+  updatedAt:  timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const reviewReply = pgTable('review_reply', {
+  id:        uuid(),
+  reviewId:  text('reviewId').notNull().references(() => productReview.id, { onDelete: 'cascade' }),
+  userId:    text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  body:      text('body').notNull(),
+  createdAt: now(),
+})
+
+export const reviewHelpful = pgTable('review_helpful', {
+  id:        uuid(),
+  reviewId:  text('reviewId').notNull().references(() => productReview.id, { onDelete: 'cascade' }),
+  userId:    text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -519,3 +552,7 @@ export type CouponUsage     = typeof couponUsage.$inferSelect
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
+export type ProductReview   = typeof productReview.$inferSelect
+export type NewProductReview = typeof productReview.$inferInsert
+export type ReviewReply     = typeof reviewReply.$inferSelect
+export type ReviewHelpful   = typeof reviewHelpful.$inferSelect

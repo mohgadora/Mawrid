@@ -412,7 +412,7 @@ export function ProductDetail({
       <ProductQA productId={product.id} />
 
       {/* Reviews */}
-      <ProductReviews rating={product.rating} sold={product.sold} />
+      <ProductReviews productId={product.id} />
 
       {/* Related */}
       {related.length > 0 && (

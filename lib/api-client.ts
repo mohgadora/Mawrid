@@ -346,6 +346,46 @@ export function updateAdminSettings(patch: Partial<SystemSettings>): Promise<Sys
   return apiFetch<SystemSettings>('admin/settings', { method: 'PATCH', body: JSON.stringify(patch) })
 }
 
+// ── Reviews ────────────────────────────────────────────────────────────────
+
+import type { getProductReviews } from '@/services/reviews'
+export type ProductReviewSummary = Awaited<ReturnType<typeof getProductReviews>>
+
+export function fetchProductReviews(productId: string): Promise<ProductReviewSummary> {
+  return apiFetch<ProductReviewSummary>(`products/${encodeURIComponent(productId)}/reviews`)
+}
+
+export function submitReviewApi(
+  productId: string,
+  data: { rating: number; title?: string; body: string },
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(
+    `products/${encodeURIComponent(productId)}/reviews`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+export function toggleReviewHelpfulApi(
+  productId: string,
+  reviewId: string,
+): Promise<{ helpful: boolean; count: number }> {
+  return apiFetch<{ helpful: boolean; count: number }>(
+    `products/${encodeURIComponent(productId)}/reviews/${encodeURIComponent(reviewId)}/helpful`,
+    { method: 'POST' },
+  )
+}
+
+export function submitReviewReplyApi(
+  productId: string,
+  reviewId: string,
+  body: string,
+): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(
+    `products/${encodeURIComponent(productId)}/reviews/${encodeURIComponent(reviewId)}/reply`,
+    { method: 'POST', body: JSON.stringify({ body }) },
+  )
+}
+
 // ── Catalog (client-safe wrappers) ─────────────────────────────────────────
 import type { CategoryResult, SupplierResult, Product } from '@/services/catalog'
 export type { CategoryResult, SupplierResult, Product } from '@/services/catalog'
