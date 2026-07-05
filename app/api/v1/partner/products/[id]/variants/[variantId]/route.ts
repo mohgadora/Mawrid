@@ -3,13 +3,13 @@ import { ok, requirePartner, apiError } from '@/lib/api-helpers'
 import { updateVariant, deleteVariant } from '@/services/variants'
 import { getPartnerSupplier } from '@/services/partner'
 
-type Params = { params: Promise<{ productId: string; variantId: string }> }
+type Params = { params: Promise<{ id: string; variantId: string }> }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
 
-  const { productId, variantId } = await params
+  const { id: productId, variantId } = await params
 
   try {
     const sup = await getPartnerSupplier({ id: guard.id, role: guard.role })
@@ -26,7 +26,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
 
-  const { productId, variantId } = await params
+  const { id: productId, variantId } = await params
 
   try {
     const sup = await getPartnerSupplier({ id: guard.id, role: guard.role })
