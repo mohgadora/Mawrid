@@ -616,6 +616,22 @@ export const referral = pgTable('referral', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const notification = pgTable('notification', {
+  id:        text('id').primaryKey(),
+  userId:    text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  type:      text('type').notNull(),
+  title:     text('title').notNull(),
+  body:      text('body').notNull(),
+  link:      text('link'),
+  read:      boolean('read').notNull().default(false),
+  createdAt: timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
+})
+export type Notification = typeof notification.$inferSelect
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -603,3 +603,42 @@ export function adjustLoyaltyApi(
     { method: 'POST', body: JSON.stringify({ delta, note }) },
   )
 }
+
+// ── Notifications ──────────────────────────────────────────────────────────
+
+export type SerializedNotification = {
+  id: string
+  userId: string
+  type: string
+  title: string
+  body: string
+  link: string | null
+  read: boolean
+  createdAt: string
+}
+
+export function getNotificationsApi(): Promise<{ notifications: SerializedNotification[]; unreadCount: number }> {
+  return apiFetch<{ notifications: SerializedNotification[]; unreadCount: number }>('account/notifications')
+}
+
+export function markNotificationReadApi(id: string): Promise<unknown> {
+  return apiFetch(`account/notifications/${encodeURIComponent(id)}`, { method: 'PATCH' })
+}
+
+export function markAllNotificationsReadApi(): Promise<unknown> {
+  return apiFetch('account/notifications/read-all', { method: 'POST' })
+}
+
+export function deleteNotificationApi(id: string): Promise<void> {
+  return apiFetch(`account/notifications/${encodeURIComponent(id)}`, { method: 'DELETE' }) as Promise<void>
+}
+
+export function broadcastNotificationApi(data: {
+  type: string
+  title: string
+  body: string
+  link?: string
+  userIds?: string[]
+}): Promise<unknown> {
+  return apiFetch('admin/notifications/broadcast', { method: 'POST', body: JSON.stringify(data) })
+}
