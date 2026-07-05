@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import { DollarSign, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { getAdminWithdrawals, updateAdminWithdrawal } from '@/lib/api-client'
+import { getAdminWithdrawals, updateAdminWithdrawal, approveWithdrawalApi, rejectWithdrawalApi, markWithdrawalPaidApi } from '@/lib/api-client'
 import { AsyncContent } from '@/components/async-content'
 import { AdminPageSkeleton } from '@/components/skeletons'
 import { EmptyState } from '@/components/empty-state'
@@ -29,6 +29,10 @@ export default function AdminWithdrawalsPage() {
   const { success, error: toastError } = useToast()
   const { data, error, isLoading, mutate } = useSWR('admin/finance/withdrawals', getAdminWithdrawals)
   const [acting, setActing] = useState<string | null>(null)
+  const [rejectId, setRejectId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [paidId, setPaidId] = useState<string | null>(null)
+  const [paidRef, setPaidRef] = useState('')
 
   async function act(id: string, status: 'approved' | 'rejected' | 'completed', reference?: string) {
     setActing(id)
@@ -36,6 +40,51 @@ export default function AdminWithdrawalsPage() {
       await updateAdminWithdrawal(id, { status, reference })
       await mutate()
       success(status === 'approved' ? 'تمت الموافقة' : status === 'completed' ? 'تم الصرف' : 'تم الرفض')
+    } catch {
+      toastError('فشل تنفيذ الإجراء')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function doApprove(id: string) {
+    setActing(id)
+    try {
+      await approveWithdrawalApi(id)
+      await mutate()
+      success('تمت الموافقة')
+    } catch {
+      toastError('فشل تنفيذ الإجراء')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function confirmReject() {
+    if (!rejectId || !rejectReason.trim()) return
+    setActing(rejectId)
+    try {
+      await rejectWithdrawalApi(rejectId, rejectReason.trim())
+      await mutate()
+      setRejectId(null)
+      setRejectReason('')
+      success('تم الرفض')
+    } catch {
+      toastError('فشل تنفيذ الإجراء')
+    } finally {
+      setActing(null)
+    }
+  }
+
+  async function confirmPaid() {
+    if (!paidId || !paidRef.trim()) return
+    setActing(paidId)
+    try {
+      await markWithdrawalPaidApi(paidId, paidRef.trim())
+      await mutate()
+      setPaidId(null)
+      setPaidRef('')
+      success('تم الصرف')
     } catch {
       toastError('فشل تنفيذ الإجراء')
     } finally {
