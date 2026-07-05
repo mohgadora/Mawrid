@@ -7,10 +7,12 @@
  */
 
 import { useState } from 'react'
-import { Search, X, ChevronLeft, ChevronRight, Phone, Truck, Clock, AlertTriangle, Package } from 'lucide-react'
+import { Search, X, ChevronLeft, ChevronRight, Phone, Truck, Clock, AlertTriangle, Package, CheckCircle, XCircle, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/lib/toast'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import type { Driver, DriverStatus } from '@/services/driver-tracking'
 import { STATUS_TAILWIND } from '@/components/admin/driver-map-canvas'
 
@@ -32,9 +34,10 @@ type Props = {
   drivers: Driver[]
   selectedId: string | null
   onSelect: (id: string | null) => void
+  onStatusChange?: () => void
 }
 
-export function DriverPanel({ drivers, selectedId, onSelect }: Props) {
+export function DriverPanel({ drivers, selectedId, onSelect, onStatusChange }: Props) {
   const { t, lang } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
   const [q, setQ] = useState('')
@@ -166,6 +169,7 @@ export function DriverPanel({ drivers, selectedId, onSelect }: Props) {
         <DriverDetail
           driver={selected}
           onClose={() => onSelect(null)}
+          onStatusChange={onStatusChange}
         />
       )}
     </div>
@@ -230,8 +234,27 @@ function DriverRow({
 
 // ── Driver detail drawer ──────────────────────────────────────────────────────
 
-function DriverDetail({ driver, onClose }: { driver: Driver; onClose: () => void }) {
+function DriverDetail({ driver, onClose, onStatusChange }: { driver: Driver; onClose: () => void; onStatusChange?: () => void }) {
   const { t } = useI18n()
+  const { error: toastError } = useToast()
+  const [updating, setUpdating] = useState(false)
+
+  async function changeStatus(status: string) {
+    setUpdating(true)
+    try {
+      const res = await fetch(`/api/v1/admin/drivers/${driver.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      onStatusChange?.()
+    } catch {
+      toastError(t('toastSaveFailed'))
+    } finally {
+      setUpdating(false)
+    }
+  }
 
   const rows: Array<{ icon: React.ElementType; label: string; value: string }> = [
     { icon: Phone,   label: t('driverPhone'),        value: driver.phone },
@@ -292,6 +315,22 @@ function DriverDetail({ driver, onClose }: { driver: Driver; onClose: () => void
       {driver.route.length >= 2 && (
         <p className="mt-3 text-[10px] text-primary">{t('selectDriverToRoute')}</p>
       )}
+
+      <div className="mt-3 flex gap-1.5 flex-wrap">
+        {driver.status !== 'available' && (
+          <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px] text-green-600 border-green-300" disabled={updating} onClick={() => changeStatus('online')}>
+            <CheckCircle className="size-3" /> تفعيل
+          </Button>
+        )}
+        {driver.status !== 'offline' && (
+          <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px] text-muted-foreground" disabled={updating} onClick={() => changeStatus('offline')}>
+            <WifiOff className="size-3" /> إيقاف
+          </Button>
+        )}
+        <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px] text-red-600 border-red-300" disabled={updating} onClick={() => changeStatus('suspended')}>
+          <XCircle className="size-3" /> تعليق
+        </Button>
+      </div>
     </div>
   )
 }

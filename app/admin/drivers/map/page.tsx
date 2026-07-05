@@ -36,6 +36,7 @@ function mapDbDriver(row: Awaited<ReturnType<typeof fetchAdminDrivers>>[number])
     phone: row.phone,
     vehicle: row.vehicle,
     vehiclePlate: row.vehiclePlate ?? '',
+    city: (row as { city?: string | null }).city ?? null,
     lat: Number(row.lat ?? MAP.defaultCenter.lat),
     lng: Number(row.lng ?? MAP.defaultCenter.lng),
     status: statusMap[row.status ?? 'offline'] ?? 'offline',
@@ -93,6 +94,7 @@ export default function DriverMapPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isLive, setIsLive] = useState(true)
+  const [cityFilter, setCityFilter] = useState<string>('all')
 
   const { data, error, isLoading, mutate } = useSWR(
     ['admin/drivers', isLive],
@@ -103,7 +105,9 @@ export default function DriverMapPage() {
     { revalidateOnFocus: true, refreshInterval: isLive ? 15_000 : 0 },
   )
 
-  const drivers = data ?? []
+  const allDrivers = data ?? []
+  const cities = Array.from(new Set(allDrivers.map((d) => d.city).filter(Boolean))) as string[]
+  const drivers = cityFilter === 'all' ? allDrivers : allDrivers.filter((d) => d.city === cityFilter)
 
   // ── Stat helpers ─────────────────────────────────────────────────────────
   const count = (status: DriverStatus) => drivers.filter((d) => d.status === status).length
@@ -147,6 +151,20 @@ export default function DriverMapPage() {
             {MAP.provider}
           </span>
         </div>
+
+        {/* City filter */}
+        {cities.length > 0 && (
+          <select
+            value={cityFilter}
+            onChange={(e) => setCityFilter(e.target.value)}
+            className="h-7 rounded-lg border border-border bg-card px-2 text-xs text-foreground focus:outline-none"
+          >
+            <option value="all">كل المدن</option>
+            {cities.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
 
         {/* Live toggle */}
         <button
@@ -208,6 +226,7 @@ export default function DriverMapPage() {
                 drivers={drivers}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
+                onStatusChange={() => mutate()}
               />
 
               {/* Map canvas fills remaining space */}

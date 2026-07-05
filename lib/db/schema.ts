@@ -319,6 +319,7 @@ export const driver = pgTable('driver', {
   status:         text('status').notNull().default('offline'),
   lat:            numeric('lat', { precision: 10, scale: 7 }),
   lng:            numeric('lng', { precision: 10, scale: 7 }),
+  city:           text('city'),
   currentOrderId: text('currentOrderId').references(() => order.id),
   userId:         text('userId').references(() => user.id),
   createdAt:      now(),

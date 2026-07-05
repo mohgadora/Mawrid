@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { Search, Plus, Store, LogIn } from 'lucide-react'
+import { Search, Plus, Store, LogIn, CheckCircle, XCircle, Ban } from 'lucide-react'
 import { getAdminSuppliers } from '@/lib/api-client'
 import { StatusChip } from '@/components/order-status'
 import { AsyncContent } from '@/components/async-content'
@@ -20,6 +20,25 @@ export default function AdminSuppliersPage() {
   const router = useRouter()
   const { data, error, isLoading, mutate } = useSWR<Awaited<ReturnType<typeof getAdminSuppliers>>>('admin/suppliers', getAdminSuppliers)
   const [q, setQ] = useState('')
+
+  const [updating, setUpdating] = useState<string | null>(null)
+
+  async function changeStatus(id: string, status: 'active' | 'pending' | 'suspended') {
+    setUpdating(id)
+    try {
+      const res = await fetch('/api/v1/admin/suppliers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      mutate()
+    } catch {
+      toastError(t('toastSaveFailed'))
+    } finally {
+      setUpdating(null)
+    }
+  }
 
   async function loginAsStore(id: string) {
     try {
@@ -91,12 +110,24 @@ export default function AdminSuppliersPage() {
                       <p className="text-[10px] text-muted-foreground">{t('supplierRating')}</p>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="mt-2 flex items-center justify-between gap-1 flex-wrap">
                     <p className="text-[10px] text-muted-foreground">{t('supplierJoined')}: {s.joined}</p>
-                    <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-[11px]" onClick={() => loginAsStore(s.id)}>
-                      <LogIn className="size-3" />
-                      {t('loginAsStore')}
-                    </Button>
+                    <div className="flex gap-1">
+                      {s.status !== 'active' && (
+                        <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-[11px] text-green-600 border-green-300 hover:bg-green-50" disabled={updating === s.id} onClick={() => changeStatus(s.id, 'active')}>
+                          <CheckCircle className="size-3" /> تفعيل
+                        </Button>
+                      )}
+                      {s.status === 'active' && (
+                        <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-[11px] text-yellow-600 border-yellow-300 hover:bg-yellow-50" disabled={updating === s.id} onClick={() => changeStatus(s.id, 'suspended')}>
+                          <XCircle className="size-3" /> إيقاف
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-[11px]" onClick={() => loginAsStore(s.id)}>
+                        <LogIn className="size-3" />
+                        {t('loginAsStore')}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}

@@ -20,6 +20,9 @@ ALTER TABLE "order_line" ADD COLUMN IF NOT EXISTS "variantOptions" jsonb NOT NUL
 ALTER TABLE "order_line" ADD COLUMN IF NOT EXISTS "cartonQty"      integer NOT NULL DEFAULT 1;
 ALTER TABLE "order_line" ADD COLUMN IF NOT EXISTS "unitsPerCarton" integer NOT NULL DEFAULT 1;
 
+-- driver
+ALTER TABLE "driver" ADD COLUMN IF NOT EXISTS "city" text;
+
 -- payout
 ALTER TABLE "payout" ADD COLUMN IF NOT EXISTS "rejectionReason" text;
 ALTER TABLE "payout" ADD COLUMN IF NOT EXISTS "adminNote"        text;

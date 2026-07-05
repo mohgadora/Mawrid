@@ -772,3 +772,41 @@ export async function revokeAdminSession(sessionId: string, adminUserId?: string
 
   return { ok: true }
 }
+
+// ── User (buyer) management ───────────────────────────────────────────────
+
+export async function updateUserBanned(id: string, banned: boolean, adminUserId?: string) {
+  const [row] = await db
+    .update(user)
+    .set({ banned, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning({ id: user.id, name: user.name, banned: user.banned })
+  if (!row) throw new NotFoundError('User not found')
+  await writeAuditLog({
+    userId: adminUserId ?? null,
+    action: banned ? 'user.ban' : 'user.unban',
+    entity: 'user',
+    entityId: id,
+  })
+  return row
+}
+
+// ── Driver status management ──────────────────────────────────────────────
+
+export async function updateDriverStatus(id: string, status: string, adminUserId?: string) {
+  const ALLOWED = ['online', 'offline', 'suspended']
+  if (!ALLOWED.includes(status)) throw new ValidationError(`status must be one of: ${ALLOWED.join(', ')}`)
+  const [row] = await db
+    .update(driverTable)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(driverTable.id, id))
+    .returning({ id: driverTable.id, status: driverTable.status })
+  if (!row) throw new NotFoundError('Driver not found')
+  await writeAuditLog({
+    userId: adminUserId ?? null,
+    action: `driver.${status}`,
+    entity: 'driver',
+    entityId: id,
+  })
+  return row
+}

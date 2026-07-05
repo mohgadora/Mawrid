@@ -22,6 +22,7 @@ export type Driver = {
   phone: string
   vehicle: string
   vehiclePlate: string
+  city: string | null
   lat: number
   lng: number
   status: DriverStatus
@@ -40,7 +41,7 @@ const NOW = new Date().toISOString()
 const MOCK_DRIVERS: Driver[] = [
   {
     id: 'DRV-001', name: 'أحمد العمري', phone: '+966 50 111 2233',
-    vehicle: 'دايهاتسو هايجيت', vehiclePlate: 'أ ب ج 1234',
+    vehicle: 'دايهاتسو هايجيت', city: null, vehiclePlate: 'أ ب ج 1234',
     lat: 24.7136, lng: 46.6753, status: 'available',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: NOW,
@@ -48,7 +49,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-002', name: 'محمد السعيدي', phone: '+966 55 222 3344',
-    vehicle: 'تويوتا هايلوكس', vehiclePlate: 'د هـ و 5678',
+    vehicle: 'تويوتا هايلوكس', city: null, vehiclePlate: 'د هـ و 5678',
     lat: 24.6877, lng: 46.7219, status: 'busy',
     currentOrderId: 'ORD-8821', etaMinutes: 12, lateByMinutes: null,
     lastUpdated: NOW,
@@ -60,7 +61,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-003', name: 'خالد الرشيدي', phone: '+966 54 333 4455',
-    vehicle: 'نيسان أورفان', vehiclePlate: 'ز ح ط 9012',
+    vehicle: 'نيسان أورفان', city: null, vehiclePlate: 'ز ح ط 9012',
     lat: 24.7302, lng: 46.6582, status: 'late',
     currentOrderId: 'ORD-8799', etaMinutes: 28, lateByMinutes: 18,
     lastUpdated: NOW,
@@ -72,7 +73,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-004', name: 'عبدالله القحطاني', phone: '+966 56 444 5566',
-    vehicle: 'ميتسوبيشي L200', vehiclePlate: 'ي ك ل 3456',
+    vehicle: 'ميتسوبيشي L200', city: null, vehiclePlate: 'ي ك ل 3456',
     lat: 24.6990, lng: 46.7450, status: 'returning',
     currentOrderId: null, etaMinutes: 7, lateByMinutes: null,
     lastUpdated: NOW,
@@ -84,7 +85,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-005', name: 'فيصل الزهراني', phone: '+966 50 555 6677',
-    vehicle: 'فورد ترانزيت', vehiclePlate: 'م ن هـ 7890',
+    vehicle: 'فورد ترانزيت', city: null, vehiclePlate: 'م ن هـ 7890',
     lat: 24.7450, lng: 46.6900, status: 'offline',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
@@ -92,7 +93,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-006', name: 'سعد البلوي', phone: '+966 55 666 7788',
-    vehicle: 'تويوتا كامري', vehiclePlate: 'و ز ح 2345',
+    vehicle: 'تويوتا كامري', city: null, vehiclePlate: 'و ز ح 2345',
     lat: 24.7020, lng: 46.6600, status: 'break',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: NOW,
@@ -100,7 +101,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-007', name: 'عمر الغامدي', phone: '+966 54 777 8899',
-    vehicle: 'كيا بونغو', vehiclePlate: 'ط ي ك 6789',
+    vehicle: 'كيا بونغو', city: null, vehiclePlate: 'ط ي ك 6789',
     lat: 24.7200, lng: 46.7100, status: 'busy',
     currentOrderId: 'ORD-8834', etaMinutes: 5, lateByMinutes: null,
     lastUpdated: NOW,
@@ -112,7 +113,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-008', name: 'يوسف المطيري', phone: '+966 56 888 9900',
-    vehicle: 'هوندا أكتي', vehiclePlate: 'ل م ن 0123',
+    vehicle: 'هوندا أكتي', city: null, vehiclePlate: 'ل م ن 0123',
     lat: 24.6800, lng: 46.6900, status: 'late',
     currentOrderId: 'ORD-8810', etaMinutes: 45, lateByMinutes: 25,
     lastUpdated: NOW,
@@ -124,7 +125,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-009', name: 'إبراهيم العسيري', phone: '+966 50 999 0011',
-    vehicle: 'سوزوكي كاري', vehiclePlate: 'هـ و ز 4567',
+    vehicle: 'سوزوكي كاري', city: null, vehiclePlate: 'هـ و ز 4567',
     lat: 24.7500, lng: 46.7200, status: 'available',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: NOW,
@@ -132,7 +133,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-010', name: 'ناصر الدوسري', phone: '+966 55 000 1122',
-    vehicle: 'نيسان NV200', vehiclePlate: 'ح ط ي 8901',
+    vehicle: 'نيسان NV200', city: null, vehiclePlate: 'ح ط ي 8901',
     lat: 24.7100, lng: 46.6400, status: 'busy',
     currentOrderId: 'ORD-8856', etaMinutes: 20, lateByMinutes: null,
     lastUpdated: NOW,
@@ -144,7 +145,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-011', name: 'طارق الشهري', phone: '+966 54 111 2233',
-    vehicle: 'تويوتا هايس', vehiclePlate: 'ك ل م 2345',
+    vehicle: 'تويوتا هايس', city: null, vehiclePlate: 'ك ل م 2345',
     lat: 24.6650, lng: 46.7500, status: 'returning',
     currentOrderId: null, etaMinutes: 15, lateByMinutes: null,
     lastUpdated: NOW,
@@ -156,7 +157,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-012', name: 'حمد المنصور', phone: '+966 56 222 3344',
-    vehicle: 'فولكسفاغن كرافتر', vehiclePlate: 'ن هـ و 6789',
+    vehicle: 'فولكسفاغن كرافتر', city: null, vehiclePlate: 'ن هـ و 6789',
     lat: 24.7350, lng: 46.6200, status: 'offline',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
@@ -164,7 +165,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-013', name: 'سلطان العتيبي', phone: '+966 50 333 4455',
-    vehicle: 'مرسيدس سبرينتر', vehiclePlate: 'ز ح ط 0123',
+    vehicle: 'مرسيدس سبرينتر', city: null, vehiclePlate: 'ز ح ط 0123',
     lat: 24.6750, lng: 46.6500, status: 'available',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: NOW,
@@ -172,7 +173,7 @@ const MOCK_DRIVERS: Driver[] = [
   },
   {
     id: 'DRV-014', name: 'بدر الحربي', phone: '+966 55 444 5566',
-    vehicle: 'إيسوزو NPR', vehiclePlate: 'ي ك ل 4567',
+    vehicle: 'إيسوزو NPR', city: null, vehiclePlate: 'ي ك ل 4567',
     lat: 24.7600, lng: 46.6700, status: 'break',
     currentOrderId: null, etaMinutes: null, lateByMinutes: null,
     lastUpdated: NOW,
