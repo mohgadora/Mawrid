@@ -567,6 +567,31 @@ export const flashSaleProduct = pgTable('flash_sale_product', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LOYALTY
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const loyaltyAccount = pgTable('loyalty_account', {
+  id:               text('id').primaryKey(),
+  userId:           text('userId').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  balance:          integer('balance').notNull().default(0),
+  lifetimeEarned:   integer('lifetimeEarned').notNull().default(0),
+  lifetimeRedeemed: integer('lifetimeRedeemed').notNull().default(0),
+  updatedAt:        timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const loyaltyTransaction = pgTable('loyalty_transaction', {
+  id:            text('id').primaryKey(),
+  userId:        text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  orderId:       text('orderId').references(() => order.id),
+  type:          text('type').notNull(), // earn | redeem | adjust
+  points:        integer('points').notNull(),
+  balanceBefore: integer('balanceBefore').notNull(),
+  balanceAfter:  integer('balanceAfter').notNull(),
+  note:          text('note'),
+  createdAt:     now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -612,3 +637,5 @@ export type NewProductApprovalHistory = typeof productApprovalHistory.$inferInse
 export type FlashSale               = typeof flashSale.$inferSelect
 export type NewFlashSale            = typeof flashSale.$inferInsert
 export type FlashSaleProduct        = typeof flashSaleProduct.$inferSelect
+export type LoyaltyAccount          = typeof loyaltyAccount.$inferSelect
+export type LoyaltyTransaction      = typeof loyaltyTransaction.$inferSelect

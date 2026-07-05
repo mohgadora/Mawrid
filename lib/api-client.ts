@@ -509,3 +509,37 @@ export async function removeProductFromFlashSaleApi(saleId: string, productId: s
 export function getActiveFlashSalesApi(): Promise<any> {
   return apiFetch<any>('flash-sales/active')
 }
+
+// ── Loyalty ────────────────────────────────────────────────────────────────
+
+import type { AdminLoyaltySummary, AdminLoyaltyAccount } from '@/services/loyalty'
+import type { LoyaltyAccount, LoyaltyTransaction } from '@/lib/db/schema'
+
+export type AdminLoyaltyData = { summary: AdminLoyaltySummary; accounts: AdminLoyaltyAccount[] }
+export type AccountLoyaltyData = { account: LoyaltyAccount; transactions: LoyaltyTransaction[] }
+
+export function getLoyaltyApi(): Promise<AccountLoyaltyData> {
+  return apiFetch<AccountLoyaltyData>('account/loyalty')
+}
+
+export function redeemLoyaltyApi(points: number, orderId?: string): Promise<{ balance: number; transactionId: string }> {
+  return apiFetch<{ balance: number; transactionId: string }>('account/loyalty/redeem', {
+    method: 'POST',
+    body: JSON.stringify({ points, orderId }),
+  })
+}
+
+export function getAdminLoyaltyApi(): Promise<AdminLoyaltyData> {
+  return apiFetch<AdminLoyaltyData>('admin/loyalty')
+}
+
+export function adjustLoyaltyApi(
+  userId: string,
+  delta: number,
+  note: string,
+): Promise<{ balance: number; transactionId: string }> {
+  return apiFetch<{ balance: number; transactionId: string }>(
+    `admin/loyalty/${encodeURIComponent(userId)}/adjust`,
+    { method: 'POST', body: JSON.stringify({ delta, note }) },
+  )
+}

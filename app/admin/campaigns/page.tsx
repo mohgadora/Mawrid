@@ -324,7 +324,7 @@ export default function CampaignsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>نوع الخصم</Label>
-                <Select value={form.discountType} onValueChange={(v: string) => setForm((f) => ({ ...f, discountType: v || 'percentage' }))}>
+                <Select value={form.discountType} onValueChange={(v: string | null) => setForm((f) => ({ ...f, discountType: v ?? 'percentage' }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="percentage">نسبة مئوية (%)</SelectItem>
