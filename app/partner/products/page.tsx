@@ -1,0 +1,186 @@
+'use client'
+
+import { useState } from 'react'
+import useSWR from 'swr'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
+import {
+  fetchPartnerProducts,
+  savePartnerProductApi,
+  deletePartnerProductApi,
+  updatePartnerProductApi,
+} from '@/lib/api-client'
+import { AsyncContent } from '@/components/async-content'
+import { AdminPageSkeleton } from '@/components/skeletons'
+import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/lib/toast'
+import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PartnerProductFields, EMPTY_PRODUCT, type ProductFormData } from '@/components/partner/product-form-fields'
+
+type Product = Awaited<ReturnType<typeof fetchPartnerProducts>>[number]
+
+export default function PartnerProductsPage() {
+  const { t, formatPrice } = useI18n()
+  const { success, error: toastError } = useToast()
+  const { data, error, isLoading, mutate } = useSWR('partner/products', fetchPartnerProducts)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Product | null>(null)
+  const [toDelete, setToDelete] = useState<string | null>(null)
+  const [form, setForm] = useState<ProductFormData>(EMPTY_PRODUCT)
+  const [saving, setSaving] = useState(false)
+
+  function openAdd() {
+    setEditing(null)
+    setForm(EMPTY_PRODUCT)
+    setDialogOpen(true)
+  }
+
+  function openEdit(p: Product) {
+    setEditing(p)
+    setForm({
+      name: p.name,
+      nameEn: p.nameEn,
+      description: p.description ?? '',
+      sku: p.sku,
+      stock: String(p.stock),
+      price: String(p.price),
+      image: p.image,
+      unitsPerCarton: String(p.unitsPerCarton ?? 1),
+      categoryId: p.categoryId ?? '',
+      active: p.active,
+    })
+    setDialogOpen(true)
+  }
+
+  async function save() {
+    if (!form.name.trim()) {
+      toastError(t('toastRequiredFields'))
+      return
+    }
+    setSaving(true)
+    try {
+      await savePartnerProductApi(editing?.id ?? null, {
+        name: form.name,
+        nameEn: form.nameEn || form.name,
+        description: form.description,
+        sku: form.sku,
+        stock: Number(form.stock),
+        price: Number(form.price),
+        image: form.image,
+        unitsPerCarton: Number(form.unitsPerCarton),
+        categoryId: form.categoryId || undefined,
+        active: form.active,
+      })
+      await mutate()
+      setDialogOpen(false)
+      success(t('toastProfileSaved'))
+    } catch {
+      toastError(t('toastSaveFailed'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleActive(id: string, active: boolean) {
+    try {
+      await updatePartnerProductApi(id, !active)
+      await mutate()
+    } catch {
+      toastError(t('toastSaveFailed'))
+    }
+  }
+
+  async function confirmDelete() {
+    if (!toDelete) return
+    try {
+      await deletePartnerProductApi(toDelete)
+      await mutate()
+      success(t('toastProfileSaved'))
+    } catch {
+      toastError(t('toastSaveFailed'))
+    }
+  }
+
+  return (
+    <>
+      <div className="mb-4 flex justify-end">
+        <Button size="sm" className="gap-1.5" onClick={openAdd}>
+          <Plus className="size-4" /> {t('partnerAddProduct')}
+        </Button>
+      </div>
+
+      <AsyncContent data={data} error={error} isLoading={isLoading} loading={<AdminPageSkeleton rows={8} cards={0} />} onRetry={() => mutate()}>
+        {(products) => (
+          <div className="rounded-xl border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground">
+                  <th className="px-4 py-3 text-start font-medium">{t('nameLabel')}</th>
+                  <th className="px-4 py-3 text-start font-medium">SKU</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('price')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('stock')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('enabledLabel')}</th>
+                  <th className="px-4 py-3 text-start font-medium">{t('actionLabel')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p) => (
+                  <tr key={p.id} className="border-b border-border/50 last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="relative size-8 overflow-hidden rounded bg-muted">
+                          <Image src={p.image || '/placeholder.png'} alt="" fill className="object-cover" sizes="32px" />
+                        </span>
+                        <span className="text-xs font-semibold">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.sku || '—'}</td>
+                    <td className="px-4 py-3 text-xs">{formatPrice(p.price)}</td>
+                    <td className="px-4 py-3 text-xs">{p.stock}</td>
+                    <td className="px-4 py-3"><Switch checked={p.active} onCheckedChange={() => toggleActive(p.id, p.active)} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(p)}><Pencil className="size-3.5" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setToDelete(p.id)}><Trash2 className="size-3.5" /></Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {products.length === 0 && (
+                  <tr><td colSpan={6} className="py-10 text-center text-sm text-muted-foreground">{t('noData')}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AsyncContent>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing ? t('partnerEditProduct') : t('partnerAddProduct')}</DialogTitle>
+          </DialogHeader>
+          <PartnerProductFields form={form} onChange={setForm} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>{t('cancel')}</Button>
+            <Button onClick={save} disabled={saving}>{saving ? t('saving') : t('saveChanges')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title={t('partnerDeleteProduct')}
+        description={t('deleteAddressConfirmDesc')}
+        confirmLabel={t('deleteAddress')}
+        cancelLabel={t('cancel')}
+        onConfirm={confirmDelete}
+      />
+    </>
+  )
+}
