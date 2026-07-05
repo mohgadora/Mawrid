@@ -18,7 +18,8 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null)
     if (!body) return badRequest('Invalid JSON')
-    return ok(await updateProfile(body, user))
+    const { name, phone, company, country } = body
+    return ok(await updateProfile({ name, phone, company, country }, user))
   } catch (err) {
     return apiError(err)
   }

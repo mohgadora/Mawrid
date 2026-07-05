@@ -123,12 +123,11 @@ export async function getProductReviews(
     replies:     repliesMap.get(r.id) ?? [],
   }))
 
-  // Stats
-  const totalCount = rows.length
-  const avgRating  = totalCount > 0
-    ? rows.reduce((s, r) => s + r.rating, 0) / totalCount
-    : 0
-  const distMap = new Map(statsRows.map((s) => [s.rating, Number(s.cnt)]))
+  // Stats — computed from full-table statsRows, not the paginated rows array
+  const distMap    = new Map(statsRows.map((s) => [s.rating, Number(s.cnt)]))
+  const totalCount = statsRows.reduce((s, r) => s + Number(r.cnt), 0)
+  const weightedSum = statsRows.reduce((s, r) => s + r.rating * Number(r.cnt), 0)
+  const avgRating  = totalCount > 0 ? weightedSum / totalCount : 0
   const distribution = [5, 4, 3, 2, 1].map((stars) => {
     const cnt = distMap.get(stars) ?? 0
     return { stars, count: cnt, pct: totalCount > 0 ? Math.round((cnt / totalCount) * 100) : 0 }

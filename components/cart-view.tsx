@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import {
   Minus,
@@ -28,6 +29,7 @@ export function CartView() {
   const { t, lang, formatPrice } = useI18n()
   const { items, updateQty, removeItem, addItem, clear } = useCart()
   const { role, isMerchant } = useRole()
+  const router = useRouter()
   const { saved, saveItem, removeFromSaved, isSaved } = useSaveForLater()
   const [placed, setPlaced] = useState(false)
   const [savedOpen, setSavedOpen] = useState(true)
@@ -397,10 +399,7 @@ export function CartView() {
               )}
 
               <button
-                onClick={() => {
-                  clear()
-                  setPlaced(true)
-                }}
+                onClick={() => router.push('/checkout')}
                 className="mt-4 w-full rounded-xl bg-primary px-6 py-3 text-base font-bold text-primary-foreground transition-transform hover:scale-[1.01] active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {t('checkout')}

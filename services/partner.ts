@@ -585,24 +585,37 @@ export async function requestWithdrawal(
   if (!sup) throw new NotFoundError('المورد غير موجود')
   if (data.amount <= 0) throw new ValidationError('المبلغ يجب أن يكون أكبر من صفر')
 
-  // Check available balance
-  const earnings = await getPartnerEarnings(actor)
-  if (data.amount > earnings.kpi.available) {
-    throw new ValidationError(`الرصيد المتاح (${earnings.kpi.available.toFixed(2)}) أقل من المبلغ المطلوب`)
-  }
+  const row = await db.transaction(async (tx) => {
+    // Re-read balance inside the transaction to prevent TOCTOU race
+    const [netAgg] = await tx
+      .select({ totalNet: sum(sellerEarning.netEarning) })
+      .from(sellerEarning)
+      .where(eq(sellerEarning.supplierId, sup.id))
 
-  const [row] = await db
-    .insert(payoutTable)
-    .values({
-      id:          crypto.randomUUID(),
-      supplierId:  sup.id,
-      amount:      String(data.amount),
-      currency:    'SAR',
-      status:      'pending',
-      bankAccount: { bankName: data.bankName, iban: data.iban, note: data.note ?? '' },
-      createdAt:   new Date(),
-    })
-    .returning()
+    const [paidAgg] = await tx
+      .select({ paid: sum(payoutTable.amount) })
+      .from(payoutTable)
+      .where(and(eq(payoutTable.supplierId, sup.id), eq(payoutTable.status, 'completed')))
+
+    const available = Math.max(0, Number(netAgg?.totalNet ?? 0) - Number(paidAgg?.paid ?? 0))
+    if (data.amount > available) {
+      throw new ValidationError(`الرصيد المتاح (${available.toFixed(2)}) أقل من المبلغ المطلوب`)
+    }
+
+    const [inserted] = await tx
+      .insert(payoutTable)
+      .values({
+        id:          crypto.randomUUID(),
+        supplierId:  sup.id,
+        amount:      String(data.amount),
+        currency:    'SAR',
+        status:      'pending',
+        bankAccount: { bankName: data.bankName, iban: data.iban, note: data.note ?? '' },
+        createdAt:   new Date(),
+      })
+      .returning()
+    return inserted
+  })
 
   return row
 }

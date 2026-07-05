@@ -12,20 +12,27 @@ import { AdminPageSkeleton } from '@/components/skeletons'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n'
+import { useToast } from '@/lib/toast'
 
 export default function AdminSuppliersPage() {
   const { t } = useI18n()
+  const { error: toastError } = useToast()
   const router = useRouter()
   const { data, error, isLoading, mutate } = useSWR<Awaited<ReturnType<typeof getAdminSuppliers>>>('admin/suppliers', getAdminSuppliers)
   const [q, setQ] = useState('')
 
   async function loginAsStore(id: string) {
-    const res = await fetch('/api/v1/admin/impersonate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ supplierId: id }),
-    })
-    if (res.ok) window.location.href = '/partner'
+    try {
+      const res = await fetch('/api/v1/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supplierId: id }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      window.location.href = '/partner'
+    } catch {
+      toastError(t('toastSaveFailed'))
+    }
   }
 
   return (

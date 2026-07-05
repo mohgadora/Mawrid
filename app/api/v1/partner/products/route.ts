@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ok, serverError, requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerProducts, createPartnerProduct } from '@/services/partner'
 
-export async function GET() {
-  const guard = await requirePartner()
+export async function GET(req: NextRequest) {
+  const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
   try {
     return ok(await getPartnerProducts(guard))

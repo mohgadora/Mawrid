@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ok, serverError, requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/services/partner'
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const guard = await requirePartner()
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
   try {
     const { id } = await params
@@ -25,8 +25,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const guard = await requirePartner()
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
   try {
     const { id } = await params

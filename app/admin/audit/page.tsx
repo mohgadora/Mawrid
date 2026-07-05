@@ -20,6 +20,16 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   deleted_product:   { label: 'حذف منتج',         color: 'text-destructive bg-destructive/10' },
 }
 
+function exportCsv(rows: Awaited<ReturnType<typeof getAuditLogs>>) {
+  const header = ['User', 'Action', 'Target', 'IP', 'Time']
+  const lines = rows.map((l) => [l.user, l.action, l.target, l.ip, l.at].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+  const csv = [header.join(','), ...lines].join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  const a = Object.assign(document.createElement('a'), { href: url, download: `audit-${new Date().toISOString().slice(0, 10)}.csv` })
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function AuditPage() {
   const { t } = useI18n()
   const [query, setQuery] = useState('')
@@ -41,7 +51,7 @@ export default function AuditPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Button size="sm" variant="outline" className="h-9 gap-1.5 text-xs">
+        <Button size="sm" variant="outline" className="h-9 gap-1.5 text-xs" onClick={() => data && exportCsv(filtered)}>
           <Download className="size-4" /> {t('exportCsv')}
         </Button>
       </div>

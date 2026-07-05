@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { Check, X, Eye, ClipboardCheck } from 'lucide-react'
 import { getApprovals, updateApprovalApi } from '@/lib/api-client'
@@ -27,6 +28,7 @@ type ApprovalItem = Awaited<ReturnType<typeof getApprovals>>[number]
 
 export default function ApprovalsPage() {
   const { t } = useI18n()
+  const router = useRouter()
   const { success, error: toastError } = useToast()
   const { data, error, isLoading, mutate } = useSWR<ApprovalItem[]>('admin/approvals', getApprovals)
   const [tab, setTab] = useState<ApprovalCategory | 'all'>('all')
@@ -219,7 +221,7 @@ export default function ApprovalsPage() {
                                 </Button>
                               </div>
                             ) : (
-                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]">
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => router.push(`/admin/approvals/${a.id}`)}>
                                 <Eye className="size-3 me-1" /> {t('viewProfile')}
                               </Button>
                             )}

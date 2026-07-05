@@ -15,7 +15,8 @@ import {
   type Product as DbProduct,
   type PriceTier as DbPriceTier,
 } from '@/lib/db/schema'
-import { eq, ilike, or, and, asc, desc, inArray } from 'drizzle-orm'
+import { eq, ilike, or, and, asc, desc, inArray, avg } from 'drizzle-orm'
+import { productReview } from '@/lib/db/schema'
 
 // ── Re-export legacy types so pages keep their imports unchanged ───────────
 
@@ -74,7 +75,17 @@ function mapSupplier(row: DbSupplier): Supplier {
   }
 }
 
-function mapProduct(row: DbProduct, tiers: DbPriceTier[], catSlugById?: Map<string, string>): Product {
+async function ratingsForProducts(productIds: string[]): Promise<Record<string, number>> {
+  if (!productIds.length) return {}
+  const rows = await db
+    .select({ productId: productReview.productId, avg: avg(productReview.rating) })
+    .from(productReview)
+    .where(inArray(productReview.productId, productIds))
+    .groupBy(productReview.productId)
+  return Object.fromEntries(rows.map((r) => [r.productId, Math.round(Number(r.avg ?? 0) * 10) / 10]))
+}
+
+function mapProduct(row: DbProduct, tiers: DbPriceTier[], catSlugById?: Map<string, string>, rating = 0): Product {
   const sortedTiers = [...tiers].sort((a, b) => a.minQty - b.minQty)
   return {
     id: row.id,
@@ -95,7 +106,7 @@ function mapProduct(row: DbProduct, tiers: DbPriceTier[], catSlugById?: Map<stri
       pricePerCarton: Number(t.price),
     })),
     sold: 0,
-    rating: 4.5,
+    rating,
     descriptionAr: row.descriptionAr ?? '',
     descriptionEn: row.description ?? '',
     marketPrice: Number(row.marketAvgPrice ?? 0),
@@ -146,16 +157,17 @@ export async function getProducts(): Promise<Product[]> {
     .where(eq(product.active, true))
     .orderBy(desc(product.featured), desc(product.createdAt))
   if (!rows.length) return mock('products', PRODUCTS)
-  const [tiersMap, catSlug] = await Promise.all([tiersForProducts(rows.map((r) => r.id)), categorySlugById()])
-  return rows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug))
+  const ids = rows.map((r) => r.id)
+  const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts(ids), categorySlugById(), ratingsForProducts(ids)])
+  return rows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug, ratingsMap[r.id] ?? 0))
 }
 
 /** Returns a single product by ID. */
 export async function getProduct(id: string): Promise<Product | undefined> {
   const rows = await db.select().from(product).where(eq(product.id, id)).limit(1)
   if (!rows.length) return USE_MOCK ? PRODUCTS.find((p) => p.id === id) : undefined
-  const [tiersMap, catSlug] = await Promise.all([tiersForProducts([id]), categorySlugById()])
-  return mapProduct(rows[0], tiersMap[id] ?? [], catSlug)
+  const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts([id]), categorySlugById(), ratingsForProducts([id])])
+  return mapProduct(rows[0], tiersMap[id] ?? [], catSlug, ratingsMap[id] ?? 0)
 }
 
 export type CategoryResult = { category: Category | null; products: Product[] }
@@ -195,8 +207,9 @@ export async function getCategoryWithProducts(slug: string): Promise<CategoryRes
   if (!productRows.length) {
     return { category: cat, products: [] }
   }
-  const [tiersMap, catSlug] = await Promise.all([tiersForProducts(productRows.map((r) => r.id)), categorySlugById()])
-  return { category: cat, products: productRows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug)) }
+  const ids = productRows.map((r) => r.id)
+  const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts(ids), categorySlugById(), ratingsForProducts(ids)])
+  return { category: cat, products: productRows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug, ratingsMap[r.id] ?? 0)) }
 }
 
 export type SupplierResult = { supplier: Supplier | null; products: Product[] }
@@ -217,8 +230,9 @@ export async function getSupplierWithProducts(id: string): Promise<SupplierResul
     .where(and(eq(product.supplierId, id), eq(product.active, true)))
     .orderBy(desc(product.featured))
 
-  const [tiersMap, catSlug] = await Promise.all([tiersForProducts(productRows.map((r) => r.id)), categorySlugById()])
-  return { supplier: sup, products: productRows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug)) }
+  const ids = productRows.map((r) => r.id)
+  const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts(ids), categorySlugById(), ratingsForProducts(ids)])
+  return { supplier: sup, products: productRows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug, ratingsMap[r.id] ?? 0)) }
 }
 
 export async function searchProducts(query: string): Promise<Product[]> {
@@ -250,6 +264,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
     )
   }
 
-  const [tiersMap, catSlug] = await Promise.all([tiersForProducts(rows.map((r) => r.id)), categorySlugById()])
-  return rows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug))
+  const ids = rows.map((r) => r.id)
+  const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts(ids), categorySlugById(), ratingsForProducts(ids)])
+  return rows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug, ratingsMap[r.id] ?? 0))
 }

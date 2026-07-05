@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { Search, MessageSquare, InboxIcon } from 'lucide-react'
 import { getSupportTickets } from '@/lib/api-client'
@@ -19,6 +20,7 @@ const PRIORITY_COLOR: Record<TicketPriority, string> = {
 
 export default function SupportTicketsPage() {
   const { t } = useI18n()
+  const router = useRouter()
   const [q, setQ] = useState('')
   const { data, error, isLoading, mutate } = useSWR<Awaited<ReturnType<typeof getSupportTickets>>>('admin/tickets', getSupportTickets)
 
@@ -72,7 +74,7 @@ export default function SupportTicketsPage() {
                     <td className="px-5 py-3 text-xs text-muted-foreground">{tk.created}</td>
                     <td className="px-5 py-3"><AdminStatusChip status={tk.status} /></td>
                     <td className="px-5 py-3">
-                      <button className="flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-foreground transition-colors hover:bg-accent/80">
+                      <button onClick={() => router.push(`/admin/support/tickets/${tk.id}`)} className="flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1 text-[11px] font-medium text-accent-foreground transition-colors hover:bg-accent/80">
                         <MessageSquare className="size-3" /> {t('openLabel')}
                       </button>
                     </td>

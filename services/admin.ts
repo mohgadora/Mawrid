@@ -143,7 +143,7 @@ export async function getApprovals() {
 
   const userIds  = [...new Set(rows.map((r) => r.userId))]
   const userRows = userIds.length
-    ? await db.select({ id: user.id, name: user.name }).from(user)
+    ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, userIds))
     : []
   const userMap  = Object.fromEntries(userRows.map((u) => [u.id, u.name]))
 
@@ -336,7 +336,10 @@ export async function getSupportTickets() {
     .orderBy(desc(supportTicket.createdAt))
     .limit(200)
 
-  const userRows = await db.select({ id: user.id, name: user.name }).from(user)
+  const ticketUserIds = [...new Set(rows.map((t) => t.userId))]
+  const userRows = ticketUserIds.length
+    ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ticketUserIds))
+    : []
   const userMap  = Object.fromEntries(userRows.map((u) => [u.id, u.name]))
 
   return rows.map((t) => ({
@@ -358,7 +361,10 @@ export async function getPayouts() {
     .orderBy(desc(payoutTable.createdAt))
     .limit(200)
 
-  const supRows  = await db.select({ id: supplier.id, name: supplier.name, nameAr: supplier.nameAr }).from(supplier)
+  const supIds   = [...new Set(rows.map((p) => p.supplierId))]
+  const supRows  = supIds.length
+    ? await db.select({ id: supplier.id, name: supplier.name, nameAr: supplier.nameAr }).from(supplier).where(inArray(supplier.id, supIds))
+    : []
   const supMap   = Object.fromEntries(supRows.map((s) => [s.id, s.nameAr ?? s.name]))
 
   return rows.map((p) => ({
