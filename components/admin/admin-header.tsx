@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Bell, Sun, Moon, Menu, X, ArrowLeft, Globe, Check } from 'lucide-react'
+import { Sun, Moon, Menu, X, ArrowLeft, Globe, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { NotificationBell } from '@/components/notification-bell'
 import { useI18n, LANGS, LANG_LABEL, type DictKey } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
 import { useSidebar } from '@/components/admin/admin-sidebar'
@@ -124,8 +125,6 @@ export function AdminHeader() {
   const { data: kpiData } = useSWR<Awaited<ReturnType<typeof fetchAdminKpi>>>('admin/kpi', fetchAdminKpi)
 
   const labelKey = ROUTE_LABEL_KEYS[pathname] ?? 'adminPanel'
-  const pendingCount = kpiData?.kpi?.pendingApprovals ?? 0
-
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-3 lg:px-5">
 
@@ -147,15 +146,8 @@ export function AdminHeader() {
       {/* Language picker — 5-language dropdown */}
       <AdminLangPicker />
 
-      {/* Notifications badge */}
-      <Button variant="ghost" size="icon" className="relative size-9 shrink-0" aria-label={t('adminTickets')}>
-        <Bell className="size-4" />
-        {pendingCount > 0 && (
-          <span className="absolute -end-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
-            {pendingCount}
-          </span>
-        )}
-      </Button>
+      {/* Notifications bell */}
+      <NotificationBell />
 
       {/* Theme toggle — uses the shared ThemeProvider, no FOUC */}
       <Button

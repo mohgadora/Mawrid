@@ -1,59 +1,145 @@
 'use client'
 
-import { AdminEntityManager } from '@/components/admin/admin-entity-manager'
+import { useState } from 'react'
+import { broadcastNotificationApi } from '@/lib/api-client'
 
-type Notification = {
-  id: number
-  title: string
-  channel: string
-  audience: string
-  sent: number
-  at: string
-}
-
-const INITIAL: Notification[] = [
-  { id: 1, title: 'تنبيه: انتهاء عرض الجمعة', channel: 'push', audience: 'الكل', sent: 84200, at: '2026-07-04 10:00' },
-  { id: 2, title: 'فلاش سيل — 4 ساعات فقط', channel: 'push', audience: 'التجار', sent: 8920, at: '2026-07-03 14:00' },
-  { id: 3, title: 'تحديث سياسة الإرجاع', channel: 'email', audience: 'الكل', sent: 93120, at: '2026-07-01 09:00' },
-  { id: 4, title: 'مرحباً بك — دليل الاستخدام', channel: 'email', audience: 'جدد', sent: 420, at: '2026-06-30 12:00' },
-]
-
-const CHANNEL_OPTIONS = [
-  { value: 'push', label: 'Push (التطبيق)' },
-  { value: 'email', label: 'البريد الإلكتروني' },
-  { value: 'sms', label: 'رسالة SMS' },
-]
-
-const AUDIENCE_OPTIONS = [
-  { value: 'الكل', label: 'الكل' },
-  { value: 'التجار', label: 'التجار' },
-  { value: 'الموردون', label: 'الموردون' },
-  { value: 'جدد', label: 'المشترون الجدد' },
-  { value: 'المميزون (VIP)', label: 'المميزون (VIP)' },
+const TYPE_OPTIONS = [
+  { value: 'order', label: 'طلب (Order)' },
+  { value: 'payment', label: 'دفع (Payment)' },
+  { value: 'system', label: 'نظام (System)' },
+  { value: 'promotion', label: 'عرض (Promotion)' },
 ]
 
 export default function NotificationsCenterPage() {
+  const [type, setType] = useState('system')
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [link, setLink] = useState('')
+  const [targeting, setTargeting] = useState<'all' | 'specific'>('all')
+  const [userIdsText, setUserIdsText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setSuccess(false)
+    if (!title.trim() || !body.trim()) {
+      setError('العنوان والنص مطلوبان')
+      return
+    }
+    const userIds =
+      targeting === 'specific'
+        ? userIdsText.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined
+    setLoading(true)
+    try {
+      await broadcastNotificationApi({ type, title: title.trim(), body: body.trim(), link: link.trim() || undefined, userIds })
+      setSuccess(true)
+      setTitle('')
+      setBody('')
+      setLink('')
+      setUserIdsText('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <AdminEntityManager<Notification>
-      storageKey="admin-notifications"
-      initial={INITIAL}
-      addLabel="إنشاء إشعار"
-      editLabel="تعديل الإشعار"
-      emptyForm={{ title: '', channel: 'push', audience: 'الكل', sent: 0, at: '' }}
-      columns={[
-        { key: 'title', label: 'العنوان' },
-        { key: 'channel', label: 'القناة', render: (r) => r.channel === 'push' ? 'Push' : r.channel === 'email' ? 'Email' : 'SMS' },
-        { key: 'audience', label: 'الجمهور' },
-        { key: 'sent', label: 'المُرسل', render: (r) => r.sent.toLocaleString('ar-SA') },
-        { key: 'at', label: 'التاريخ' },
-      ]}
-      fields={[
-        { key: 'title', label: 'العنوان', required: true },
-        { key: 'channel', label: 'قناة الإرسال', type: 'select', options: CHANNEL_OPTIONS },
-        { key: 'audience', label: 'الجمهور المستهدف', type: 'select', options: AUDIENCE_OPTIONS },
-        { key: 'sent', label: 'عدد المُرسل', type: 'number' },
-        { key: 'at', label: 'تاريخ الإرسال', dir: 'ltr' },
-      ]}
-    />
+    <div dir="rtl" className="mx-auto max-w-xl p-6">
+      <h2 className="mb-6 text-xl font-bold text-foreground">إرسال إشعار جماعي</h2>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+        {/* Type */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-foreground">النوع</label>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Title */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-foreground">العنوان <span className="text-destructive">*</span></label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="عنوان الإشعار"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-foreground">النص <span className="text-destructive">*</span></label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={3}
+            placeholder="نص الإشعار..."
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        {/* Link */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-foreground">الرابط (اختياري)</label>
+          <input
+            type="text"
+            dir="ltr"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="/account/orders"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        {/* Targeting */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-foreground">المستهدفون</label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" value="all" checked={targeting === 'all'} onChange={() => setTargeting('all')} />
+              الكل
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" value="specific" checked={targeting === 'specific'} onChange={() => setTargeting('specific')} />
+              مستخدمين محددين
+            </label>
+          </div>
+          {targeting === 'specific' && (
+            <textarea
+              value={userIdsText}
+              onChange={(e) => setUserIdsText(e.target.value)}
+              rows={3}
+              dir="ltr"
+              placeholder="أدخل معرّفات المستخدمين مفصولة بفاصلة&#10;user-id-1, user-id-2, ..."
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          )}
+        </div>
+
+        {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+        {success && <p className="rounded-lg bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">تم الإرسال بنجاح ✓</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {loading ? 'جارٍ الإرسال...' : 'إرسال الإشعار'}
+        </button>
+      </form>
+    </div>
   )
 }
