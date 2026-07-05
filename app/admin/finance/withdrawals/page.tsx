@@ -121,6 +121,7 @@ export default function AdminWithdrawalsPage() {
                     <th className="px-4 py-3 text-start font-medium">المبلغ</th>
                     <th className="px-4 py-3 text-start font-medium">البنك / IBAN</th>
                     <th className="px-4 py-3 text-start font-medium">الحالة</th>
+                    <th className="px-4 py-3 text-start font-medium">سبب الرفض</th>
                     <th className="px-4 py-3 text-start font-medium">المرجع</th>
                     <th className="px-4 py-3 text-start font-medium">التاريخ</th>
                     <th className="px-4 py-3 text-start font-medium">إجراء</th>
@@ -144,6 +145,9 @@ export default function AdminWithdrawalsPage() {
                             {STATUS_LABEL[w.status] ?? w.status}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {(w as unknown as { rejectionReason?: string }).rejectionReason || '—'}
+                        </td>
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                           {w.reference || '—'}
                         </td>
@@ -155,7 +159,7 @@ export default function AdminWithdrawalsPage() {
                             {w.status === 'pending' && (
                               <>
                                 <button
-                                  onClick={() => act(w.id, 'approved')}
+                                  onClick={() => doApprove(w.id)}
                                   disabled={acting === w.id}
                                   className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 disabled:opacity-50 transition-colors"
                                 >
@@ -163,7 +167,7 @@ export default function AdminWithdrawalsPage() {
                                   موافقة
                                 </button>
                                 <button
-                                  onClick={() => act(w.id, 'rejected')}
+                                  onClick={() => { setRejectId(w.id); setRejectReason('') }}
                                   disabled={acting === w.id}
                                   className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 disabled:opacity-50 transition-colors"
                                 >
@@ -174,7 +178,7 @@ export default function AdminWithdrawalsPage() {
                             )}
                             {w.status === 'approved' && (
                               <button
-                                onClick={() => act(w.id, 'completed')}
+                                onClick={() => { setPaidId(w.id); setPaidRef('') }}
                                 disabled={acting === w.id}
                                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 disabled:opacity-50 transition-colors"
                               >
@@ -196,6 +200,46 @@ export default function AdminWithdrawalsPage() {
           </div>
         )}
       </AsyncContent>
+
+      {/* Reject Dialog */}
+      {rejectId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 space-y-4">
+            <h3 className="text-base font-semibold text-foreground">سبب الرفض</h3>
+            <textarea
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              rows={3}
+              placeholder="اكتب سبب الرفض..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setRejectId(null); setRejectReason('') }} className="rounded-lg px-4 py-2 text-sm border border-border hover:bg-accent transition-colors">إلغاء</button>
+              <button onClick={confirmReject} disabled={!rejectReason.trim() || acting === rejectId} className="rounded-lg px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 transition-colors">رفض</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Paid Dialog */}
+      {paidId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 space-y-4">
+            <h3 className="text-base font-semibold text-foreground">رقم المرجع / التحويل</h3>
+            <input
+              type="text"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="رقم التحويل أو المرجع..."
+              value={paidRef}
+              onChange={(e) => setPaidRef(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setPaidId(null); setPaidRef('') }} className="rounded-lg px-4 py-2 text-sm border border-border hover:bg-accent transition-colors">إلغاء</button>
+              <button onClick={confirmPaid} disabled={!paidRef.trim() || acting === paidId} className="rounded-lg px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">تأكيد الصرف</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
