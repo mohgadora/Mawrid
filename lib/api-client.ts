@@ -346,6 +346,50 @@ export function updateAdminSettings(patch: Partial<SystemSettings>): Promise<Sys
   return apiFetch<SystemSettings>('admin/settings', { method: 'PATCH', body: JSON.stringify(patch) })
 }
 
+// ── Refunds ────────────────────────────────────────────────────────────────
+
+import type { getRefundRequests, getAdminRefundRequests } from '@/services/refunds'
+
+export type RefundRow = Awaited<ReturnType<typeof getRefundRequests>>[number]
+export type AdminRefundRow = Awaited<ReturnType<typeof getAdminRefundRequests>>[number]
+
+export function getRefundsApi(): Promise<RefundRow[]> {
+  return apiFetch<RefundRow[]>('account/refunds')
+}
+
+export function submitRefundApi(data: {
+  orderId: string
+  reason: string
+  description: string
+  orderLineId?: string
+  images?: string[]
+}): Promise<unknown> {
+  return apiFetch('account/refunds', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function getAdminRefundsApi(status?: string): Promise<AdminRefundRow[]> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : ''
+  return apiFetch<AdminRefundRow[]>(`admin/refunds${q}`)
+}
+
+export function approveRefundApi(id: string, adminNote?: string): Promise<unknown> {
+  return apiFetch(`admin/refunds/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ adminNote }),
+  })
+}
+
+export function rejectRefundApi(id: string, reason: string): Promise<unknown> {
+  return apiFetch(`admin/refunds/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export function processRefundApi(id: string): Promise<unknown> {
+  return apiFetch(`admin/refunds/${encodeURIComponent(id)}/process`, { method: 'POST' })
+}
+
 // ── Reviews ────────────────────────────────────────────────────────────────
 
 import type { getProductReviews } from '@/services/reviews'

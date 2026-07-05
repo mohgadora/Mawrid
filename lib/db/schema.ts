@@ -473,20 +473,22 @@ export const sellerEarning = pgTable('seller_earning', {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const refundRequest = pgTable('refund_request', {
-  id:             uuid(),
-  ref:            text('ref').notNull().unique(),
-  orderId:        text('orderId').notNull().references(() => order.id),
-  userId:         text('userId').notNull(),
-  items:          jsonb('items').notNull().default('[]'), // [{ orderLineId, qty, reason }]
-  reason:         text('reason').notNull(),
-  notes:          text('notes'),
-  status:         text('status').notNull().default('pending'), // pending | approved | rejected | processing | refunded | cancelled
-  refundAmount:   numeric('refundAmount', { precision: 12, scale: 2 }),
-  adminNote:      text('adminNote'),
-  reviewedBy:     text('reviewedBy'),
-  reviewedAt:     timestamp('reviewedAt', { withTimezone: true }),
-  createdAt:      now(),
-  updatedAt:      timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+  id:                   uuid(),
+  ref:                  text('ref').notNull().unique(),
+  orderId:              text('orderId').notNull().references(() => order.id),
+  userId:               text('userId').notNull(),
+  items:                jsonb('items').notNull().default('[]'), // [{ orderLineId, qty, reason }]
+  reason:               text('reason').notNull(),
+  notes:                text('notes'),
+  status:               text('status').notNull().default('pending'), // pending | approved | rejected | processing | refunded | cancelled
+  refundAmount:         numeric('refundAmount', { precision: 12, scale: 2 }),
+  adminNote:            text('adminNote'),
+  reviewedBy:           text('reviewedBy'),
+  reviewedAt:           timestamp('reviewedAt', { withTimezone: true }),
+  returnTrackingNumber: text('returnTrackingNumber'),
+  images:               jsonb('images').notNull().default('[]'),
+  createdAt:            now(),
+  updatedAt:            timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // ═══════════════════════════════════════════════════════════════════════════

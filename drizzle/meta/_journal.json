@@ -78,6 +78,13 @@
       "when": 1752400000000,
       "tag": "0010_shipping_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1752500000000,
+      "tag": "0011_returns",
+      "breakpoints": true
     }
   ]
 }
