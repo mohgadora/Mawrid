@@ -164,6 +164,7 @@ export async function getPartnerProducts(actor?: Actor) {
     image: p.imageUrl ?? '/placeholder.png',
     unitsPerCarton: p.unitsPerCarton,
     categoryId: p.categoryId ?? '',
+    status: p.status,
   }))
 }
 
@@ -223,6 +224,11 @@ export async function createPartnerProduct(data: PartnerProductInput, actor?: Ac
   const price = Math.max(0, Number(data.price) || 0)
   const stock = Math.max(0, Math.trunc(Number(data.stock) || 0))
 
+  const settings = await getSystemSettings()
+  const needsApproval = settings.productApprovalRequired
+  const initialStatus = needsApproval ? 'pending_approval' : 'approved'
+  const initialActive = needsApproval ? false : (data.active ?? true)
+
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(productTable)
@@ -239,7 +245,8 @@ export async function createPartnerProduct(data: PartnerProductInput, actor?: Ac
         unitsPerCarton: Math.max(1, Math.trunc(Number(data.unitsPerCarton) || 1)),
         marketAvgPrice: price.toFixed(2),
         stock,
-        active: data.active ?? true,
+        active: initialActive,
+        status: initialStatus,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

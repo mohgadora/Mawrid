@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { Search, Package, ToggleLeft, ToggleRight } from 'lucide-react'
-import { getAdminProducts, toggleAdminProduct } from '@/lib/api-client'
+import { Search, Package, ToggleLeft, ToggleRight, CheckCircle, XCircle } from 'lucide-react'
+import { getAdminProducts, toggleAdminProduct, approveProductApi, rejectProductApi } from '@/lib/api-client'
 import { AsyncContent } from '@/components/async-content'
 import { AdminPageSkeleton } from '@/components/skeletons'
 import { EmptyState } from '@/components/empty-state'
@@ -14,8 +14,20 @@ import Image from 'next/image'
 
 type Product = Awaited<ReturnType<typeof getAdminProducts>>[number]
 
-const STATUS_TABS = ['all', 'active', 'inactive'] as const
+const STATUS_TABS = ['all', 'active', 'inactive', 'pending_approval', 'rejected'] as const
 type Tab = (typeof STATUS_TABS)[number]
+
+const APPROVAL_STATUS_COLOR: Record<string, string> = {
+  approved:        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  pending_approval:'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  rejected:        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+}
+
+const APPROVAL_STATUS_LABEL: Record<string, string> = {
+  approved:        'معتمد',
+  pending_approval:'قيد المراجعة',
+  rejected:        'مرفوض',
+}
 
 export default function AdminProductsPage() {
   const { t, formatPrice } = useI18n()
@@ -24,6 +36,8 @@ export default function AdminProductsPage() {
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [toggling, setToggling] = useState<string | null>(null)
+  const [rejectId, setRejectId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   async function toggle(p: Product) {
     setToggling(p.id)
@@ -38,10 +52,41 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function approve(id: string) {
+    setToggling(id)
+    try {
+      await approveProductApi(id)
+      await mutate()
+      success('تمت الموافقة على المنتج')
+    } catch {
+      toastError(t('toastSaveFailed'))
+    } finally {
+      setToggling(null)
+    }
+  }
+
+  async function confirmReject() {
+    if (!rejectId || !rejectReason.trim()) return
+    setToggling(rejectId)
+    try {
+      await rejectProductApi(rejectId, rejectReason.trim())
+      await mutate()
+      setRejectId(null)
+      setRejectReason('')
+      success('تم رفض المنتج')
+    } catch {
+      toastError(t('toastSaveFailed'))
+    } finally {
+      setToggling(null)
+    }
+  }
+
   const TAB_LABEL: Record<Tab, string> = {
-    all:      t('filterAll'),
-    active:   t('enabledLabel'),
-    inactive: 'معطّل',
+    all:             t('filterAll'),
+    active:          t('enabledLabel'),
+    inactive:        'معطّل',
+    pending_approval:'قيد المراجعة',
+    rejected:        'مرفوض',
   }
 
   return (
@@ -88,7 +133,13 @@ export default function AdminProductsPage() {
         {(products) => {
           const filtered = products.filter((p) => {
             const matchQ = !q || p.name.toLowerCase().includes(q.toLowerCase()) || (p.sku ?? '').toLowerCase().includes(q.toLowerCase())
-            const matchTab = tab === 'all' || (tab === 'active' ? p.active : !p.active)
+            const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+            const matchTab =
+              tab === 'all'
+              || (tab === 'active' ? p.active : false)
+              || (tab === 'inactive' ? !p.active : false)
+              || (tab === 'pending_approval' ? pStatus === 'pending_approval' : false)
+              || (tab === 'rejected' ? pStatus === 'rejected' : false)
             return matchQ && matchTab
           })
 
@@ -138,30 +189,63 @@ export default function AdminProductsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                            p.active
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {p.active ? t('enabledLabel') : 'معطّل'}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              p.active
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                              {p.active ? t('enabledLabel') : 'معطّل'}
+                            </span>
+                            {(() => {
+                              const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+                              return pStatus !== 'approved' ? (
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${APPROVAL_STATUS_COLOR[pStatus] ?? ''}`}>
+                                  {APPROVAL_STATUS_LABEL[pStatus] ?? pStatus}
+                                </span>
+                              ) : null
+                            })()}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
                           {new Date(p.createdAt).toLocaleDateString('ar-SA')}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => toggle(p)}
-                            disabled={toggling === p.id}
-                            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
-                            title={p.active ? 'تعطيل' : 'تفعيل'}
-                          >
-                            {p.active
-                              ? <ToggleRight className="size-4 text-success" />
-                              : <ToggleLeft className="size-4 text-muted-foreground" />
-                            }
-                            {p.active ? 'تعطيل' : 'تفعيل'}
-                          </button>
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+                              return pStatus === 'pending_approval' ? (
+                                <>
+                                  <button
+                                    onClick={() => approve(p.id)}
+                                    disabled={toggling === p.id}
+                                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 disabled:opacity-50 transition-colors"
+                                  >
+                                    <CheckCircle className="size-3.5" /> موافقة
+                                  </button>
+                                  <button
+                                    onClick={() => { setRejectId(p.id); setRejectReason('') }}
+                                    disabled={toggling === p.id}
+                                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 disabled:opacity-50 transition-colors"
+                                  >
+                                    <XCircle className="size-3.5" /> رفض
+                                  </button>
+                                </>
+                              ) : null
+                            })()}
+                            <button
+                              onClick={() => toggle(p)}
+                              disabled={toggling === p.id}
+                              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
+                              title={p.active ? 'تعطيل' : 'تفعيل'}
+                            >
+                              {p.active
+                                ? <ToggleRight className="size-4 text-success" />
+                                : <ToggleLeft className="size-4 text-muted-foreground" />
+                              }
+                              {p.active ? 'تعطيل' : 'تفعيل'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -179,6 +263,37 @@ export default function AdminProductsPage() {
           )
         }}
       </AsyncContent>
+
+      {/* Reject Dialog */}
+      {rejectId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 space-y-4">
+            <h3 className="text-base font-semibold text-foreground">سبب الرفض</h3>
+            <textarea
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              rows={3}
+              placeholder="اكتب سبب الرفض..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setRejectId(null); setRejectReason('') }}
+                className="rounded-lg px-4 py-2 text-sm border border-border hover:bg-accent transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={!rejectReason.trim() || toggling === rejectId}
+                className="rounded-lg px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+              >
+                رفض المنتج
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

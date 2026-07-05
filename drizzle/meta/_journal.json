@@ -36,6 +36,13 @@
       "when": 1751800000000,
       "tag": "0004_product_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1751900000000,
+      "tag": "0005_p0_features",
+      "breakpoints": true
     }
   ]
 }

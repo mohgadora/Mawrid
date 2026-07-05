@@ -20,6 +20,7 @@ import {
   country as countryTable,
   driver as driverTable,
   session as sessionTable,
+  sellerEarning,
 } from '@/lib/db/schema'
 import { eq, sql, count, sum, desc, and, gte, lt, ne, asc, inArray } from 'drizzle-orm'
 import type { OrderStatus } from '@/lib/order-types'
@@ -368,12 +369,107 @@ export async function getPayouts() {
   const supMap   = Object.fromEntries(supRows.map((s) => [s.id, s.nameAr ?? s.name]))
 
   return rows.map((p) => ({
-    id:       p.id,
-    supplier: supMap[p.supplierId] ?? p.supplierId,
-    amount:   Number(p.amount),
-    period:   p.createdAt.toISOString().slice(0, 7),
-    status:   p.status,
-    date:     p.createdAt.toISOString().slice(0, 10),
+    id:              p.id,
+    supplier:        supMap[p.supplierId] ?? p.supplierId,
+    supplierId:      p.supplierId,
+    amount:          Number(p.amount),
+    currency:        p.currency,
+    period:          p.createdAt.toISOString().slice(0, 7),
+    status:          p.status,
+    date:            p.createdAt.toISOString().slice(0, 10),
+    reference:       p.reference ?? null,
+    bankAccount:     p.bankAccount as Record<string, string> | null,
+    processedAt:     p.processedAt?.toISOString() ?? null,
+    rejectionReason: p.rejectionReason ?? null,
+    adminNote:       p.adminNote ?? null,
+    requestedBy:     p.requestedBy ?? null,
+    reviewedBy:      p.reviewedBy ?? null,
+    paidAt:          p.paidAt?.toISOString() ?? null,
+    createdAt:       p.createdAt.toISOString(),
+  }))
+}
+
+export async function approveWithdrawal(payoutId: string, adminUserId: string) {
+  const [existing] = await db.select().from(payoutTable).where(eq(payoutTable.id, payoutId)).limit(1)
+  if (!existing) throw new NotFoundError('طلب السحب غير موجود')
+
+  const [updated] = await db.update(payoutTable).set({
+    status: 'approved',
+    reviewedBy: adminUserId,
+  }).where(eq(payoutTable.id, payoutId)).returning()
+
+  await writeAuditLog({ userId: adminUserId, action: 'withdrawal.approved', entity: 'payout', entityId: payoutId })
+  return updated
+}
+
+export async function rejectWithdrawal(payoutId: string, adminUserId: string, reason: string) {
+  const [existing] = await db.select().from(payoutTable).where(eq(payoutTable.id, payoutId)).limit(1)
+  if (!existing) throw new NotFoundError('طلب السحب غير موجود')
+
+  const [updated] = await db.update(payoutTable).set({
+    status: 'rejected',
+    rejectionReason: reason,
+    reviewedBy: adminUserId,
+  }).where(eq(payoutTable.id, payoutId)).returning()
+
+  await writeAuditLog({ userId: adminUserId, action: 'withdrawal.rejected', entity: 'payout', entityId: payoutId, meta: { reason } })
+  return updated
+}
+
+export async function markWithdrawalPaid(payoutId: string, adminUserId: string, reference: string) {
+  const [existing] = await db.select().from(payoutTable).where(eq(payoutTable.id, payoutId)).limit(1)
+  if (!existing) throw new NotFoundError('طلب السحب غير موجود')
+
+  const [updated] = await db.update(payoutTable).set({
+    status: 'completed',
+    reference,
+    paidAt: new Date(),
+    processedAt: new Date(),
+    reviewedBy: adminUserId,
+  }).where(eq(payoutTable.id, payoutId)).returning()
+
+  await writeAuditLog({ userId: adminUserId, action: 'withdrawal.paid', entity: 'payout', entityId: payoutId, meta: { reference } })
+  return updated
+}
+
+export async function setSupplierCommissionRate(supplierId: string, rate: number, adminUserId: string) {
+  const [existing] = await db.select({ id: supplier.id }).from(supplier).where(eq(supplier.id, supplierId)).limit(1)
+  if (!existing) throw new NotFoundError('المورد غير موجود')
+  if (rate < 0 || rate > 100) throw new ValidationError('معدل العمولة يجب أن يكون بين 0 و100')
+
+  const [updated] = await db.update(supplier).set({
+    commissionRate: String(rate),
+    updatedAt: new Date(),
+  }).where(eq(supplier.id, supplierId)).returning()
+
+  await writeAuditLog({ userId: adminUserId, action: 'supplier.commission_rate_updated', entity: 'supplier', entityId: supplierId, meta: { rate } })
+  return updated
+}
+
+export async function getCommissionReport() {
+  const rows = await db
+    .select()
+    .from(sellerEarning)
+    .orderBy(desc(sellerEarning.createdAt))
+    .limit(500)
+
+  const supIds = [...new Set(rows.map(r => r.supplierId))]
+  const supRows = supIds.length
+    ? await db.select({ id: supplier.id, name: supplier.nameAr, nameEn: supplier.name, commissionRate: supplier.commissionRate }).from(supplier).where(inArray(supplier.id, supIds))
+    : []
+  const supMap = Object.fromEntries(supRows.map(s => [s.id, { name: s.name ?? s.nameEn, commissionRate: s.commissionRate }]))
+
+  return rows.map(r => ({
+    id:               r.id,
+    supplierId:       r.supplierId,
+    supplierName:     supMap[r.supplierId]?.name ?? r.supplierId,
+    commissionRate:   supMap[r.supplierId]?.commissionRate ?? null,
+    orderId:          r.orderId,
+    grossAmount:      Number(r.grossAmount),
+    commissionAmount: Number(r.commissionAmount),
+    netEarning:       Number(r.netEarning),
+    status:           r.status,
+    createdAt:        r.createdAt.toISOString(),
   }))
 }
 

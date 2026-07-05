@@ -93,20 +93,21 @@ export const category = pgTable('category', {
 })
 
 export const supplier = pgTable('supplier', {
-  id:           uuid(),
-  name:         text('name').notNull(),
-  nameAr:       text('nameAr'),
-  logo:         text('logo'),
-  country:      text('country').notNull().default('SA'),
-  city:         text('city'),
-  rating:       numeric('rating', { precision: 3, scale: 2 }).notNull().default('0'),
-  reviewCount:  integer('reviewCount').notNull().default(0),
-  verified:     boolean('verified').notNull().default(false),
-  responseTime: text('responseTime'),
-  minOrder:     integer('minOrder').notNull().default(1),
-  userId:       text('userId').references(() => user.id),
-  createdAt:    now(),
-  updatedAt:    timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+  id:             uuid(),
+  name:           text('name').notNull(),
+  nameAr:         text('nameAr'),
+  logo:           text('logo'),
+  country:        text('country').notNull().default('SA'),
+  city:           text('city'),
+  rating:         numeric('rating', { precision: 3, scale: 2 }).notNull().default('0'),
+  reviewCount:    integer('reviewCount').notNull().default(0),
+  verified:       boolean('verified').notNull().default(false),
+  responseTime:   text('responseTime'),
+  minOrder:       integer('minOrder').notNull().default(1),
+  userId:         text('userId').references(() => user.id),
+  commissionRate: numeric('commissionRate', { precision: 5, scale: 2 }),
+  createdAt:      now(),
+  updatedAt:      timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const product = pgTable('product', {
@@ -127,6 +128,7 @@ export const product = pgTable('product', {
   stock:           integer('stock').notNull().default(0),
   active:          boolean('active').notNull().default(true),
   featured:        boolean('featured').notNull().default(false),
+  status:          text('status').notNull().default('approved'),
   createdAt:       now(),
   updatedAt:       timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -188,6 +190,8 @@ export const orderLine = pgTable('order_line', {
   productName:    text('productName').notNull(),
   productImage:   text('productImage'),
   sku:            text('sku'),
+  variantSku:     text('variantSku'),
+  variantOptions: jsonb('variantOptions').notNull().default('{}'),
   qty:            integer('qty').notNull(),
   unitPrice:      numeric('unitPrice', { precision: 12, scale: 2 }).notNull(),
   cartonQty:      integer('cartonQty').notNull().default(1),
@@ -271,15 +275,20 @@ export const kycApproval = pgTable('kyc_approval', {
 })
 
 export const payout = pgTable('payout', {
-  id:          uuid(),
-  supplierId:  text('supplierId').notNull().references(() => supplier.id),
-  amount:      numeric('amount', { precision: 12, scale: 2 }).notNull(),
-  currency:    text('currency').notNull().default('SAR'),
-  status:      text('status').notNull().default('pending'),
-  reference:   text('reference'),
-  bankAccount: jsonb('bankAccount'),
-  processedAt: timestamp('processedAt', { withTimezone: true }),
-  createdAt:   now(),
+  id:              uuid(),
+  supplierId:      text('supplierId').notNull().references(() => supplier.id),
+  amount:          numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  currency:        text('currency').notNull().default('SAR'),
+  status:          text('status').notNull().default('pending'),
+  reference:       text('reference'),
+  bankAccount:     jsonb('bankAccount'),
+  processedAt:     timestamp('processedAt', { withTimezone: true }),
+  rejectionReason: text('rejectionReason'),
+  adminNote:       text('adminNote'),
+  requestedBy:     text('requestedBy'),
+  reviewedBy:      text('reviewedBy'),
+  paidAt:          timestamp('paidAt', { withTimezone: true }),
+  createdAt:       now(),
 })
 
 export const transaction = pgTable('transaction', {
@@ -516,6 +525,20 @@ export const reviewHelpful = pgTable('review_helpful', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT APPROVAL HISTORY
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const productApprovalHistory = pgTable('product_approval_history', {
+  id:         text('id').primaryKey(),
+  productId:  text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  supplierId: text('supplierId').notNull().references(() => supplier.id),
+  status:     text('status').notNull(),
+  reason:     text('reason'),
+  reviewedBy: text('reviewedBy').references(() => user.id),
+  createdAt:  now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -554,5 +577,7 @@ export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
 export type ProductReview   = typeof productReview.$inferSelect
 export type NewProductReview = typeof productReview.$inferInsert
-export type ReviewReply     = typeof reviewReply.$inferSelect
-export type ReviewHelpful   = typeof reviewHelpful.$inferSelect
+export type ReviewReply             = typeof reviewReply.$inferSelect
+export type ReviewHelpful           = typeof reviewHelpful.$inferSelect
+export type ProductApprovalHistory  = typeof productApprovalHistory.$inferSelect
+export type NewProductApprovalHistory = typeof productApprovalHistory.$inferInsert

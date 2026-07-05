@@ -386,6 +386,71 @@ export function submitReviewReplyApi(
   )
 }
 
+// ── Admin Product Approvals ────────────────────────────────────────────────
+
+export function getPendingProductsApi(): Promise<Awaited<ReturnType<typeof import('@/services/approvals').getPendingProducts>>> {
+  return apiFetch('admin/products/pending')
+}
+
+export function approveProductApi(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`admin/products/${encodeURIComponent(id)}/approve`, { method: 'POST' })
+}
+
+export function rejectProductApi(id: string, reason: string): Promise<{ ok: boolean }> {
+  return apiFetch(`admin/products/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+}
+
+// ── Admin Supplier Commission ──────────────────────────────────────────────
+
+export function setSupplierCommissionApi(supplierId: string, rate: number): Promise<unknown> {
+  return apiFetch(`admin/suppliers/${encodeURIComponent(supplierId)}/commission`, {
+    method: 'PATCH',
+    body: JSON.stringify({ rate }),
+  })
+}
+
+export function getCommissionReportApi(): Promise<Awaited<ReturnType<typeof import('@/services/admin').getCommissionReport>>> {
+  return apiFetch('admin/commissions')
+}
+
+// ── Admin Withdrawal Actions ───────────────────────────────────────────────
+
+export function approveWithdrawalApi(id: string): Promise<unknown> {
+  return apiFetch(`admin/finance/withdrawals/${encodeURIComponent(id)}/approve`, { method: 'POST' })
+}
+
+export function rejectWithdrawalApi(id: string, reason: string): Promise<unknown> {
+  return apiFetch(`admin/finance/withdrawals/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) })
+}
+
+export function markWithdrawalPaidApi(id: string, reference: string): Promise<unknown> {
+  return apiFetch(`admin/finance/withdrawals/${encodeURIComponent(id)}/paid`, { method: 'POST', body: JSON.stringify({ reference }) })
+}
+
+// ── Partner Variants ───────────────────────────────────────────────────────
+
+export function fetchPartnerVariants(productId: string): Promise<unknown[]> {
+  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants`)
+}
+
+export function createPartnerVariantApi(productId: string, data: Record<string, unknown>): Promise<unknown> {
+  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants`, { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updatePartnerVariantApi(productId: string, variantId: string, data: Record<string, unknown>): Promise<unknown> {
+  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deletePartnerVariantApi(productId: string, variantId: string): Promise<void> {
+  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`, { method: 'DELETE' }) as Promise<void>
+}
+
+// ── Public Variants ────────────────────────────────────────────────────────
+
+export function fetchProductVariants(productId: string): Promise<unknown[]> {
+  return apiFetch(`products/${encodeURIComponent(productId)}/variants`)
+}
+
 // ── Catalog (client-safe wrappers) ─────────────────────────────────────────
 import type { CategoryResult, SupplierResult, Product } from '@/services/catalog'
 export type { CategoryResult, SupplierResult, Product } from '@/services/catalog'
