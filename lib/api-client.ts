@@ -533,6 +533,37 @@ export function getAdminLoyaltyApi(): Promise<AdminLoyaltyData> {
   return apiFetch<AdminLoyaltyData>('admin/loyalty')
 }
 
+// ── Referrals ──────────────────────────────────────────────────────────────
+
+import type { getAdminReferrals, getAdminReferralStats, getReferralsByUser } from '@/services/referrals'
+
+export type ReferralStats = Awaited<ReturnType<typeof getAdminReferralStats>>
+export type AdminReferralRow = Awaited<ReturnType<typeof getAdminReferrals>>[number]
+export type UserReferral = Awaited<ReturnType<typeof getReferralsByUser>>[number]
+
+export type ReferralApiData = {
+  code: string
+  usageCount: number
+  referrals: UserReferral[]
+}
+
+export type AdminReferralApiData = {
+  stats: ReferralStats
+  referrals: AdminReferralRow[]
+}
+
+export function getReferralApi(): Promise<ReferralApiData> {
+  return apiFetch<ReferralApiData>('account/referral')
+}
+
+export function getAdminReferralsApi(): Promise<AdminReferralApiData> {
+  return apiFetch<AdminReferralApiData>('admin/referrals')
+}
+
+export function rewardReferralApi(id: string): Promise<unknown> {
+  return apiFetch(`admin/referrals/${encodeURIComponent(id)}/reward`, { method: 'POST' })
+}
+
 export function adjustLoyaltyApi(
   userId: string,
   delta: number,

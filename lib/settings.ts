@@ -32,6 +32,8 @@ export interface SystemSettings {
   businessMode: 'single_vendor' | 'multi_vendor'
   shippingResponsibility: 'in_house' | 'seller_wise' | 'mixed'
   defaultCommissionRate: number
+  referralBonusReferrer: number
+  referralBonusReferee: number
 }
 
 export const SETTING_DEFAULTS: SystemSettings = {
@@ -55,6 +57,8 @@ export const SETTING_DEFAULTS: SystemSettings = {
   businessMode: 'multi_vendor',
   shippingResponsibility: 'in_house',
   defaultCommissionRate: 10,
+  referralBonusReferrer: 100,
+  referralBonusReferee: 50,
 }
 
 type SettingKey = keyof SystemSettings
@@ -95,6 +99,8 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     businessMode:                cast('businessMode', SETTING_DEFAULTS.businessMode),
     shippingResponsibility:      cast('shippingResponsibility', SETTING_DEFAULTS.shippingResponsibility),
     defaultCommissionRate:       cast('defaultCommissionRate', SETTING_DEFAULTS.defaultCommissionRate),
+    referralBonusReferrer:       cast('referralBonusReferrer', SETTING_DEFAULTS.referralBonusReferrer),
+    referralBonusReferee:        cast('referralBonusReferee', SETTING_DEFAULTS.referralBonusReferee),
   }
 }
 

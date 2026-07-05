@@ -592,6 +592,30 @@ export const loyaltyTransaction = pgTable('loyalty_transaction', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// REFERRALS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const referralCode = pgTable('referral_code', {
+  id:         text('id').primaryKey(),
+  userId:     text('userId').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  code:       text('code').notNull().unique(),
+  usageCount: integer('usageCount').notNull().default(0),
+  createdAt:  timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const referral = pgTable('referral', {
+  id:            text('id').primaryKey(),
+  referrerId:    text('referrerId').notNull().references(() => user.id),
+  refereeId:     text('refereeId').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  code:          text('code').notNull(),
+  status:        text('status').notNull().default('pending'),
+  referrerBonus: integer('referrerBonus').notNull().default(0),
+  refereeBonus:  integer('refereeBonus').notNull().default(0),
+  rewardedAt:    timestamp('rewardedAt', { withTimezone: true }),
+  createdAt:     timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -639,3 +663,5 @@ export type NewFlashSale            = typeof flashSale.$inferInsert
 export type FlashSaleProduct        = typeof flashSaleProduct.$inferSelect
 export type LoyaltyAccount          = typeof loyaltyAccount.$inferSelect
 export type LoyaltyTransaction      = typeof loyaltyTransaction.$inferSelect
+export type ReferralCode            = typeof referralCode.$inferSelect
+export type Referral                = typeof referral.$inferSelect
