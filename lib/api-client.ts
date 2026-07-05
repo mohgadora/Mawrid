@@ -467,6 +467,35 @@ export function searchProducts(q: string): Promise<Product[]> {
   return apiFetch<Product[]>(`products?q=${encodeURIComponent(q)}`)
 }
 
+export function searchProductsApi(filters: {
+  q?: string
+  category?: string
+  supplier?: string
+  minPrice?: number
+  maxPrice?: number
+  minRating?: number
+  inStock?: boolean
+  sortBy?: string
+  page?: number
+  limit?: number
+}): Promise<{ products: Product[]; total: number; page: number; totalPages: number }> {
+  const params = new URLSearchParams()
+  if (filters.q) params.set('q', filters.q)
+  if (filters.category) params.set('category', filters.category)
+  if (filters.supplier) params.set('supplier', filters.supplier)
+  if (filters.minPrice !== undefined) params.set('minPrice', String(filters.minPrice))
+  if (filters.maxPrice !== undefined) params.set('maxPrice', String(filters.maxPrice))
+  if (filters.minRating !== undefined) params.set('minRating', String(filters.minRating))
+  if (filters.inStock) params.set('inStock', 'true')
+  if (filters.sortBy) params.set('sortBy', filters.sortBy)
+  if (filters.page !== undefined) params.set('page', String(filters.page))
+  if (filters.limit !== undefined) params.set('limit', String(filters.limit))
+  const qs = params.toString()
+  return apiFetch<{ products: Product[]; total: number; page: number; totalPages: number }>(
+    `products/search${qs ? `?${qs}` : ''}`,
+  )
+}
+
 export function fetchProductById(id: string): Promise<Product | undefined> {
   return apiFetch<Product[]>(`products?q=${encodeURIComponent(id)}`).then((list) =>
     list.find((p) => p.id === id),

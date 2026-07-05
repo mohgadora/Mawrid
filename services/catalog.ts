@@ -15,7 +15,7 @@ import {
   type Product as DbProduct,
   type PriceTier as DbPriceTier,
 } from '@/lib/db/schema'
-import { eq, ilike, or, and, asc, desc, inArray, avg } from 'drizzle-orm'
+import { eq, ilike, or, and, asc, desc, inArray, avg, gte, lte, gt, sql, count } from 'drizzle-orm'
 import { productReview } from '@/lib/db/schema'
 
 // ── Re-export legacy types so pages keep their imports unchanged ───────────
@@ -233,6 +233,140 @@ export async function getSupplierWithProducts(id: string): Promise<SupplierResul
   const ids = productRows.map((r) => r.id)
   const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts(ids), categorySlugById(), ratingsForProducts(ids)])
   return { supplier: sup, products: productRows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug, ratingsMap[r.id] ?? 0)) }
+}
+
+// ── Advanced Search ───────────────────────────────────────────────────────
+
+export type SearchFilters = {
+  query?: string
+  categorySlug?: string
+  supplierId?: string
+  minPrice?: number
+  maxPrice?: number
+  minRating?: number
+  inStock?: boolean
+  sortBy?: 'price_asc' | 'price_desc' | 'newest' | 'rating' | 'relevance'
+  page?: number
+  limit?: number
+}
+
+export async function searchProductsAdvanced(filters: SearchFilters): Promise<{
+  products: Product[]
+  total: number
+  page: number
+  totalPages: number
+}> {
+  const page = Math.max(1, filters.page ?? 1)
+  const limit = Math.min(100, Math.max(1, filters.limit ?? 24))
+  const offset = (page - 1) * limit
+
+  // Build WHERE conditions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conditions: any[] = [eq(product.active, true)]
+
+  if (filters.query) {
+    const q = filters.query.toLowerCase().trim()
+    if (q) {
+      conditions.push(
+        or(
+          ilike(product.name, `%${q}%`),
+          ilike(product.nameAr ?? product.name, `%${q}%`),
+          ilike(product.description ?? '', `%${q}%`),
+        ),
+      )
+    }
+  }
+
+  if (filters.categorySlug) {
+    const catRows = await db.select().from(category).where(eq(category.slug, filters.categorySlug)).limit(1)
+    if (catRows.length) {
+      const allCatRows = await db.select().from(category)
+      function getDescendantIds(id: string): string[] {
+        const ids = [id]
+        for (const row of allCatRows) {
+          if (row.parentId === id) ids.push(...getDescendantIds(row.id))
+        }
+        return ids
+      }
+      const descendantIds = getDescendantIds(catRows[0].id)
+      conditions.push(inArray(product.categoryId, descendantIds))
+    } else {
+      // category not found → return empty
+      return { products: [], total: 0, page, totalPages: 0 }
+    }
+  }
+
+  if (filters.supplierId) {
+    conditions.push(eq(product.supplierId, filters.supplierId))
+  }
+
+  if (filters.minPrice !== undefined) {
+    conditions.push(gte(sql`CAST(${product.marketAvgPrice} AS numeric)`, String(filters.minPrice)))
+  }
+
+  if (filters.maxPrice !== undefined) {
+    conditions.push(lte(sql`CAST(${product.marketAvgPrice} AS numeric)`, String(filters.maxPrice)))
+  }
+
+  if (filters.inStock) {
+    conditions.push(gt(product.stock, 0))
+  }
+
+  const whereClause = and(...conditions)
+
+  // Count query
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(product)
+    .where(whereClause)
+
+  const total = Number(countRow?.total ?? 0)
+  const totalPages = Math.ceil(total / limit)
+
+  // Determine ordering (rating sort handled after fetch)
+  let orderClause
+  const sortBy = filters.sortBy ?? 'relevance'
+  if (sortBy === 'price_asc') {
+    orderClause = asc(product.marketAvgPrice)
+  } else if (sortBy === 'price_desc') {
+    orderClause = desc(product.marketAvgPrice)
+  } else if (sortBy === 'newest') {
+    orderClause = desc(product.createdAt)
+  } else {
+    // relevance / rating — default to featured then newest
+    orderClause = desc(product.featured)
+  }
+
+  const rows = await db
+    .select()
+    .from(product)
+    .where(whereClause)
+    .orderBy(orderClause)
+    .limit(limit)
+    .offset(offset)
+
+  if (!rows.length) return { products: [], total, page, totalPages }
+
+  const ids = rows.map((r) => r.id)
+  const [tiersMap, catSlug, ratingsMap] = await Promise.all([
+    tiersForProducts(ids),
+    categorySlugById(),
+    ratingsForProducts(ids),
+  ])
+
+  let products = rows.map((r) => mapProduct(r, tiersMap[r.id] ?? [], catSlug, ratingsMap[r.id] ?? 0))
+
+  // minRating filter (done after fetch since rating is computed)
+  if (filters.minRating !== undefined) {
+    products = products.filter((p) => p.rating >= (filters.minRating ?? 0))
+  }
+
+  // Sort by rating post-fetch if needed
+  if (sortBy === 'rating') {
+    products = products.sort((a, b) => b.rating - a.rating)
+  }
+
+  return { products, total, page, totalPages }
 }
 
 export async function searchProducts(query: string): Promise<Product[]> {
