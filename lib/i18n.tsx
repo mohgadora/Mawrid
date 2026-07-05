@@ -584,7 +584,7 @@ const DICT = {
   darkMode: { ar: 'الوضع الداكن', en: 'Dark mode' },
 
   // --- Driver tracking map ---
-  driverMap: { ar: 'خريطة السائقين ✅ [auto-deploy test]', en: 'Driver Map', hi: 'ड्राइवर मैप', bn: 'ড্রাইভার ম্যাপ', tr: 'Sürücü Haritası' },
+  driverMap: { ar: 'خريطة السائقين', en: 'Driver Map', hi: 'ड्राइवर मैप', bn: 'ড্রাইভার ম্যাপ', tr: 'Sürücü Haritası' },
   allDrivers: { ar: 'جميع السائقين', en: 'All Drivers', hi: 'सभी ड्राइवर', bn: 'সকল ড্রাইভার', tr: 'Tüm Sürücüler' },
   driverStatusAvailable: { ar: 'متاح', en: 'Available', hi: 'उपलब्ध', bn: 'উপলব্ধ', tr: 'Müsait' },
   driverStatusBusy: { ar: 'مشغول', en: 'Busy', hi: 'व्यस्त', bn: 'ব্যস্ত', tr: 'Meşgul' },
