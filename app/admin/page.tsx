@@ -6,7 +6,7 @@ import {
   TrendingUp, ShoppingCart, Store, Users, ClipboardCheck,
   Headphones, DollarSign, Package, ArrowUpRight, ArrowDownRight
 } from 'lucide-react'
-import { getAdminKpi, getApprovals, getAdminOrders, getAdminSuppliers, getSupportTickets } from '@/lib/api-client'
+import { getAdminKpi, getApprovals, getAdminOrders, getAdminSuppliers, getSupportTickets, getAnalyticsKpiApi } from '@/lib/api-client'
 import { StatusChip } from '@/components/order-status'
 import { AdminPageSkeleton } from '@/components/skeletons'
 import { AsyncContent } from '@/components/async-content'
@@ -76,7 +76,8 @@ function DonutChart() {
 
 export default function AdminDashboard() {
   const { t, formatPrice } = useI18n()
-  const kpiSwr      = useSWR<Awaited<ReturnType<typeof getAdminKpi>>>('admin/kpi',       getAdminKpi)
+  const kpiSwr         = useSWR<Awaited<ReturnType<typeof getAdminKpi>>>('admin/kpi',       getAdminKpi)
+  const analyticsKpiSwr = useSWR('admin/analytics/kpi', getAnalyticsKpiApi)
   const approvalSwr = useSWR<Awaited<ReturnType<typeof getApprovals>>>('admin/approvals',  getApprovals)
   const orderSwr    = useSWR<Awaited<ReturnType<typeof getAdminOrders>>>('admin/orders',     getAdminOrders)
   const supplierSwr = useSWR<Awaited<ReturnType<typeof getAdminSuppliers>>>('admin/suppliers',  getAdminSuppliers)
@@ -100,7 +101,7 @@ export default function AdminDashboard() {
     { labelKey: 'kpiRevenue' as const,          value: formatPrice(kpi.revenue),     growth: kpi.revenueGrowth,    icon: DollarSign,     href: '/admin/finance/payouts' },
     { labelKey: 'kpiPendingApprovals' as const, value: String(kpi.pendingApprovals), growth: undefined as number | undefined, icon: ClipboardCheck, href: '/admin/approvals' },
     { labelKey: 'kpiOpenTickets' as const,      value: String(kpi.openTickets),      growth: undefined as number | undefined, icon: Headphones,     href: '/admin/support/tickets' },
-    { labelKey: 'adminBrands' as const,         value: '2,841',                      growth: undefined as number | undefined, icon: Package,        href: '/admin/brands' },
+    { labelKey: 'adminBrands' as const,         value: analyticsKpiSwr.data ? String(analyticsKpiSwr.data.totalProducts) : '—', growth: undefined as number | undefined, icon: Package,        href: '/admin/brands' },
   ]
 
   return (

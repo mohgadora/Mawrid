@@ -1,0 +1,15 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
+import { getRevenueByDay } from '@/services/analytics'
+
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return guard
+
+  try {
+    const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get('days') ?? 30)))
+    return ok(await getRevenueByDay(days))
+  } catch (err) {
+    return serverError(err)
+  }
+}

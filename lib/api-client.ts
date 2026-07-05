@@ -755,6 +755,46 @@ export function deleteZoneApi(id: string): Promise<void> {
   return apiFetch<void>(`admin/zones/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
+// ── Analytics ──────────────────────────────────────────────────────────────
+
+import type {
+  getRevenueSummary,
+  getRevenueByDay,
+  getTopProducts,
+  getTopSuppliers,
+  getOrderStatusBreakdown,
+  getKpiSnapshot,
+} from '@/services/analytics'
+
+export type RevenueSummary    = Awaited<ReturnType<typeof getRevenueSummary>>
+export type RevenueByDay      = Awaited<ReturnType<typeof getRevenueByDay>>
+export type TopProducts       = Awaited<ReturnType<typeof getTopProducts>>
+export type TopSuppliers      = Awaited<ReturnType<typeof getTopSuppliers>>
+export type OrderStatusItems  = Awaited<ReturnType<typeof getOrderStatusBreakdown>>
+export type KpiSnapshot       = Awaited<ReturnType<typeof getKpiSnapshot>>
+
+export function getAnalyticsSummaryApi(period = '30d'): Promise<RevenueSummary> {
+  return apiFetch<RevenueSummary>(`admin/analytics/summary?period=${encodeURIComponent(period)}`)
+}
+
+export function getRevenueByDayApi(days = 30): Promise<RevenueByDay> {
+  return apiFetch<RevenueByDay>(`admin/analytics/revenue-by-day?days=${days}`)
+}
+
+export function getTopProductsApi(limit?: number): Promise<TopProducts> {
+  const qs = limit !== undefined ? `?limit=${limit}` : ''
+  return apiFetch<TopProducts>(`admin/analytics/top-products${qs}`)
+}
+
+export function getTopSuppliersApi(limit?: number): Promise<TopSuppliers> {
+  const qs = limit !== undefined ? `?limit=${limit}` : ''
+  return apiFetch<TopSuppliers>(`admin/analytics/top-suppliers${qs}`)
+}
+
+export function getAnalyticsKpiApi(): Promise<KpiSnapshot> {
+  return apiFetch<KpiSnapshot>('admin/analytics/kpi')
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
@@ -767,3 +807,4 @@ export function calculateShippingApi(params: {
   })
   return apiFetch<{ fee: number; estimatedDays: number; isFree: boolean }>(`shipping/calculate?${qs}`)
 }
+
