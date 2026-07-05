@@ -203,6 +203,9 @@ export function MiniCart() {
                       >
                         {name}
                       </Link>
+                      {item.variantLabel && (
+                        <p className="text-[11px] text-muted-foreground">{item.variantLabel}</p>
+                      )}
                       <p className="text-xs font-bold text-primary">
                         {formatPrice(unit * item.qty)}
                       </p>
@@ -211,7 +214,7 @@ export function MiniCart() {
                         {/* Qty stepper */}
                         <div className="flex items-center rounded-md border border-border">
                           <button
-                            onClick={() => updateQty(item.productId, item.qty - 1)}
+                            onClick={() => updateQty(item.productId, item.qty - 1, item.variantId)}
                             disabled={item.qty <= minQty}
                             aria-label={t('remove')}
                             className="grid size-6 place-items-center transition-colors hover:bg-accent disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -222,7 +225,7 @@ export function MiniCart() {
                             {item.qty}
                           </span>
                           <button
-                            onClick={() => updateQty(item.productId, item.qty + 1)}
+                            onClick={() => updateQty(item.productId, item.qty + 1, item.variantId)}
                             aria-label={t('addToCart')}
                             className="grid size-6 place-items-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
@@ -236,7 +239,7 @@ export function MiniCart() {
                             onClick={() => {
                               if (!alreadySaved) {
                                 saveItem(product.id, item.qty, product)
-                                removeItem(product.id)
+                                removeItem(product.id, item.variantId)
                               }
                             }}
                             disabled={alreadySaved}
@@ -251,7 +254,7 @@ export function MiniCart() {
                             )}
                           </button>
                           <button
-                            onClick={() => removeItem(item.productId)}
+                            onClick={() => removeItem(item.productId, item.variantId)}
                             aria-label={t('remove')}
                             className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >

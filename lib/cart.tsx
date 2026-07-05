@@ -30,6 +30,8 @@ export type CartProductSnapshot = {
 export type CartItem = {
   productId: string
   qty:       number
+  variantId?: string
+  variantLabel?: string
   /** Full product snapshot captured at add-to-cart time. Never stale for the session. */
   snapshot?: CartProductSnapshot
 }
@@ -65,11 +67,11 @@ type CartContextValue = {
   items:          CartItem[]
   count:          number
   /** Add item with full snapshot (preferred — use when you have the Product object). */
-  addItem:        (product: CartProductSnapshot, qty: number) => void
+  addItem:        (product: CartProductSnapshot, qty: number, variantId?: string, variantLabel?: string) => void
   /** Add item by ID only (reorder paths where only ID + qty are available). */
   addItemById:    (productId: string, qty: number) => void
-  updateQty:      (productId: string, qty: number) => void
-  removeItem:     (productId: string) => void
+  updateQty:      (productId: string, qty: number, variantId?: string) => void
+  removeItem:     (productId: string, variantId?: string) => void
   clear:          () => void
   mergeServerCart:(serverItems: { productId: string; qty: number }[]) => void
   subtotalUsd:    number
@@ -97,17 +99,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (loaded) localStorage.setItem('mawrid_cart', JSON.stringify(items))
   }, [items, loaded])
 
-  const addItem = useCallback((product: CartProductSnapshot, qty: number) => {
+  // Cart key: productId + variantId (undefined for non-variant items)
+  const cartKey = (productId: string, variantId?: string) => `${productId}::${variantId ?? ''}`
+
+  const addItem = useCallback((product: CartProductSnapshot, qty: number, variantId?: string, variantLabel?: string) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === product.id)
+      const key = cartKey(product.id, variantId)
+      const existing = prev.find((i) => cartKey(i.productId, i.variantId) === key)
       if (existing) {
         return prev.map((i) =>
-          i.productId === product.id
+          cartKey(i.productId, i.variantId) === key
             ? { ...i, qty: i.qty + qty, snapshot: product }
             : i,
         )
       }
-      return [...prev, { productId: product.id, qty, snapshot: product }]
+      return [...prev, { productId: product.id, qty, snapshot: product, variantId, variantLabel }]
     })
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('mawrid:open-mini-cart'))
@@ -116,26 +122,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItemById = useCallback((productId: string, qty: number) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === productId)
+      const existing = prev.find((i) => i.productId === productId && !i.variantId)
       if (existing) {
         return prev.map((i) =>
-          i.productId === productId ? { ...i, qty: i.qty + qty } : i,
+          i.productId === productId && !i.variantId ? { ...i, qty: i.qty + qty } : i,
         )
       }
       return [...prev, { productId, qty }]
     })
   }, [])
 
-  const updateQty = useCallback((productId: string, qty: number) => {
+  const updateQty = useCallback((productId: string, qty: number, variantId?: string) => {
+    const key = cartKey(productId, variantId)
     setItems((prev) =>
       prev.map((i) =>
-        i.productId === productId ? { ...i, qty: Math.max(1, qty) } : i,
+        cartKey(i.productId, i.variantId) === key ? { ...i, qty: Math.max(1, qty) } : i,
       ),
     )
   }, [])
 
-  const removeItem = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((i) => i.productId !== productId))
+  const removeItem = useCallback((productId: string, variantId?: string) => {
+    const key = cartKey(productId, variantId)
+    setItems((prev) => prev.filter((i) => cartKey(i.productId, i.variantId) !== key))
   }, [])
 
   const clear = useCallback(() => setItems([]), [])

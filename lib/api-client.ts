@@ -46,7 +46,7 @@ export async function cancelOrderApi(id: string): Promise<void> {
 }
 
 export function createOrderApi(body: {
-  lines: { productId: string; qty: number }[]
+  lines: { productId: string; qty: number; variantId?: string }[]
   address: { label: string; line1?: string; city?: string; phone?: string }
   paymentMethod: 'cod' | 'card' | 'bank'
 }): Promise<Order> {
@@ -473,16 +473,25 @@ export function markWithdrawalPaidApi(id: string, reference: string): Promise<un
 
 // ── Partner Variants ───────────────────────────────────────────────────────
 
-export function fetchPartnerVariants(productId: string): Promise<unknown[]> {
-  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants`)
+export type PartnerVariant = {
+  id: string; productId: string; sku: string; barcode: string | null
+  price: string; compareAtPrice: string | null; stock: number
+  lowStockThreshold: number; weight: string | null
+  images: string[]; options: Record<string, string>
+  isDefault: boolean; active: boolean
+  createdAt: string; updatedAt: string
 }
 
-export function createPartnerVariantApi(productId: string, data: Record<string, unknown>): Promise<unknown> {
-  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants`, { method: 'POST', body: JSON.stringify(data) })
+export function fetchPartnerVariants(productId: string): Promise<PartnerVariant[]> {
+  return apiFetch<PartnerVariant[]>(`partner/products/${encodeURIComponent(productId)}/variants`)
 }
 
-export function updatePartnerVariantApi(productId: string, variantId: string, data: Record<string, unknown>): Promise<unknown> {
-  return apiFetch(`partner/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`, { method: 'PATCH', body: JSON.stringify(data) })
+export function createPartnerVariantApi(productId: string, data: Record<string, unknown>): Promise<PartnerVariant> {
+  return apiFetch<PartnerVariant>(`partner/products/${encodeURIComponent(productId)}/variants`, { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updatePartnerVariantApi(productId: string, variantId: string, data: Record<string, unknown>): Promise<PartnerVariant> {
+  return apiFetch<PartnerVariant>(`partner/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`, { method: 'PATCH', body: JSON.stringify(data) })
 }
 
 export function deletePartnerVariantApi(productId: string, variantId: string): Promise<void> {

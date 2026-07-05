@@ -147,6 +147,7 @@ export function CheckoutView() {
     const orderLines = lines.map(({ item }) => ({
       productId: item.productId,
       qty: item.qty,
+      ...(item.variantId ? { variantId: item.variantId } : {}),
     }))
     try {
       const order = await createOrderApi({

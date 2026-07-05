@@ -4,7 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Plus, Pencil, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Clock, CheckCircle, XCircle, Layers } from 'lucide-react'
 import {
   fetchPartnerProducts,
   savePartnerProductApi,
@@ -174,6 +174,11 @@ export default function PartnerProductsPage() {
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(p)}><Pencil className="size-3.5" /></Button>
+                        <Link href={`/partner/products/${p.id}/variants`}>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary" title="إدارة المتغيرات">
+                            <Layers className="size-3.5" />
+                          </Button>
+                        </Link>
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setToDelete(p.id)}><Trash2 className="size-3.5" /></Button>
                       </div>
                     </td>

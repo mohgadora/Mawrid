@@ -21,8 +21,10 @@ import {
   Zap,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
+import useSWR from 'swr'
 import { useCart, toCartSnapshot } from '@/lib/cart'
 import { useRole } from '@/lib/role'
+import { fetchProductVariants, type PartnerVariant } from '@/lib/api-client'
 import {
   activeTier,
   nextTier,
@@ -58,6 +60,13 @@ export function ProductDetail({
   const [qty, setQty] = useState(minQty)
   const [added, setAdded] = useState(false)
   const [shared, setShared] = useState(false)
+  const [selectedVariant, setSelectedVariant] = useState<PartnerVariant | null>(null)
+
+  // Fetch variants for this product (public endpoint)
+  const { data: variants } = useSWR(
+    `products/${product.id}/variants`,
+    () => fetchProductVariants(product.id) as Promise<PartnerVariant[]>,
+  )
   // Simulated stock — in a real app this would come from inventory API
   const stock = Math.floor(((product.sold % 7) + 3))
 
@@ -105,15 +114,33 @@ export function ProductDetail({
     }
   }
 
+  const activeVariants = variants?.filter((v) => v.active) ?? []
+  const optionKeys = activeVariants.length
+    ? [...new Set(activeVariants.flatMap((v) => Object.keys(v.options ?? {})))]
+    : []
+
+  function variantLabel(v: PartnerVariant) {
+    return Object.entries(v.options ?? {}).map(([k, val]) => `${k}: ${val}`).join(' / ') || v.sku
+  }
+
   function handleAdd() {
-    addItem(toCartSnapshot(product), qty)
+    addItem(
+      toCartSnapshot(product),
+      qty,
+      selectedVariant?.id,
+      selectedVariant ? variantLabel(selectedVariant) : undefined,
+    )
     setAdded(true)
     setTimeout(() => setAdded(false), 1800)
   }
 
   function handleBuyNow() {
-    addItem(toCartSnapshot(product), qty)
-    // Navigate to checkout immediately
+    addItem(
+      toCartSnapshot(product),
+      qty,
+      selectedVariant?.id,
+      selectedVariant ? variantLabel(selectedVariant) : undefined,
+    )
     if (typeof window !== 'undefined') {
       window.location.href = '/checkout'
     }
@@ -311,6 +338,46 @@ export function ProductDetail({
               </span>
             )}
           </Link>
+
+          {/* Variant selector */}
+          {activeVariants.length > 0 && (
+            <div className="space-y-2">
+              {optionKeys.map((key) => {
+                const values = [...new Set(activeVariants.map((v) => (v.options as Record<string, string>)[key]).filter(Boolean))]
+                return (
+                  <div key={key} className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-12 shrink-0">{key}:</span>
+                    {values.map((val) => {
+                      const match = activeVariants.find((v) => (v.options as Record<string, string>)[key] === val)
+                      const isSelected = selectedVariant?.id === match?.id
+                      const outOfStock = match && match.stock <= 0
+                      return (
+                        <button
+                          key={val}
+                          onClick={() => match && !outOfStock && setSelectedVariant(isSelected ? null : match)}
+                          disabled={!match || outOfStock}
+                          className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                            isSelected
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-card text-foreground hover:border-primary hover:text-primary'
+                          }`}
+                        >
+                          {val}
+                          {outOfStock && <span className="ms-1 text-[10px] text-muted-foreground">(نفد)</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+              {selectedVariant && (
+                <p className="text-xs text-muted-foreground">
+                  المخزون: <span className={selectedVariant.stock <= selectedVariant.lowStockThreshold ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>{selectedVariant.stock}</span>
+                  {' · '}SKU: <span className="font-mono">{selectedVariant.sku}</span>
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Quantity + add to cart */}
           <div className="flex flex-wrap items-center gap-3">
