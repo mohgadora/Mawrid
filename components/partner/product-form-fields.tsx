@@ -9,6 +9,7 @@ export type ProductFormData = {
   name: string
   nameEn: string
   description: string
+  descriptionEn: string
   sku: string
   stock: string
   price: string
@@ -22,6 +23,7 @@ export const EMPTY_PRODUCT: ProductFormData = {
   name: '',
   nameEn: '',
   description: '',
+  descriptionEn: '',
   sku: '',
   stock: '0',
   price: '0',
@@ -49,14 +51,33 @@ export function PartnerProductFields({ form, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <Input placeholder={t('nameLabel')} value={form.name} onChange={(e) => set('name', e.target.value)} required />
-      <Input placeholder={`${t('nameLabel')} (EN)`} value={form.nameEn} onChange={(e) => set('nameEn', e.target.value)} dir="ltr" />
-      <textarea
-        placeholder={t('description')}
-        value={form.description}
-        onChange={(e) => set('description', e.target.value)}
-        className="min-h-20 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-      />
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">الاسم بالعربية *</label>
+        <Input placeholder="الاسم بالعربية" value={form.name} onChange={(e) => set('name', e.target.value)} required />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Name (English)</label>
+        <Input placeholder="Product name in English" value={form.nameEn} onChange={(e) => set('nameEn', e.target.value)} dir="ltr" />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">الوصف بالعربية</label>
+        <textarea
+          placeholder="الوصف بالعربية"
+          value={form.description}
+          onChange={(e) => set('description', e.target.value)}
+          className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Description (English)</label>
+        <textarea
+          placeholder="Product description in English"
+          value={form.descriptionEn}
+          onChange={(e) => set('descriptionEn', e.target.value)}
+          dir="ltr"
+          className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Input placeholder="SKU" value={form.sku} onChange={(e) => set('sku', e.target.value)} dir="ltr" />
         <Input type="number" min={0} placeholder={t('stock')} value={form.stock} onChange={(e) => set('stock', e.target.value)} dir="ltr" />

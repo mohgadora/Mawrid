@@ -19,6 +19,7 @@ import { authClient } from '@/lib/auth-client'
 import { useToast } from '@/lib/toast'
 import { createContext, useContext, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { LanguageSwitcher } from '@/components/language-switcher'
 
 type SidebarCtx = { open: boolean; toggle: () => void; close: () => void }
 const Ctx = createContext<SidebarCtx>({ open: false, toggle: () => {}, close: () => {} })
@@ -101,6 +102,7 @@ export function PartnerHeader() {
         <Menu className="size-5" />
       </button>
       <h1 className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">{t(title as Parameters<typeof t>[0])}</h1>
+      <LanguageSwitcher />
       <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={logout}>
         <LogOut className="size-4 rtl:rotate-180" />
         <span className="hidden sm:inline">{t('logout')}</span>
