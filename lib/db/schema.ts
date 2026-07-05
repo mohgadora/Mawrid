@@ -349,6 +349,21 @@ export const deliveryZone = pgTable('delivery_zone', {
   createdAt:      now(),
 })
 
+export const shippingRule = pgTable('shipping_rule', {
+  id:             text('id').primaryKey(),
+  zoneId:         text('zoneId').notNull().references(() => deliveryZone.id, { onDelete: 'cascade' }),
+  name:           text('name').notNull(),
+  minOrderAmount: numeric('minOrderAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  maxOrderAmount: numeric('maxOrderAmount', { precision: 12, scale: 2 }),
+  freeAbove:      numeric('freeAbove', { precision: 12, scale: 2 }),
+  baseFee:        numeric('baseFee', { precision: 12, scale: 2 }).notNull().default('0'),
+  perKgFee:       numeric('perKgFee', { precision: 12, scale: 2 }).notNull().default('0'),
+  estimatedDays:  integer('estimatedDays').notNull().default(3),
+  active:         boolean('active').notNull().default(true),
+  createdAt:      timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
+})
+export type ShippingRule = typeof shippingRule.$inferSelect
+
 export const auditLog = pgTable('audit_log', {
   id:        uuid(),
   userId:    text('userId'),

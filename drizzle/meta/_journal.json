@@ -71,6 +71,13 @@
       "when": 1752300000000,
       "tag": "0009_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1752400000000,
+      "tag": "0010_shipping_rules",
+      "breakpoints": true
     }
   ]
 }

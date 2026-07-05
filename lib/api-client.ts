@@ -642,3 +642,84 @@ export function broadcastNotificationApi(data: {
 }): Promise<unknown> {
   return apiFetch('admin/notifications/broadcast', { method: 'POST', body: JSON.stringify(data) })
 }
+
+// ── Shipping Rules ───────────────────────────────────────────────────────────
+
+import type * as ShippingSvc from '@/services/shipping'
+
+export type ZoneWithRules = Awaited<ReturnType<typeof ShippingSvc.getZones>>[number]
+export type ShippingRuleRow = Awaited<ReturnType<typeof ShippingSvc.getShippingRules>>[number]
+
+export function getZonesWithRules(): Promise<ZoneWithRules[]> {
+  return apiFetch<ZoneWithRules[]>('admin/zones')
+}
+
+export function getZoneWithRules(id: string): Promise<ZoneWithRules> {
+  return apiFetch<ZoneWithRules>(`admin/zones/${encodeURIComponent(id)}`)
+}
+
+export function getZoneRulesApi(zoneId: string): Promise<ShippingRuleRow[]> {
+  return apiFetch<ShippingRuleRow[]>(`admin/zones/${encodeURIComponent(zoneId)}/rules`)
+}
+
+export function createZoneRuleApi(
+  zoneId: string,
+  data: {
+    name: string
+    minOrderAmount?: number
+    maxOrderAmount?: number | null
+    freeAbove?: number | null
+    baseFee?: number
+    perKgFee?: number
+    estimatedDays?: number
+    active?: boolean
+  },
+): Promise<ShippingRuleRow> {
+  return apiFetch<ShippingRuleRow>(`admin/zones/${encodeURIComponent(zoneId)}/rules`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateZoneRuleApi(
+  zoneId: string,
+  ruleId: string,
+  data: Partial<{
+    name: string
+    minOrderAmount: number
+    maxOrderAmount: number | null
+    freeAbove: number | null
+    baseFee: number
+    perKgFee: number
+    estimatedDays: number
+    active: boolean
+  }>,
+): Promise<ShippingRuleRow> {
+  return apiFetch<ShippingRuleRow>(`admin/zones/${encodeURIComponent(zoneId)}/rules/${encodeURIComponent(ruleId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteZoneRuleApi(zoneId: string, ruleId: string): Promise<void> {
+  return apiFetch<void>(`admin/zones/${encodeURIComponent(zoneId)}/rules/${encodeURIComponent(ruleId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function deleteZoneApi(id: string): Promise<void> {
+  return apiFetch<void>(`admin/zones/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function calculateShippingApi(params: {
+  zoneId: string
+  amount: number
+  weight?: number
+}): Promise<{ fee: number; estimatedDays: number; isFree: boolean }> {
+  const qs = new URLSearchParams({
+    zoneId: params.zoneId,
+    amount: String(params.amount),
+    ...(params.weight !== undefined ? { weight: String(params.weight) } : {}),
+  })
+  return apiFetch<{ fee: number; estimatedDays: number; isFree: boolean }>(`shipping/calculate?${qs}`)
+}
