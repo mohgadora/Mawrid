@@ -61,6 +61,59 @@ export default function CommissionsPage() {
         <h1 className="text-lg font-semibold text-foreground">تقرير العمولات</h1>
       </div>
 
+      {/* Per-supplier commission rate editors */}
+      {suppliers && suppliers.length > 0 && (
+        <div className="rounded-xl border border-border bg-card">
+          <div className="px-5 py-3 border-b border-border">
+            <p className="text-sm font-semibold text-foreground">نسب العمولة لكل مورّد</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground">
+                  <th className="px-4 py-3 text-start font-medium">المورّد</th>
+                  <th className="px-4 py-3 text-start font-medium">النسبة الحالية (%)</th>
+                  <th className="px-4 py-3 text-start font-medium">النسبة الجديدة (%)</th>
+                  <th className="px-4 py-3 text-start font-medium">حفظ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suppliers.map((s) => {
+                  const current = (s as unknown as { commissionRate?: string | null }).commissionRate
+                  return (
+                    <tr key={s.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium text-foreground">{s.name}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{current != null ? `${current}%` : 'افتراضي'}</td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.01}
+                          className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          value={rates[s.id] ?? ''}
+                          onChange={(e) => setRates((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => saveRate(s.id)}
+                          disabled={saving === s.id || rates[s.id] === undefined}
+                          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                        >
+                          <Save className="size-3.5" /> حفظ
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <AsyncContent
         data={data}
         error={error}

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Clock, CheckCircle, XCircle } from 'lucide-react'
 import {
   fetchPartnerProducts,
   savePartnerProductApi,
@@ -22,6 +22,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { PartnerProductFields, EMPTY_PRODUCT, type ProductFormData } from '@/components/partner/product-form-fields'
 
 type Product = Awaited<ReturnType<typeof fetchPartnerProducts>>[number]
+
+const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; className: string }> = {
+  pending_approval: { label: 'قيد المراجعة', icon: Clock,         className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  approved:         { label: 'معتمد',         icon: CheckCircle,   className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  rejected:         { label: 'مرفوض',         icon: XCircle,       className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+}
 
 export default function PartnerProductsPage() {
   const { t, formatPrice } = useI18n()
@@ -123,6 +129,7 @@ export default function PartnerProductsPage() {
                   <th className="px-4 py-3 text-start font-medium">SKU</th>
                   <th className="px-4 py-3 text-start font-medium">{t('price')}</th>
                   <th className="px-4 py-3 text-start font-medium">{t('stock')}</th>
+                  <th className="px-4 py-3 text-start font-medium">الحالة</th>
                   <th className="px-4 py-3 text-start font-medium">{t('enabledLabel')}</th>
                   <th className="px-4 py-3 text-start font-medium">{t('actionLabel')}</th>
                 </tr>
@@ -141,6 +148,22 @@ export default function PartnerProductsPage() {
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.sku || '—'}</td>
                     <td className="px-4 py-3 text-xs">{formatPrice(p.price)}</td>
                     <td className="px-4 py-3 text-xs">{p.stock}</td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+                        const cfg = STATUS_CONFIG[pStatus]
+                        if (!cfg) return <span className="text-xs text-muted-foreground">{pStatus}</span>
+                        const Icon = cfg.icon
+                        return (
+                          <div className="space-y-1">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
+                              <Icon className="size-3" />
+                              {cfg.label}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </td>
                     <td className="px-4 py-3"><Switch checked={p.active} onCheckedChange={() => toggleActive(p.id, p.active)} /></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
@@ -151,7 +174,7 @@ export default function PartnerProductsPage() {
                   </tr>
                 ))}
                 {products.length === 0 && (
-                  <tr><td colSpan={6} className="py-10 text-center text-sm text-muted-foreground">{t('noData')}</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">{t('noData')}</td></tr>
                 )}
               </tbody>
             </table>
