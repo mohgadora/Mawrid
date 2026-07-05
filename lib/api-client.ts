@@ -472,3 +472,40 @@ export function fetchProductById(id: string): Promise<Product | undefined> {
     list.find((p) => p.id === id),
   )
 }
+
+// ── Flash Sales ────────────────────────────────────────────────────────────
+
+export function getAdminFlashSales(): Promise<any> {
+  return apiFetch<any>('admin/flash-sales')
+}
+
+export function createFlashSaleApi(data: any): Promise<any> {
+  return apiFetch<any>('admin/flash-sales', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateFlashSaleApi(id: string, data: any): Promise<any> {
+  return apiFetch<any>(`admin/flash-sales/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export async function deleteFlashSaleApi(id: string): Promise<void> {
+  await apiFetch<void>(`admin/flash-sales/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function getFlashSaleApi(id: string): Promise<any> {
+  return apiFetch<any>(`admin/flash-sales/${encodeURIComponent(id)}`)
+}
+
+export function addProductToFlashSaleApi(saleId: string, productId: string, overridePrice?: string, stockLimit?: number): Promise<any> {
+  return apiFetch<any>(`admin/flash-sales/${encodeURIComponent(saleId)}/products`, {
+    method: 'POST',
+    body: JSON.stringify({ productId, overridePrice, stockLimit }),
+  })
+}
+
+export async function removeProductFromFlashSaleApi(saleId: string, productId: string): Promise<void> {
+  await apiFetch<void>(`admin/flash-sales/${encodeURIComponent(saleId)}/products/${encodeURIComponent(productId)}`, { method: 'DELETE' })
+}
+
+export function getActiveFlashSalesApi(): Promise<any> {
+  return apiFetch<any>('flash-sales/active')
+}
