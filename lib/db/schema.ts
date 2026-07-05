@@ -539,6 +539,34 @@ export const productApprovalHistory = pgTable('product_approval_history', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// FLASH SALES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const flashSale = pgTable('flash_sale', {
+  id:                text('id').primaryKey(),
+  name:              text('name').notNull(),
+  nameEn:            text('nameEn'),
+  startsAt:          timestamp('startsAt', { withTimezone: true }).notNull(),
+  endsAt:            timestamp('endsAt', { withTimezone: true }).notNull(),
+  discountType:      text('discountType').notNull().default('percentage'),
+  discountValue:     numeric('discountValue', { precision: 12, scale: 2 }).notNull(),
+  maxDiscountAmount: numeric('maxDiscountAmount', { precision: 12, scale: 2 }),
+  active:            boolean('active').notNull().default(true),
+  createdBy:         text('createdBy').references(() => user.id),
+  createdAt:         timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:         timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const flashSaleProduct = pgTable('flash_sale_product', {
+  id:            text('id').primaryKey(),
+  flashSaleId:   text('flashSaleId').notNull().references(() => flashSale.id, { onDelete: 'cascade' }),
+  productId:     text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  overridePrice: numeric('overridePrice', { precision: 12, scale: 2 }),
+  stockLimit:    integer('stockLimit'),
+  soldCount:     integer('soldCount').notNull().default(0),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERRED TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -581,3 +609,6 @@ export type ReviewReply             = typeof reviewReply.$inferSelect
 export type ReviewHelpful           = typeof reviewHelpful.$inferSelect
 export type ProductApprovalHistory  = typeof productApprovalHistory.$inferSelect
 export type NewProductApprovalHistory = typeof productApprovalHistory.$inferInsert
+export type FlashSale               = typeof flashSale.$inferSelect
+export type NewFlashSale            = typeof flashSale.$inferInsert
+export type FlashSaleProduct        = typeof flashSaleProduct.$inferSelect
