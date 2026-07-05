@@ -17,6 +17,7 @@ import {
 } from '@/lib/db/schema'
 import { eq, ilike, or, and, asc, desc, inArray, avg, gte, lte, gt, sql, count } from 'drizzle-orm'
 import { productReview } from '@/lib/db/schema'
+import { getSetting } from '@/lib/settings'
 
 // ── Re-export legacy types so pages keep their imports unchanged ───────────
 
@@ -36,6 +37,12 @@ function mock<T>(label: string, data: T): T {
   }
   console.warn(`[catalog] mock fallback used for "${label}"`)
   return data
+}
+
+// Returns extra where conditions for storefront product queries based on settings
+async function publicProductConditions() {
+  const approvalRequired = await getSetting('productApprovalRequired')
+  return approvalRequired ? [eq(product.active, true), eq(product.status, 'approved')] : [eq(product.active, true)]
 }
 
 let _catSlugCache: { at: number; map: Map<string, string> } | null = null
@@ -151,10 +158,11 @@ export async function getSuppliers(): Promise<Supplier[]> {
 
 /** Returns all products with tiers, falls back to mock if DB empty. */
 export async function getProducts(): Promise<Product[]> {
+  const conditions = await publicProductConditions()
   const rows = await db
     .select()
     .from(product)
-    .where(eq(product.active, true))
+    .where(and(...conditions))
     .orderBy(desc(product.featured), desc(product.createdAt))
   if (!rows.length) return mock('products', PRODUCTS)
   const ids = rows.map((r) => r.id)
@@ -198,10 +206,11 @@ export async function getCategoryWithProducts(slug: string): Promise<CategoryRes
   }
   const descendantIds = getDescendantIds(catRows[0].id)
 
+  const conditions = await publicProductConditions()
   const productRows = await db
     .select()
     .from(product)
-    .where(and(eq(product.active, true), inArray(product.categoryId, descendantIds)))
+    .where(and(...conditions, inArray(product.categoryId, descendantIds)))
     .orderBy(desc(product.featured))
 
   if (!productRows.length) {
@@ -224,10 +233,11 @@ export async function getSupplierWithProducts(id: string): Promise<SupplierResul
   }
 
   const sup = mapSupplier(supRows[0])
+  const conditions = await publicProductConditions()
   const productRows = await db
     .select()
     .from(product)
-    .where(and(eq(product.supplierId, id), eq(product.active, true)))
+    .where(and(eq(product.supplierId, id), ...conditions))
     .orderBy(desc(product.featured))
 
   const ids = productRows.map((r) => r.id)

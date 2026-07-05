@@ -8,6 +8,7 @@ import {
   orderLine,
   orderEvent,
   product as productTable,
+  productVariant,
   priceTier,
   deliveryZone,
 } from '@/lib/db/schema'
@@ -133,7 +134,7 @@ export async function getOrderById(id: string, actor?: Actor): Promise<Order | n
 
 export async function createOrder(
   params: {
-    lines: { productId: string; qty: number }[]
+    lines: { productId: string; qty: number; variantId?: string }[]
     address: { label: string; line1?: string; city?: string; phone?: string }
     paymentMethod: string
   },
@@ -152,14 +153,23 @@ export async function createOrder(
   }
   const paymentMethod = params.paymentMethod as (typeof PAYMENT_METHODS)[number]
 
-  const merged = new Map<string, number>()
+  // Preserve variantId per line — don't merge across variants of the same product
+  const cleanLines: { productId: string; qty: number; variantId?: string }[] = []
+  const seen = new Map<string, number>() // key -> index in cleanLines
   for (const l of params.lines) {
     const productId = String(l.productId ?? '').trim()
+    const variantId = l.variantId ? String(l.variantId).trim() : undefined
     const qty = Math.max(1, Math.trunc(Number(l.qty) || 0))
     if (!productId || qty <= 0) continue
-    merged.set(productId, Math.min(MAX_QTY, (merged.get(productId) ?? 0) + qty))
+    const key = `${productId}::${variantId ?? ''}`
+    if (seen.has(key)) {
+      const idx = seen.get(key)!
+      cleanLines[idx].qty = Math.min(MAX_QTY, cleanLines[idx].qty + qty)
+    } else {
+      seen.set(key, cleanLines.length)
+      cleanLines.push({ productId, qty: Math.min(MAX_QTY, qty), variantId })
+    }
   }
-  const cleanLines = [...merged.entries()].map(([productId, qty]) => ({ productId, qty }))
   if (!cleanLines.length) throw new ValidationError('لا توجد أصناف صالحة في الطلب')
 
   const clip = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n)
@@ -174,8 +184,39 @@ export async function createOrder(
     phone: phoneRaw,
   }
 
-  const pricedLines = await priceLinesUsd(cleanLines, role)
-  const productIds = pricedLines.map((l) => l.productId).filter(Boolean)
+  // Separate lines that use a variant from those that use tier-based pricing
+  const variantLines = cleanLines.filter((l) => l.variantId)
+  const tierLines = cleanLines.filter((l) => !l.variantId)
+
+  // Resolve tier-based prices (existing logic)
+  const tierPriced = await priceLinesUsd(
+    tierLines.map((l) => ({ productId: l.productId, qty: l.qty })),
+    role,
+  )
+
+  // Resolve variant prices from DB — never trust client
+  const variantIds = variantLines.map((l) => l.variantId!).filter(Boolean)
+  const variantRows = variantIds.length
+    ? await db
+        .select({ id: productVariant.id, price: productVariant.price, stock: productVariant.stock, active: productVariant.active, options: productVariant.options })
+        .from(productVariant)
+        .where(inArray(productVariant.id, variantIds))
+    : []
+  const variantMap = Object.fromEntries(variantRows.map((v) => [v.id, v]))
+
+  const variantPriced = variantLines.map((l) => {
+    const v = variantMap[l.variantId!]
+    if (!v || !v.active) throw new ValidationError('أحد المتغيرات غير متاح')
+    if (v.stock < l.qty) throw new ValidationError('الكمية غير متوفرة لهذا المتغير')
+    return { ...l, unitPrice: Number(v.price), variantOptions: v.options as Record<string, string> }
+  })
+
+  const pricedLines = [
+    ...tierPriced.map((l, i) => ({ ...l, variantId: undefined as string | undefined, variantOptions: {} as Record<string, string> })),
+    ...variantPriced,
+  ]
+
+  const productIds = [...new Set(pricedLines.map((l) => l.productId).filter(Boolean))]
 
   const orderId = crypto.randomUUID()
   const ref = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
@@ -200,13 +241,24 @@ export async function createOrder(
     for (const line of pricedLines) {
       const p = productMap[line.productId]
       if (!p) throw new ValidationError('أحد المنتجات غير متاح')
-      if (p.stock < line.qty) throw new ValidationError(`الكمية غير متوفرة للمنتج: ${p.nameAr ?? p.name}`)
-      const updated = await tx
-        .update(productTable)
-        .set({ stock: sql`${productTable.stock} - ${line.qty}`, updatedAt: new Date() })
-        .where(and(eq(productTable.id, line.productId), gte(productTable.stock, line.qty)))
-        .returning({ id: productTable.id })
-      if (!updated.length) throw new ValidationError(`الكمية غير متوفرة للمنتج: ${p.nameAr ?? p.name}`)
+
+      if (line.variantId) {
+        // Deduct stock from variant row atomically
+        const updated = await tx
+          .update(productVariant)
+          .set({ stock: sql`${productVariant.stock} - ${line.qty}`, updatedAt: new Date() })
+          .where(and(eq(productVariant.id, line.variantId), gte(productVariant.stock, line.qty)))
+          .returning({ id: productVariant.id })
+        if (!updated.length) throw new ValidationError(`الكمية غير متوفرة للمتغير: ${p.nameAr ?? p.name}`)
+      } else {
+        if (p.stock < line.qty) throw new ValidationError(`الكمية غير متوفرة للمنتج: ${p.nameAr ?? p.name}`)
+        const updated = await tx
+          .update(productTable)
+          .set({ stock: sql`${productTable.stock} - ${line.qty}`, updatedAt: new Date() })
+          .where(and(eq(productTable.id, line.productId), gte(productTable.stock, line.qty)))
+          .returning({ id: productTable.id })
+        if (!updated.length) throw new ValidationError(`الكمية غير متوفرة للمنتج: ${p.nameAr ?? p.name}`)
+      }
     }
 
     const subtotal = pricedLines.reduce((s, l) => s + l.qty * l.unitPrice, 0)
@@ -239,6 +291,8 @@ export async function createOrder(
             productId: l.productId,
             productName: p?.nameAr ?? p?.name ?? l.productId,
             productImage: p?.imageUrl ?? null,
+            variantId: l.variantId ?? null,
+            variantOptions: l.variantOptions ?? {},
             qty: l.qty,
             unitPrice: l.unitPrice.toFixed(2),
             cartonQty: Math.ceil(l.qty / unitsPerCarton),

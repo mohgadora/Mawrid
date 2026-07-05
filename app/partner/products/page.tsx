@@ -153,6 +153,7 @@ export default function PartnerProductsPage() {
                     <td className="px-4 py-3">
                       {(() => {
                         const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+                        const rejectionReason = (p as unknown as { rejectionReason?: string | null }).rejectionReason
                         const cfg = STATUS_CONFIG[pStatus]
                         if (!cfg) return <span className="text-xs text-muted-foreground">{pStatus}</span>
                         const Icon = cfg.icon
@@ -162,6 +163,9 @@ export default function PartnerProductsPage() {
                               <Icon className="size-3" />
                               {cfg.label}
                             </span>
+                            {pStatus === 'rejected' && rejectionReason && (
+                              <p className="text-[10px] text-destructive max-w-[160px] leading-snug">{rejectionReason}</p>
+                            )}
                           </div>
                         )
                       })()}

@@ -7,6 +7,7 @@ import {
   user,
   supplier,
   product as productTable,
+  productApprovalHistory,
   priceTier,
   order,
   orderLine,
@@ -16,7 +17,7 @@ import {
   category,
   sellerEarning,
 } from '@/lib/db/schema'
-import { eq, desc, and, inArray, asc, sum, count } from 'drizzle-orm'
+import { eq, desc, and, inArray, asc, sum, count, max } from 'drizzle-orm'
 import { getSystemSettings } from '@/lib/settings'
 import { resolveActor, type Actor } from '@/lib/actor'
 import { ValidationError, NotFoundError } from '@/lib/errors'
@@ -151,6 +152,25 @@ export async function getPartnerProducts(actor?: Actor) {
     .orderBy(desc(productTable.createdAt))
     .limit(200)
 
+  const productIds = rows.map((r) => r.id)
+
+  // Fetch latest rejection reason per product from approval history
+  const rejectionMap = new Map<string, string | null>()
+  if (productIds.length) {
+    const historyRows = await db
+      .select({ productId: productApprovalHistory.productId, reason: productApprovalHistory.reason, createdAt: productApprovalHistory.createdAt })
+      .from(productApprovalHistory)
+      .where(and(inArray(productApprovalHistory.productId, productIds), eq(productApprovalHistory.status, 'rejected')))
+      .orderBy(desc(productApprovalHistory.createdAt))
+
+    // Keep only the most recent rejection per product
+    for (const h of historyRows) {
+      if (!rejectionMap.has(h.productId)) {
+        rejectionMap.set(h.productId, h.reason ?? null)
+      }
+    }
+  }
+
   return rows.map((p) => ({
     id: p.id,
     name: p.nameAr ?? p.name,
@@ -165,6 +185,7 @@ export async function getPartnerProducts(actor?: Actor) {
     unitsPerCarton: p.unitsPerCarton,
     categoryId: p.categoryId ?? '',
     status: p.status,
+    rejectionReason: p.status === 'rejected' ? (rejectionMap.get(p.id) ?? null) : null,
   }))
 }
 

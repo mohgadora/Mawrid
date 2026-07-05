@@ -190,6 +190,7 @@ export const orderLine = pgTable('order_line', {
   productName:    text('productName').notNull(),
   productImage:   text('productImage'),
   sku:            text('sku'),
+  variantId:      text('variantId').references(() => productVariant.id, { onDelete: 'set null' }),
   variantSku:     text('variantSku'),
   variantOptions: jsonb('variantOptions').notNull().default('{}'),
   qty:            integer('qty').notNull(),
