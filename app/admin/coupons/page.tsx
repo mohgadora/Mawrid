@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Plus, Pencil, Trash2, TicketPercent } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { useToast } from '@/lib/toast'
 
 type Coupon = {
   id: string
@@ -41,7 +42,9 @@ const EMPTY_FORM = {
 }
 
 export default function AdminCouponsPage() {
+  const { error: toastError } = useToast()
   const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [loadError, setLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [dialog, setDialog] = useState<{ open: boolean; editing?: Coupon }>({ open: false })
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -51,11 +54,14 @@ export default function AdminCouponsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res = await fetch('/api/v1/admin/coupons')
       if (!res.ok) throw new Error()
       setCoupons(await res.json())
-    } catch { /* ignore */ } finally {
+    } catch {
+      setLoadError(true)
+    } finally {
       setLoading(false)
     }
   }, [])
@@ -112,10 +118,13 @@ export default function AdminCouponsPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await fetch(`/api/v1/admin/coupons/${deleteTarget.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/v1/admin/coupons/${deleteTarget.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error(await res.text())
       setDeleteTarget(null)
       await load()
-    } catch { /* ignore */ } finally {
+    } catch {
+      toastError('فشل حذف الكوبون')
+    } finally {
       setDeleting(false)
     }
   }
@@ -136,6 +145,11 @@ export default function AdminCouponsPage() {
 
       {loading ? (
         <p className="text-sm text-muted-foreground">جاري التحميل…</p>
+      ) : loadError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <p className="text-sm text-destructive mb-2">فشل تحميل الكوبونات</p>
+          <button className="text-xs text-primary underline" onClick={load}>إعادة المحاولة</button>
+        </div>
       ) : (
         <div className="rounded-xl border border-border bg-card">
           <Table>

@@ -42,9 +42,15 @@ type Props = {
 export function PartnerProductFields({ form, onChange }: Props) {
   const { t } = useI18n()
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
+  const [catError, setCatError] = useState(false)
 
   useEffect(() => {
-    fetchPartnerCategories().then(setCategories).catch(() => {})
+    fetchPartnerCategories()
+      .then(setCategories)
+      .catch((err) => {
+        console.error('[ProductFormFields] failed to load categories', err)
+        setCatError(true)
+      })
   }, [])
 
   const set = (key: keyof ProductFormData, value: string | boolean) =>
@@ -93,7 +99,7 @@ export function PartnerProductFields({ form, onChange }: Props) {
         onChange={(e) => set('categoryId', e.target.value)}
         className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
       >
-        <option value="">{t('category')}</option>
+        <option value="">{catError ? 'فشل تحميل التصنيفات' : t('category')}</option>
         {categories.map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { UserPlus, Copy, Check, Share2, MessageCircle, Mail } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
@@ -25,19 +25,28 @@ export function InviteSection() {
   const { success } = useToast()
   const [copied, setCopied] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copiedLinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    if (copiedLinkTimerRef.current) clearTimeout(copiedLinkTimerRef.current)
+  }, [])
 
   function copyCode() {
     navigator.clipboard.writeText(REFERRAL_CODE).catch(() => {})
     setCopied(true)
     success(lang === 'ar' ? 'تم نسخ الكود!' : 'Code copied!')
-    setTimeout(() => setCopied(false), 2000)
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
   }
 
   function copyLink() {
     navigator.clipboard.writeText(REFERRAL_LINK).catch(() => {})
     setCopiedLink(true)
     success(lang === 'ar' ? 'تم نسخ الرابط!' : 'Link copied!')
-    setTimeout(() => setCopiedLink(false), 2000)
+    if (copiedLinkTimerRef.current) clearTimeout(copiedLinkTimerRef.current)
+    copiedLinkTimerRef.current = setTimeout(() => setCopiedLink(false), 2000)
   }
 
   return (

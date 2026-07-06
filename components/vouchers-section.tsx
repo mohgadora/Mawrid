@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Ticket, Copy, Check, Clock, BadgePercent, Truck, ShoppingBag } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
@@ -90,12 +90,16 @@ export function VouchersSection() {
   const [copied, setCopied] = useState<string | null>(null)
   const [inputCode, setInputCode] = useState('')
   const [applying, setApplying] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current) }, [])
 
   function copyCode(code: string) {
     navigator.clipboard.writeText(code).catch(() => {})
     setCopied(code)
     success(lang === 'ar' ? 'تم نسخ الكود!' : 'Code copied!')
-    setTimeout(() => setCopied(null), 2000)
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    copiedTimerRef.current = setTimeout(() => setCopied(null), 2000)
   }
 
   async function applyCode() {

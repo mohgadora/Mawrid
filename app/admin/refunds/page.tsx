@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   getAdminRefundsApi,
   approveRefundApi,
@@ -55,7 +55,7 @@ export default function AdminRefundsPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [busy, setBusy]           = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -66,9 +66,9 @@ export default function AdminRefundsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [tab])
 
-  useEffect(() => { void load() }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load() }, [load])
 
   async function handleApprove(id: string) {
     setBusy(true)

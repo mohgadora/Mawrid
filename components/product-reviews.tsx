@@ -141,7 +141,8 @@ function ReplyForm({ productId, reviewId, onDone }: { productId: string; reviewI
       await submitReviewReplyApi(productId, reviewId, body.trim())
       success(lang === 'ar' ? 'تم إرسال ردّك' : 'Reply sent')
       onDone()
-    } catch {
+    } catch (err) {
+      console.error('[ProductReviews] reply submit failed', err)
       toastError(lang === 'ar' ? 'فشل الإرسال' : 'Failed')
     } finally {
       setLoading(false)
@@ -197,7 +198,8 @@ export function ProductReviews({ productId }: { productId: string }) {
     try {
       await toggleReviewHelpfulApi(productId, reviewId)
       await mutate()
-    } catch {
+    } catch (err) {
+      console.error('[ProductReviews] toggleHelpful failed', err)
       setOptimistic((p) => ({ ...p, [reviewId]: current }))
     }
   }

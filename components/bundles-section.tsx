@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { ShoppingCart, Check, Package, Tag } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { useCart, toCartSnapshot } from '@/lib/cart'
 import { useRole } from '@/lib/role'
@@ -46,6 +46,9 @@ function BundleCard({ bundle }: { bundle: typeof BUNDLES[number] }) {
   const { isMerchant } = useRole()
   const { products: allProducts } = useProducts()
   const [added, setAdded] = useState(false)
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (addedTimerRef.current) clearTimeout(addedTimerRef.current) }, [])
 
   const products = bundle.productIds
     .map((id) => allProducts.find((p) => p.id === id))
@@ -65,7 +68,8 @@ function BundleCard({ bundle }: { bundle: typeof BUNDLES[number] }) {
   function handleAddBundle() {
     products.forEach((p) => addItem(toCartSnapshot(p), isMerchant ? p.moq : 1))
     setAdded(true)
-    setTimeout(() => setAdded(false), 2000)
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+    addedTimerRef.current = setTimeout(() => setAdded(false), 2000)
   }
 
   return (
