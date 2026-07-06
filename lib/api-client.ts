@@ -1033,6 +1033,35 @@ export function getWalletReportApi(): Promise<WalletReport> {
   return apiFetch<WalletReport>('admin/analytics/wallet-report')
 }
 
+// ── Admin: SEO ────────────────────────────────────────────────────────────
+
+export type SeoMetaRow = {
+  id: string
+  entityType: string
+  entityId: string
+  titleAr: string | null
+  titleEn: string | null
+  descriptionAr: string | null
+  descriptionEn: string | null
+  keywords: string[]
+  ogImage: string | null
+  canonicalUrl: string | null
+  noIndex: boolean
+  updatedAt: string
+}
+
+export function fetchSeoMeta(entityType?: string): Promise<SeoMetaRow[]> {
+  return apiFetch(`admin/seo${entityType ? `?entityType=${entityType}` : ''}`)
+}
+
+export function upsertSeoMetaApi(data: Record<string, unknown>): Promise<SeoMetaRow> {
+  return apiFetch('admin/seo', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function deleteSeoMetaApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/seo/${id}`, { method: 'DELETE' })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

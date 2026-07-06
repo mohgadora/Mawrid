@@ -489,6 +489,26 @@ export const sellerEarning = pgTable('seller_earning', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SEO
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const seoMeta = pgTable('seo_meta', {
+  id:            uuid(),
+  entityType:    text('entityType').notNull(), // product | category | supplier | page
+  entityId:      text('entityId').notNull(),
+  titleAr:       text('titleAr'),
+  titleEn:       text('titleEn'),
+  descriptionAr: text('descriptionAr'),
+  descriptionEn: text('descriptionEn'),
+  keywords:      jsonb('keywords').notNull().default('[]'),
+  ogImage:       text('ogImage'),
+  canonicalUrl:  text('canonicalUrl'),
+  noIndex:       boolean('noIndex').notNull().default(false),
+  createdAt:     now(),
+  updatedAt:     timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CHAT
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -792,6 +812,8 @@ export type Conversation       = typeof conversation.$inferSelect
 export type NewConversation    = typeof conversation.$inferInsert
 export type ChatMessage        = typeof chatMessage.$inferSelect
 export type NewChatMessage     = typeof chatMessage.$inferInsert
+export type SeoMeta            = typeof seoMeta.$inferSelect
+export type NewSeoMeta         = typeof seoMeta.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect

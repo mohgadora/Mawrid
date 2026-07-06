@@ -746,6 +746,7 @@ const DICT = {
   adminWallets: { ar: 'المحافظ', en: 'Wallets' },
   adminWalletBonuses: { ar: 'بونص الشحن', en: 'Top-up Bonuses' },
   adminCashback: { ar: 'الاسترجاع النقدي', en: 'CashBack' },
+  adminSeo: { ar: 'تحسين محركات البحث', en: 'SEO' },
   adminRefunds: { ar: 'المرتجعات', en: 'Refunds' },
   adminProducts: { ar: 'المنتجات', en: 'Products' },
   adminWithdrawals: { ar: 'طلبات السحب', en: 'Withdrawal Requests' },

@@ -39,6 +39,18 @@ export const RETAIL_MARKUP = 1.15
 /** Free-shipping threshold and flat fee, in USD. */
 export const SHIPPING = { freeOverUsd: 500, flatUsd: 15 } as const
 
+/**
+ * Public base URL for canonical links, sitemap and structured data.
+ * Prefers NEXT_PUBLIC_SITE_URL, falls back to the auth URL, then localhost.
+ */
+export function siteUrl(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.BETTER_AUTH_URL ||
+    'http://localhost:3600'
+  return raw.replace(/\/+$/, '')
+}
+
 // ── Map configuration ──────────────────────────────────────────────────────
 /**
  * Switching the active map engine is a one-line change here.

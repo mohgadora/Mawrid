@@ -94,6 +94,7 @@ const NAV: Section[] = [
     titleKey: 'adminReports',
     items: [
       { labelKey: 'adminReports', href: '/admin/reports', icon: BarChart2 },
+      { labelKey: 'adminSeo', href: '/admin/seo', icon: Globe },
     ],
   },
   {
