@@ -29,7 +29,7 @@ export default function AdminBuyersPage() {
         body: JSON.stringify({ banned }),
       })
       if (!res.ok) throw new Error(await res.text())
-      mutate()
+      await mutate()
     } catch {
       toastError(t('toastSaveFailed'))
     } finally {

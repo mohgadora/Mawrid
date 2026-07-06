@@ -81,7 +81,7 @@ export function HeaderSearch({
     return PRODUCTS.filter((p) =>
       [p.nameAr, p.nameEn, p.supplierAr, p.supplierEn].join(' ').toLowerCase().includes(q),
     ).slice(0, 5)
-  }, [q])
+  }, [q, PRODUCTS])
 
   const categoryMatches = useMemo(() => {
     if (!q) return []

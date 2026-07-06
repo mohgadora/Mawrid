@@ -279,7 +279,7 @@ export default function PartnerWithdrawalsPage() {
       const json = await res.json() as { error?: string }
       if (!res.ok) throw new Error(json.error ?? 'فشل إلغاء الطلب')
       success('تم إلغاء طلب السحب')
-      mutate()
+      await mutate()
     } catch (err) {
       toastError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع')
     }
@@ -361,7 +361,7 @@ export default function PartnerWithdrawalsPage() {
 
                     {/* Date */}
                     <td className="px-5 py-3 text-xs text-muted-foreground">
-                      {w.createdAt.slice(0, 10)}
+                      {w.createdAt?.slice(0, 10) ?? '—'}
                     </td>
 
                     {/* Cancel action */}

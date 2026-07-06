@@ -13,6 +13,7 @@ import {
   BarChart2, CreditCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { authClient } from '@/lib/auth-client'
 import { useI18n, type DictKey } from '@/lib/i18n'
 
 /* ─── Sidebar context ───────────────────────────────────────── */
@@ -166,6 +167,7 @@ const NAV: Section[] = [
 function NavContent({ onNavigate }: { onNavigate: () => void }) {
   const pathname = usePathname()
   const { t } = useI18n()
+  const { data: session } = authClient.useSession()
 
   return (
     <div className="flex h-full flex-col">
@@ -232,11 +234,11 @@ function NavContent({ onNavigate }: { onNavigate: () => void }) {
       <div className="shrink-0 border-t border-border p-3">
         <div className="flex items-center gap-2.5 rounded-lg bg-muted px-3 py-2">
           <div className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground text-xs font-bold select-none">
-            أ
+            {session?.user?.name?.[0] ?? 'A'}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-xs font-semibold text-foreground">أحمد العمري</p>
-            <p className="truncate text-[10px] text-muted-foreground">Super Admin</p>
+            <p className="truncate text-xs font-semibold text-foreground">{session?.user?.name ?? '—'}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{session?.user?.role ?? 'Admin'}</p>
           </div>
         </div>
       </div>

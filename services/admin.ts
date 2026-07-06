@@ -150,8 +150,10 @@ export async function getApprovals() {
     : []
   const userMap  = Object.fromEntries(userRows.map((u) => [u.id, u]))
 
-  // Fetch supplier rows for supplier-type KYC
-  const supplierRows = await db.select({ userId: supplier.userId, nameAr: supplier.nameAr, name: supplier.name }).from(supplier)
+  // Fetch supplier rows for supplier-type KYC (scoped to relevant user IDs)
+  const supplierRows = userIds.length
+    ? await db.select({ userId: supplier.userId, nameAr: supplier.nameAr, name: supplier.name }).from(supplier).where(inArray(supplier.userId, userIds))
+    : []
   const supplierByUserId = Object.fromEntries(supplierRows.map((s) => [s.userId, s]))
 
   // Fetch pending products
@@ -253,10 +255,16 @@ export async function getAdminOrders() {
     .orderBy(desc(order.createdAt))
     .limit(200)
 
-  const userRows = await db.select({ id: user.id, name: user.name }).from(user)
+  const orderUserIds = [...new Set(rows.map((o) => o.userId))]
+  const userRows = orderUserIds.length
+    ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, orderUserIds))
+    : []
   const userMap = Object.fromEntries(userRows.map((u) => [u.id, u.name]))
 
-  const supRows = await db.select({ id: supplier.id, name: supplier.name }).from(supplier)
+  const orderSupIds = [...new Set(rows.map((o) => o.supplierId).filter(Boolean))] as string[]
+  const supRows = orderSupIds.length
+    ? await db.select({ id: supplier.id, name: supplier.name }).from(supplier).where(inArray(supplier.id, orderSupIds))
+    : []
   const supMap = Object.fromEntries(supRows.map((s) => [s.id, s.name]))
 
   const orderIds = rows.map((o) => o.id)
@@ -530,7 +538,10 @@ export async function getTransactions() {
     .orderBy(desc(transactionTable.createdAt))
     .limit(200)
 
-  const userRows = await db.select({ id: user.id, name: user.name }).from(user)
+  const txUserIds = [...new Set(rows.map((t) => t.userId))]
+  const userRows = txUserIds.length
+    ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, txUserIds))
+    : []
   const userMap  = Object.fromEntries(userRows.map((u) => [u.id, u.name]))
 
   return rows.map((t) => ({

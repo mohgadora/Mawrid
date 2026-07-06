@@ -106,7 +106,7 @@ export function MarketIndicator({
   const { t, lang, formatPrice } = useI18n()
   const price = ourPrice ?? product.basePrice
   const history = useMemo(() => marketHistory(product), [product])
-  const savingsPct = Math.max(0, Math.round((1 - price / product.marketPrice) * 100))
+  const savingsPct = product.marketPrice > 0 ? Math.max(0, Math.round((1 - price / product.marketPrice) * 100)) : 0
   const savingsAmount = Math.max(0, product.marketPrice - price)
 
   const updated = new Intl.DateTimeFormat(lang === 'ar' ? 'ar' : 'en-US', {

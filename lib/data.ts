@@ -629,8 +629,13 @@ export function marketSavingsUsd(marketPrice: number, price: number, qty: number
 /** Min/max wholesale price across all products in a list (USD), for range filters. */
 export function priceRangeUsd(products: Product[]): [number, number] {
   if (!products.length) return [0, 0]
-  const prices = products.map((p) => p.basePrice)
-  return [Math.floor(Math.min(...prices)), Math.ceil(Math.max(...prices))]
+  let min = products[0].basePrice
+  let max = products[0].basePrice
+  for (const p of products) {
+    if (p.basePrice < min) min = p.basePrice
+    if (p.basePrice > max) max = p.basePrice
+  }
+  return [Math.floor(min), Math.ceil(max)]
 }
 
 /**

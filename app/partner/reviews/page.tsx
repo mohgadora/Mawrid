@@ -510,6 +510,7 @@ export default function PartnerReviewsPage() {
 
       {/* Dialogs */}
       <ReplyDialog
+        key={replyTarget?.id ?? 'reply-dialog'}
         review={replyTarget}
         open={Boolean(replyTarget)}
         onClose={() => setReplyTarget(null)}

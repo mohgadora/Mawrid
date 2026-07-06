@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   X,
   Star,
@@ -31,6 +31,7 @@ export function QuickViewModal({ product, onClose }: QuickViewModalProps) {
   const { addItem } = useCart()
   const { isMerchant } = useRole()
   const [added, setAdded] = useState(false)
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const minQty = product ? (isMerchant ? product.moq : 1) : 1
   const [qty, setQty] = useState(minQty)
 
@@ -52,19 +53,20 @@ export function QuickViewModal({ product, onClose }: QuickViewModalProps) {
       ? Math.round((1 - product.basePrice / product.oldPrice) * 100)
       : 0
 
-  // Simulated stock — in a real app this would come from inventory API
-  const stock = product ? Math.floor(((product.sold % 7) + 3)) : 0
+  const stock = product ? ((product as unknown as { stock?: number }).stock ?? 0) : 0
 
   function changeQty(delta: number) {
     setQty((q) => Math.max(minQty, q + delta))
   }
 
+  useEffect(() => () => { if (addedTimerRef.current) clearTimeout(addedTimerRef.current) }, [])
+
   function handleAdd() {
     if (!product) return
     addItem(toCartSnapshot(product), qty)
     setAdded(true)
-    const t = setTimeout(() => setAdded(false), 1800)
-    return () => clearTimeout(t)
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+    addedTimerRef.current = setTimeout(() => setAdded(false), 1800)
   }
 
   if (!product) return null

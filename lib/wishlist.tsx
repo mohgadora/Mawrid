@@ -33,7 +33,10 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(LS_KEY)
       if (stored) setIds(JSON.parse(stored) as string[])
-    } catch {}
+    } catch (e) {
+      console.warn('[wishlist] corrupted storage; resetting', e)
+      localStorage.removeItem(LS_KEY)
+    }
   }, [])
 
   const toggle = useCallback((productId: string) => {

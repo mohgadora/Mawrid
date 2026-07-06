@@ -9,8 +9,7 @@ import { NotificationBell } from '@/components/notification-bell'
 import { useI18n, LANGS, LANG_LABEL, type DictKey } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
 import { useSidebar } from '@/components/admin/admin-sidebar'
-import useSWR from 'swr'
-import { fetchAdminKpi } from '@/lib/api-client'
+
 
 /** Accessible 5-language dropdown for the admin header */
 function AdminLangPicker() {
@@ -122,8 +121,6 @@ export function AdminHeader() {
   const { t, lang, setLang } = useI18n()
   const { theme, toggle } = useTheme()
   const { open, toggle: toggleSidebar } = useSidebar()
-  const { data: kpiData } = useSWR<Awaited<ReturnType<typeof fetchAdminKpi>>>('admin/kpi', fetchAdminKpi)
-
   const labelKey = ROUTE_LABEL_KEYS[pathname] ?? 'adminPanel'
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card px-3 lg:px-5">

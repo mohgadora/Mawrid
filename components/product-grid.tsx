@@ -31,7 +31,7 @@ export function ProductGrid() {
       }
       return true
     })
-  }, [cat, q])
+  }, [cat, q, PRODUCTS])
 
   const activeCat = CATEGORIES.find((c) => c.slug === cat)
 

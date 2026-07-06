@@ -37,10 +37,9 @@ const BOT_REPLIES_EN = [
   'Our support team is available from 8 AM to 10 PM.',
 ]
 
-let replyIdx = 0
-
 export function LiveChat() {
   const { lang } = useI18n()
+  const replyIdxRef = useRef(0)
   const [open, setOpen] = useState(false)
   const [minimized, setMinimized] = useState(false)
   const [input, setInput] = useState('')
@@ -75,8 +74,8 @@ export function LiveChat() {
 
     // Simulate bot reply
     const replies = lang === 'ar' ? BOT_REPLIES_AR : BOT_REPLIES_EN
-    const reply = replies[replyIdx % replies.length]
-    replyIdx++
+    const reply = replies[replyIdxRef.current % replies.length]
+    replyIdxRef.current++
 
     if (botTimerRef.current) clearTimeout(botTimerRef.current)
     botTimerRef.current = setTimeout(() => {

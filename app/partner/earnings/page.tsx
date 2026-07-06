@@ -231,7 +231,7 @@ export default function PartnerEarningsPage() {
                     </td>
                     <td className="px-5 py-3 font-semibold text-success">{formatPrice(e.netEarning)}</td>
                     <td className="px-5 py-3"><StatusBadge status={e.status} /></td>
-                    <td className="px-5 py-3 text-xs text-muted-foreground">{e.createdAt.slice(0, 10)}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">{e.createdAt?.slice(0, 10) ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -267,7 +267,7 @@ export default function PartnerEarningsPage() {
                     <td className="px-5 py-3 text-xs">{w.bankAccount?.bankName ?? '—'}</td>
                     <td className="px-5 py-3"><StatusBadge status={w.status} /></td>
                     <td className="px-5 py-3 font-mono text-xs">{w.reference || '—'}</td>
-                    <td className="px-5 py-3 text-xs text-muted-foreground">{w.createdAt.slice(0, 10)}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">{w.createdAt?.slice(0, 10) ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -417,7 +417,7 @@ export default function PartnerOnboardingPage() {
         phone: form.phone || undefined,
       })
       // Submit KYC data
-      await fetch('/api/v1/partner/kyc', {
+      const kycRes = await fetch('/api/v1/partner/kyc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -426,6 +426,10 @@ export default function PartnerOnboardingPage() {
           documents: docUrls.filter(Boolean),
         }),
       })
+      if (!kycRes.ok) {
+        const err = await kycRes.json().catch(() => ({})) as { error?: string }
+        throw new Error(err.error ?? 'فشل إرسال بيانات KYC')
+      }
       success('تم إرسال طلبك بنجاح! سيتم مراجعته قريباً.')
       router.replace('/partner/pending')
     } catch {

@@ -663,48 +663,47 @@ export async function requestWithdrawal(
  * Safe to call multiple times — skips if earning already exists for this order.
  */
 export async function recordSellerEarning(orderId: string) {
-  // Skip if already recorded
-  const existing = await db
-    .select({ id: sellerEarning.id })
-    .from(sellerEarning)
-    .where(eq(sellerEarning.orderId, orderId))
-    .limit(1)
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ id: sellerEarning.id })
+      .from(sellerEarning)
+      .where(eq(sellerEarning.orderId, orderId))
+      .limit(1)
 
-  if (existing.length) return null
+    if (existing.length) return null
 
-  const [orderRow] = await db
-    .select()
-    .from(order)
-    .where(eq(order.id, orderId))
-    .limit(1)
+    const [orderRow] = await tx
+      .select()
+      .from(order)
+      .where(eq(order.id, orderId))
+      .limit(1)
 
-  if (!orderRow?.supplierId) return null
+    if (!orderRow?.supplierId) return null
 
-  const settings = await getSystemSettings()
-  const commissionRate = settings.defaultCommissionRate
+    const settings = await getSystemSettings()
+    const commissionRate = settings.defaultCommissionRate
 
-  // Find if this supplier has a custom commission rate (from their row in DB)
-  // For now use the global default; extend later for per-supplier rates
-  const gross = Number(orderRow.total)
-  const commissionAmount = (gross * commissionRate) / 100
-  const netEarning = gross - commissionAmount
+    const gross = Number(orderRow.total)
+    const commissionAmount = (gross * commissionRate) / 100
+    const netEarning = gross - commissionAmount
 
-  const [earning] = await db
-    .insert(sellerEarning)
-    .values({
-      id:               crypto.randomUUID(),
-      supplierId:       orderRow.supplierId,
-      orderId,
-      grossAmount:      String(gross),
-      commissionRate:   String(commissionRate),
-      commissionAmount: String(commissionAmount),
-      netEarning:       String(netEarning),
-      status:           'pending',
-      createdAt:        new Date(),
-    })
-    .returning()
+    const [earning] = await tx
+      .insert(sellerEarning)
+      .values({
+        id:               crypto.randomUUID(),
+        supplierId:       orderRow.supplierId,
+        orderId,
+        grossAmount:      String(gross),
+        commissionRate:   String(commissionRate),
+        commissionAmount: String(commissionAmount),
+        netEarning:       String(netEarning),
+        status:           'pending',
+        createdAt:        new Date(),
+      })
+      .returning()
 
-  return earning
+    return earning
+  })
 }
 
 // ── updatePartnerStore (extended) ─────────────────────────────────────────
@@ -772,13 +771,6 @@ export async function getPartnerInventory(actor?: Actor) {
     list.push(v)
     variantMap.set(v.productId, list)
   }
-
-  const [lastMovements] = await db
-    .select({ productId: stockMovement.productId, maxAt: max(stockMovement.createdAt) })
-    .from(stockMovement)
-    .where(inArray(stockMovement.productId, productIds))
-
-  void lastMovements
 
   return products.map((p) => ({
     id: p.id,

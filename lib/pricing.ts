@@ -16,7 +16,7 @@ type Tier = { minQty: number; maxQty: number | null; price: string }
 /** يختار سعر الشريحة المطابقة لكمية معيّنة (USD، سعر الجملة قبل الهامش). */
 function pickTierPriceUsd(tiers: Tier[], qty: number): number {
   if (!tiers.length) throw new ValidationError('لا يوجد سعر متاح لهذا المنتج')
-  const minMoq = Math.min(...tiers.map((t) => t.minQty))
+  const minMoq = tiers.reduce((m, t) => Math.min(m, t.minQty), tiers[0].minQty)
   if (qty < minMoq) {
     throw new ValidationError(`الحد الأدنى للطلب ${minMoq} وحدة`)
   }

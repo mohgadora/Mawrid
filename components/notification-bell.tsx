@@ -31,8 +31,8 @@ export function NotificationBell() {
   const load = useCallback(async () => {
     try {
       const data = await getNotificationsApi()
-      setNotifications(data.notifications)
-      setUnreadCount(data.unreadCount)
+      setNotifications(data.notifications ?? [])
+      setUnreadCount(data.unreadCount ?? 0)
     } catch {
       // ignore
     }

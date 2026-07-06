@@ -87,8 +87,7 @@ export function OrderTimeline({
     return fmtDate(d.toISOString())
   })()
 
-  // Courier tracking number (mock)
-  const trackingNo = `MW${timeline[0]?.at.slice(0, 10).replace(/-/g, '')}${status !== 'pending' ? '7834' : ''}`
+  const trackingNo = `MW${timeline[0]?.at.slice(0, 10).replace(/-/g, '') ?? ''}`
   const showCourier = status === 'shipped' || status === 'out_for_delivery'
 
   return (

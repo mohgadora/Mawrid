@@ -291,11 +291,8 @@ export default function PartnerInventoryPage() {
     : items
 
   function handleExport() {
-    try {
-      window.open('/api/v1/partner/inventory/export')
-    } catch {
-      toastError('تعذّر تصدير الملف')
-    }
+    const w = window.open('/api/v1/partner/inventory/export')
+    if (!w) toastError('تعذّر تصدير الملف — تحقق من إعدادات النوافذ المنبثقة')
   }
 
   return (

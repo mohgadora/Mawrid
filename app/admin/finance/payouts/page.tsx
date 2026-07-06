@@ -42,7 +42,7 @@ export default function PayoutsPage() {
       })
       if (!res.ok) throw new Error(await res.text())
       success('تمت الموافقة على طلب السحب')
-      mutate()
+      await mutate()
     } catch { toastError('فشلت العملية') } finally { setActing(null) }
   }
 
@@ -59,7 +59,7 @@ export default function PayoutsPage() {
       success('تم رفض طلب السحب')
       setRejectDialog({ open: false })
       setRejectReason('')
-      mutate()
+      await mutate()
     } catch { toastError('فشلت العملية') } finally { setActing(null) }
   }
 
@@ -76,7 +76,7 @@ export default function PayoutsPage() {
       success('تم تسجيل الدفع بنجاح')
       setPaidDialog({ open: false })
       setReference('')
-      mutate()
+      await mutate()
     } catch { toastError('فشلت العملية') } finally { setActing(null) }
   }
 

@@ -84,7 +84,7 @@ export function ProductBrowser({
         break
     }
     return sorted
-  }, [products, supplier, category, maxPrice, sort, showCategoryFilter])
+  }, [products, supplier, category, maxPrice, sort, showCategoryFilter, minRating, verifiedOnly, onSaleOnly])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, pageCount)

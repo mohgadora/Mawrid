@@ -93,10 +93,12 @@ function StoreSwitcher({ currentSupplierId }: { currentSupplierId?: string }) {
   const router = useRouter()
 
   useEffect(() => {
-    fetch('/api/v1/admin/suppliers-list')
+    const controller = new AbortController()
+    fetch('/api/v1/admin/suppliers-list', { signal: controller.signal })
       .then((r) => r.ok ? r.json() : null)
       .then((j) => { if (j?.data) setStores(j.data) })
       .catch(() => {})
+    return () => controller.abort()
   }, [])
 
   useEffect(() => {

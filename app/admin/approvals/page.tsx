@@ -120,7 +120,7 @@ export default function ApprovalsPage() {
                       <td className="px-4 py-3 font-medium">{p.name ?? '—'}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{p.supplierName || '—'}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.sku ?? '—'}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.createdAt ? p.createdAt.slice(0, 10) : '—'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           <Button

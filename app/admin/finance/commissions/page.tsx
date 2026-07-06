@@ -169,9 +169,9 @@ export default function CommissionsPage() {
                         {r.commissionRate != null ? `${r.commissionRate}%` : 'افتراضي'}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{r.orderId?.slice(0, 8) ?? '—'}</td>
-                      <td className="px-4 py-3 text-xs">{r.grossAmount.toLocaleString('ar-SA', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-4 py-3 text-xs text-primary font-medium">{r.commissionAmount.toLocaleString('ar-SA', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-4 py-3 text-xs">{r.netEarning.toLocaleString('ar-SA', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-xs">{(r.grossAmount ?? 0).toLocaleString('ar-SA', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-xs text-primary font-medium">{(r.commissionAmount ?? 0).toLocaleString('ar-SA', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-4 py-3 text-xs">{(r.netEarning ?? 0).toLocaleString('ar-SA', { minimumFractionDigits: 2 })}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[r.status] ?? ''}`}>
                           {STATUS_LABEL[r.status] ?? r.status}

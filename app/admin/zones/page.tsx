@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import useSWR from 'swr'
 import { Plus, Pencil, InboxIcon, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import { getDeliveryZones, createZoneApi, updateZoneApi, deleteZoneApi,
@@ -358,9 +358,8 @@ export default function ZonesPage() {
               </thead>
               <tbody>
                 {zones.map((z) => (
-                  <>
+                  <React.Fragment key={z.id}>
                     <tr
-                      key={z.id}
                       className="border-b border-border/50 transition-colors hover:bg-muted/30 cursor-pointer"
                       onClick={() => toggleExpand(z.id)}
                     >
@@ -403,7 +402,7 @@ export default function ZonesPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

@@ -19,7 +19,7 @@ export function SupplierView({ id }: { id: string }) {
     () => getSupplierWithProducts(id),
   )
 
-  const yearsActive = data?.supplier ? new Date().getFullYear() - data.supplier.since : 0
+  const yearsActive = data?.supplier?.since != null ? new Date().getFullYear() - data.supplier.since : 0
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">

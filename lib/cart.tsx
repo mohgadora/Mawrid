@@ -90,7 +90,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem('mawrid_cart')
       if (saved) setItems(JSON.parse(saved))
-    } catch {}
+    } catch (e) {
+      console.warn('[cart] failed to parse saved cart; resetting', e)
+      localStorage.removeItem('mawrid_cart')
+    }
     setLoaded(true)
   }, [])
 

@@ -215,46 +215,48 @@ export async function toggleReviewHelpful(params: {
   reviewId: string
   userId: string
 }): Promise<{ helpful: boolean; count: number }> {
-  const existing = await db
-    .select({ id: reviewHelpful.id })
-    .from(reviewHelpful)
-    .where(
-      and(
-        eq(reviewHelpful.reviewId, params.reviewId),
-        eq(reviewHelpful.userId, params.userId),
-      ),
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ id: reviewHelpful.id })
+      .from(reviewHelpful)
+      .where(
+        and(
+          eq(reviewHelpful.reviewId, params.reviewId),
+          eq(reviewHelpful.userId, params.userId),
+        ),
+      )
+      .limit(1)
+
+    let helpful: boolean
+    if (existing.length > 0) {
+      await tx
+        .delete(reviewHelpful)
+        .where(eq(reviewHelpful.id, existing[0].id))
+      helpful = false
+    } else {
+      await tx.insert(reviewHelpful).values({
+        id:       crypto.randomUUID(),
+        reviewId: params.reviewId,
+        userId:   params.userId,
+      })
+      helpful = true
+    }
+
+    // Update cached count
+    await tx.execute(
+      sql`UPDATE product_review
+          SET "helpfulCount" = (
+            SELECT COUNT(*) FROM review_helpful WHERE "reviewId" = ${params.reviewId}
+          )
+          WHERE id = ${params.reviewId}`,
     )
-    .limit(1)
 
-  let helpful: boolean
-  if (existing.length > 0) {
-    await db
-      .delete(reviewHelpful)
-      .where(eq(reviewHelpful.id, existing[0].id))
-    helpful = false
-  } else {
-    await db.insert(reviewHelpful).values({
-      id:       crypto.randomUUID(),
-      reviewId: params.reviewId,
-      userId:   params.userId,
-    })
-    helpful = true
-  }
+    const [updated] = await tx
+      .select({ helpfulCount: productReview.helpfulCount })
+      .from(productReview)
+      .where(eq(productReview.id, params.reviewId))
+      .limit(1)
 
-  // Update cached count
-  await db.execute(
-    sql`UPDATE product_review
-        SET "helpfulCount" = (
-          SELECT COUNT(*) FROM review_helpful WHERE "reviewId" = ${params.reviewId}
-        )
-        WHERE id = ${params.reviewId}`,
-  )
-
-  const [updated] = await db
-    .select({ helpfulCount: productReview.helpfulCount })
-    .from(productReview)
-    .where(eq(productReview.id, params.reviewId))
-    .limit(1)
-
-  return { helpful, count: updated?.helpfulCount ?? 0 }
+    return { helpful, count: updated?.helpfulCount ?? 0 }
+  })
 }

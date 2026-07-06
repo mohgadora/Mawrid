@@ -30,6 +30,7 @@ export function MarketPriceBadge({
 }) {
   const { t, lang, formatPrice } = useI18n()
   const compare = price ?? product.basePrice
+  if (!product.marketPrice || product.marketPrice <= 0) return null
   const pct = Math.round((1 - compare / product.marketPrice) * 100)
 
   // Only surface savings, never a loss.

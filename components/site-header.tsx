@@ -28,7 +28,7 @@ import { useMiniCart } from '@/lib/mini-cart'
 import { useWishlist } from '@/lib/wishlist'
 import { useRole } from '@/lib/role'
 import type { Role } from '@/lib/config'
-import { CATEGORIES } from '@/lib/data'
+import { CATEGORIES, retailPriceUsd } from '@/lib/data'
 import { CategoryIcon } from '@/components/category-icon'
 import { HeaderSearch } from '@/components/header-search'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -221,7 +221,7 @@ function MegaMenu() {
                 <div className="grid grid-cols-3 gap-3">
                   {featuredProducts.map((p) => {
                     const name = lang === 'ar' ? p.nameAr : p.nameEn
-                    const price = role === 'merchant' ? p.basePrice : p.basePrice * 1.15
+                    const price = role === 'merchant' ? p.basePrice : retailPriceUsd(p)
                     return (
                       <Link
                         key={p.id}
