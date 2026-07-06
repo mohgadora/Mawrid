@@ -90,16 +90,19 @@ export async function getRevenueSummary(period: Period) {
 export async function getRevenueByDay(days: number) {
   const cutoffDate = daysAgo(days)
 
+  // SELECT/GROUP BY/ORDER BY must use the *same* expression or Postgres throws
+  // 42803 ("must appear in the GROUP BY clause").
+  const dayExpr = sql`to_char(${order.createdAt}, 'YYYY-MM-DD')`
   const rows = await db
     .select({
-      date: sql<string>`to_char(DATE(${order.createdAt}), 'YYYY-MM-DD')`.as('date'),
+      date: sql<string>`to_char(${order.createdAt}, 'YYYY-MM-DD')`.as('date'),
       revenue: sql<string>`COALESCE(SUM(${order.total}), '0')`.as('revenue'),
       orders: sql<number>`COUNT(${order.id})`.as('orders'),
     })
     .from(order)
     .where(and(inArray(order.status, [...COMPLETED]), gte(order.createdAt, cutoffDate)))
-    .groupBy(sql`DATE(${order.createdAt})`)
-    .orderBy(sql`DATE(${order.createdAt}) ASC`)
+    .groupBy(dayExpr)
+    .orderBy(dayExpr)
 
   return rows.map((r) => ({
     date: r.date,
