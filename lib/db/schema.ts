@@ -489,6 +489,29 @@ export const sellerEarning = pgTable('seller_earning', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ADVERTISEMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const advertisement = pgTable('advertisement', {
+  id:          uuid(),
+  titleAr:     text('titleAr').notNull(),
+  titleEn:     text('titleEn'),
+  type:        text('type').notNull(), // banner | popup | product_highlight | category_highlight
+  imageUrl:    text('imageUrl').notNull(),
+  targetUrl:   text('targetUrl'),
+  placement:   text('placement').notNull(), // home_top | home_middle | category_page | search_results | checkout
+  priority:    integer('priority').notNull().default(0),
+  impressions: integer('impressions').notNull().default(0),
+  clicks:      integer('clicks').notNull().default(0),
+  supplierId:  text('supplierId').references(() => supplier.id, { onDelete: 'cascade' }),
+  status:      text('status').notNull().default('approved'), // pending | approved | rejected
+  active:      boolean('active').notNull().default(true),
+  startsAt:    timestamp('startsAt', { withTimezone: true }),
+  expiresAt:   timestamp('expiresAt', { withTimezone: true }),
+  createdAt:   now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SEO
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -814,6 +837,8 @@ export type ChatMessage        = typeof chatMessage.$inferSelect
 export type NewChatMessage     = typeof chatMessage.$inferInsert
 export type SeoMeta            = typeof seoMeta.$inferSelect
 export type NewSeoMeta         = typeof seoMeta.$inferInsert
+export type Advertisement      = typeof advertisement.$inferSelect
+export type NewAdvertisement   = typeof advertisement.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect

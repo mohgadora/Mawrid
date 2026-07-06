@@ -1062,6 +1062,61 @@ export function deleteSeoMetaApi(id: string): Promise<{ success: boolean }> {
   return apiFetch(`admin/seo/${id}`, { method: 'DELETE' })
 }
 
+// ── Advertisements ────────────────────────────────────────────────────────
+
+export type AdBanner = {
+  id: string
+  titleAr: string
+  titleEn: string | null
+  type: string
+  imageUrl: string
+  targetUrl: string | null
+  placement: string
+}
+
+export function fetchAdsByPlacement(placement: string): Promise<AdBanner[]> {
+  return apiFetch(`ads?placement=${encodeURIComponent(placement)}`)
+}
+
+export function trackAdApi(id: string, event: 'impression' | 'click'): Promise<{ success: boolean }> {
+  return apiFetch(`ads/${id}/track`, { method: 'POST', body: JSON.stringify({ event }) })
+}
+
+export type AdvertisementRow = {
+  id: string
+  titleAr: string
+  titleEn: string | null
+  type: string
+  imageUrl: string
+  targetUrl: string | null
+  placement: string
+  priority: number
+  impressions: number
+  clicks: number
+  supplierId: string | null
+  status: string
+  active: boolean
+  startsAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function fetchAds(): Promise<AdvertisementRow[]> {
+  return apiFetch('admin/ads')
+}
+
+export function createAdApi(data: Record<string, unknown>): Promise<AdvertisementRow> {
+  return apiFetch('admin/ads', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateAdApi(id: string, data: Record<string, unknown>): Promise<AdvertisementRow> {
+  return apiFetch(`admin/ads/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteAdApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/ads/${id}`, { method: 'DELETE' })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

@@ -10,6 +10,7 @@ import { RecentlyViewedStrip } from '@/components/recently-viewed-strip'
 import { AiRecommendations } from '@/components/ai-recommendations'
 import { BundlesSection } from '@/components/bundles-section'
 import { RequestProductBanner } from '@/components/request-product-banner'
+import { AdBanner } from '@/components/ad-banner'
 
 export default function Page() {
   return (
@@ -17,10 +18,16 @@ export default function Page() {
       <SiteHeader />
       <main className="flex-1">
         <HeroCarousel />
+        <div className="mx-auto max-w-7xl px-4">
+          <AdBanner placement="home_top" className="pt-4" />
+        </div>
         <RecentlyViewedStrip />
         <AiRecommendations />
         <CategoryGrid />
         <RequestProductBanner />
+        <div className="mx-auto max-w-7xl px-4">
+          <AdBanner placement="home_middle" className="py-2" />
+        </div>
         <DealsSection />
         <BundlesSection />
         <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-6" />}>

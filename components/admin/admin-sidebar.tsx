@@ -77,6 +77,7 @@ const NAV: Section[] = [
     items: [
       { labelKey: 'adminSegments', href: '/admin/segments', icon: PieChart },
       { labelKey: 'adminCampaigns', href: '/admin/campaigns', icon: Megaphone },
+      { labelKey: 'adminAds', href: '/admin/ads', icon: Image },
       { labelKey: 'adminLoyalty', href: '/admin/loyalty', icon: Star },
       { labelKey: 'adminReferrals', href: '/admin/referrals', icon: Gift },
     ],
