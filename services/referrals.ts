@@ -2,6 +2,7 @@
  * services/referrals.ts — Referral system service (server-only).
  */
 import 'server-only'
+import { buildReferralCode } from '@/lib/referral-code'
 import { db } from '@/lib/db'
 import { referralCode, referral, user } from '@/lib/db/schema'
 import { eq, desc, count, sum, and, inArray } from 'drizzle-orm'
@@ -14,9 +15,7 @@ function newId() {
 }
 
 function generateCode(userId: string): string {
-  const prefix = userId.slice(0, 8).toUpperCase().replace(/[^A-Z0-9]/g, 'X')
-  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase()
-  return `${prefix}${suffix}`
+  return buildReferralCode(userId, Math.random().toString(36).slice(2, 6))
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { conversation, chatMessage, user, order, orderLine, product, supplier } from '@/lib/db/schema'
 import { eq, and, desc, asc, lt, sql, inArray, isNull, ne, count } from 'drizzle-orm'
 import { ValidationError, ForbiddenError, NotFoundError } from '@/lib/errors'
+import { normalizeParticipants, sameParticipants } from '@/lib/conversation'
 
 type DbConversation = typeof conversation.$inferSelect
 type DbMessage = typeof chatMessage.$inferSelect
@@ -30,7 +31,7 @@ export async function getOrCreateConversation(
   orderId?: string | null,
 ): Promise<DbConversation> {
   if (!(CONV_TYPES as readonly string[]).includes(type)) throw new ValidationError('نوع محادثة غير صالح')
-  const parts = [...new Set(participantIds.map((p) => String(p).trim()).filter(Boolean))].sort()
+  const parts = normalizeParticipants(participantIds)
   if (parts.length < 2) throw new ValidationError('المحادثة تحتاج طرفين على الأقل')
 
   // ابحث عن محادثة قائمة بنفس النوع/الطلب تحتوي كل الأطراف
@@ -42,8 +43,7 @@ export async function getOrCreateConversation(
       sql`${conversation.participantIds} @> ${JSON.stringify(parts)}::jsonb`,
     ))
   const existing = candidates.find((c) => {
-    const cp = participantsOf(c).sort()
-    const sameParts = cp.length === parts.length && cp.every((x, i) => x === parts[i])
+    const sameParts = sameParticipants(participantsOf(c), parts)
     const sameOrder = (c.orderId ?? null) === (orderId ?? null)
     return sameParts && sameOrder
   })
