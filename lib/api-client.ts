@@ -214,6 +214,52 @@ export function deleteCashbackRuleApi(id: string): Promise<{ success: boolean }>
   return apiFetch(`admin/cashback-rules/${id}`, { method: 'DELETE' })
 }
 
+// ── Chat ──────────────────────────────────────────────────────────────────
+
+export type ChatConversation = {
+  id: string
+  type: string
+  orderId: string | null
+  lastMessageAt: string | null
+  lastMessage: string | null
+  unread: number
+  otherName: string
+}
+
+export type ChatMessageItem = {
+  id: string
+  conversationId: string
+  senderId: string
+  body: string
+  images: string[]
+  readAt: string | null
+  createdAt: string
+}
+
+export function fetchConversations(page = 1): Promise<ChatConversation[]> {
+  return apiFetch(`conversations?page=${page}`)
+}
+
+export function startOrderConversationApi(orderId: string): Promise<{ id: string }> {
+  return apiFetch('conversations/start', { method: 'POST', body: JSON.stringify({ orderId }) })
+}
+
+export function fetchMessages(conversationId: string, cursor?: string): Promise<{ items: ChatMessageItem[]; nextCursor: string | null }> {
+  return apiFetch(`conversations/${conversationId}/messages${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`)
+}
+
+export function sendMessageApi(conversationId: string, body: string, images: string[] = []): Promise<ChatMessageItem> {
+  return apiFetch(`conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body, images }) })
+}
+
+export function markConversationReadApi(conversationId: string): Promise<{ success: boolean }> {
+  return apiFetch(`conversations/${conversationId}/read`, { method: 'POST' })
+}
+
+export function fetchUnreadChatCount(): Promise<{ count: number }> {
+  return apiFetch('conversations/unread-count')
+}
+
 // ── Account ─────────────────────────────────────────────────────────────────
 
 import type { Address, Profile } from '@/lib/account-types'

@@ -489,6 +489,29 @@ export const sellerEarning = pgTable('seller_earning', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CHAT
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const conversation = pgTable('conversation', {
+  id:             uuid(),
+  type:           text('type').notNull(), // buyer_supplier | buyer_admin | buyer_driver
+  orderId:        text('orderId').references(() => order.id),
+  participantIds: jsonb('participantIds').notNull().default('[]'),
+  lastMessageAt:  timestamp('lastMessageAt', { withTimezone: true }),
+  createdAt:      now(),
+})
+
+export const chatMessage = pgTable('chat_message', {
+  id:             uuid(),
+  conversationId: text('conversationId').notNull().references(() => conversation.id, { onDelete: 'cascade' }),
+  senderId:       text('senderId').notNull().references(() => user.id),
+  body:           text('body').notNull(),
+  images:         jsonb('images').notNull().default('[]'),
+  readAt:         timestamp('readAt', { withTimezone: true }),
+  createdAt:      now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // DIGITAL WALLET
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -765,6 +788,10 @@ export type WalletBonusRule    = typeof walletBonusRule.$inferSelect
 export type NewWalletBonusRule = typeof walletBonusRule.$inferInsert
 export type CashbackRule       = typeof cashbackRule.$inferSelect
 export type NewCashbackRule    = typeof cashbackRule.$inferInsert
+export type Conversation       = typeof conversation.$inferSelect
+export type NewConversation    = typeof conversation.$inferInsert
+export type ChatMessage        = typeof chatMessage.$inferSelect
+export type NewChatMessage     = typeof chatMessage.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
