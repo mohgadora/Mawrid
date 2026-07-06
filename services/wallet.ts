@@ -13,6 +13,7 @@ import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { toCents, fromCents } from '@/lib/money'
 import { topupBonusUsd } from '@/lib/discounts'
+import { isWithinWindow } from '@/lib/time-window'
 
 type DbWallet = typeof wallet.$inferSelect
 type DbWalletTx = typeof walletTransaction.$inferSelect
@@ -121,8 +122,7 @@ export async function calculateBonus(amountUsd: number): Promise<number> {
   const rules = await db.select().from(walletBonusRule).where(eq(walletBonusRule.active, true))
   let best = 0
   for (const r of rules) {
-    if (r.startsAt && r.startsAt.getTime() > now.getTime()) continue
-    if (r.expiresAt && r.expiresAt.getTime() < now.getTime()) continue
+    if (!isWithinWindow(r.startsAt, r.expiresAt, now)) continue
     if (amountUsd < Number(r.minTopup)) continue
     const bonus = topupBonusUsd(
       r.bonusType === 'percent' ? 'percent' : 'fixed',

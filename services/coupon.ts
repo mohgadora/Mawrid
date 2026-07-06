@@ -15,6 +15,7 @@ import { eq, and, sql, desc, inArray, count } from 'drizzle-orm'
 import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { couponDiscountUsd } from '@/lib/discounts'
+import { isWithinWindow } from '@/lib/time-window'
 
 type DbCoupon = typeof coupon.$inferSelect
 
@@ -195,8 +196,7 @@ export async function getAvailableCoupons(): Promise<DbCoupon[]> {
     .limit(100)
 
   return rows.filter((c) => {
-    if (c.startsAt && c.startsAt.getTime() > now.getTime()) return false
-    if (c.expiresAt && c.expiresAt.getTime() < now.getTime()) return false
+    if (!isWithinWindow(c.startsAt, c.expiresAt, now)) return false
     if (c.usageLimitTotal != null && c.usedCount >= c.usageLimitTotal) return false
     // نعرض فقط الكوبونات العامة وأول طلب (النطاقات الخاصة تُطبّق تلقائياً)
     return c.scope === 'global' || c.scope === 'first_order' || !c.scope

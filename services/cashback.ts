@@ -11,6 +11,7 @@ import { eq, and, desc, inArray, count } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { cashbackUsd } from '@/lib/discounts'
+import { isWithinWindow } from '@/lib/time-window'
 import { credit } from '@/services/wallet'
 
 type DbRule = typeof cashbackRule.$inferSelect
@@ -57,8 +58,7 @@ export async function calculateCashback(
   let firstOrderChecked: boolean | null = null
 
   for (const rule of rules) {
-    if (rule.startsAt && rule.startsAt.getTime() > now.getTime()) continue
-    if (rule.expiresAt && rule.expiresAt.getTime() < now.getTime()) continue
+    if (!isWithinWindow(rule.startsAt, rule.expiresAt, now)) continue
     if (orderTotalUsd < Number(rule.minOrderAmount)) continue
     if (rule.scope === 'first_order') {
       if (firstOrderChecked === null) firstOrderChecked = await isFirstOrder(userId, opts.excludeOrderId)
