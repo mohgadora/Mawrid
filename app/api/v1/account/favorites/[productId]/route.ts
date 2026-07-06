@@ -13,3 +13,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

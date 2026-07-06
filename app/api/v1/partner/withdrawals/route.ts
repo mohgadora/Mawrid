@@ -35,3 +35,5 @@ export async function POST(req: NextRequest) {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

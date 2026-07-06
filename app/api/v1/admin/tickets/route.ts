@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ok, badRequest, serverError, requireAdmin } from '@/lib/api-helpers'
 import { getSupportTickets, createAdminTicket } from '@/services/admin'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
   try {
@@ -28,3 +28,5 @@ export async function POST(req: NextRequest) {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

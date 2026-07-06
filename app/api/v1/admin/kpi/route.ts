@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
 import { getAdminKpi } from '@/services/admin'
 
 // Auth is enforced by middleware for all /api/v1/admin/* routes
-export async function GET() {
+export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req)
-  if (guard instanceof NextResponse) return __guard
+  if (guard instanceof NextResponse) return guard
 
   try {
     return ok(await getAdminKpi())
@@ -13,3 +13,5 @@ export async function GET() {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

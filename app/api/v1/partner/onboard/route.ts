@@ -16,3 +16,5 @@ export async function POST(req: NextRequest) {
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

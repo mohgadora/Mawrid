@@ -71,3 +71,5 @@ export async function DELETE(req: NextRequest) {
   res.cookies.set(IMPERSONATION_COOKIE, '', impersonationCookieOptions(0))
   return res
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

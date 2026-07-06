@@ -39,3 +39,5 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

@@ -14,3 +14,5 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return ok(await updatePartnerOrderStatus(id, body.status, { note: body.note, trackingNumber: body.trackingNumber }))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

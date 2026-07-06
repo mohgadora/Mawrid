@@ -15,3 +15,5 @@ export async function DELETE(req: NextRequest, ctx: RouteCtx) {
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

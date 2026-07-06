@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
 import { getAdminSessions } from '@/services/admin'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
 
@@ -12,3 +12,5 @@ export async function GET() {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

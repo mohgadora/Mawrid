@@ -43,3 +43,5 @@ export async function DELETE(
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

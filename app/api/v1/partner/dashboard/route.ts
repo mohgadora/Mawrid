@@ -11,3 +11,5 @@ export async function GET() {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

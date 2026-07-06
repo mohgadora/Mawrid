@@ -25,7 +25,10 @@ const MAGIC: Array<{ mime: string; bytes: number[]; offset?: number }> = [
 function detectMimeFromBuffer(buf: Buffer): string | null {
   for (const sig of MAGIC) {
     const off = sig.offset ?? 0
-    if (sig.bytes.every((b, i) => buf[off + i] === b)) return sig.mime
+    if (!sig.bytes.every((b, i) => buf[off + i] === b)) continue
+    // RIFF is shared by WAV/AVI/WebP — confirm the sub-type at bytes 8–11
+    if (sig.mime === 'image/webp' && buf.slice(8, 12).toString('ascii') !== 'WEBP') continue
+    return sig.mime
   }
   return null
 }
@@ -60,3 +63,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

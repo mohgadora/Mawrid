@@ -10,3 +10,5 @@ export async function GET(req: NextRequest) {
   try { return ok(await getPartnerInventory(guard)) }
   catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

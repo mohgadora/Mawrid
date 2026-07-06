@@ -63,7 +63,8 @@ export function QuickViewModal({ product, onClose }: QuickViewModalProps) {
     if (!product) return
     addItem(toCartSnapshot(product), qty)
     setAdded(true)
-    setTimeout(() => setAdded(false), 1800)
+    const t = setTimeout(() => setAdded(false), 1800)
+    return () => clearTimeout(t)
   }
 
   if (!product) return null

@@ -58,8 +58,8 @@ export async function proxy(request: NextRequest) {
   // ── REST API: partner scope ──────────────────────────────────────────────
   if (pathname.startsWith('/api/v1/partner')) {
     const session = await fetchSession(request)
+    if (pathname.endsWith('/onboard') && !session) return NextResponse.next()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (pathname.endsWith('/onboard')) return NextResponse.next()
     if (session.user?.role !== 'supplier' && session.user?.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -68,8 +68,6 @@ export async function proxy(request: NextRequest) {
 
   // ── REST API: buyer account ──────────────────────────────────────────────
   if (pathname.startsWith('/api/v1/account') || pathname.startsWith('/api/v1/orders')) {
-    const authHeader = request.headers.get('authorization')
-    if (authHeader?.startsWith('Bearer ')) return NextResponse.next()
     const session = await fetchSession(request)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     return NextResponse.next()

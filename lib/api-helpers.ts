@@ -123,3 +123,14 @@ export function apiError(err: unknown) {
 export function ok<T>(data: T, status = 200) {
   return NextResponse.json({ data }, { status })
 }
+
+/** CORS preflight response for OPTIONS requests. */
+export function corsOptions() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    },
+  })
+}

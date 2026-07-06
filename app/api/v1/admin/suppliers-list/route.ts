@@ -15,3 +15,5 @@ export async function GET(req: NextRequest) {
     return ok(rows.map((r) => ({ id: r.id, name: r.name ?? r.nameEn ?? r.id, status: r.status })))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

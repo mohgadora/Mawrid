@@ -12,3 +12,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: result.items, unread: result.unread })
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

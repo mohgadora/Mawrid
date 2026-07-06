@@ -8,3 +8,5 @@ export async function PATCH(req: NextRequest) {
   try { return ok(await markAllPartnerNotificationsRead()) }
   catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

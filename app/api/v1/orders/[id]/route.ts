@@ -14,3 +14,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

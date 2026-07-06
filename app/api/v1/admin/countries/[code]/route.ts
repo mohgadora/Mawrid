@@ -24,3 +24,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ co
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

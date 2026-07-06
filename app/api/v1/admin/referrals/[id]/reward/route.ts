@@ -3,7 +3,7 @@ import { requireAdmin, ok, serverError, badRequest } from '@/lib/api-helpers'
 import { rewardReferral } from '@/services/referrals'
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -19,3 +19,5 @@ export async function POST(
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

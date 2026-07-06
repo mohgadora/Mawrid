@@ -12,3 +12,5 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return ok(await markPartnerNotificationRead(id))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

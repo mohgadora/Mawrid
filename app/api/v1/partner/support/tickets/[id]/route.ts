@@ -12,3 +12,5 @@ export async function GET(req: NextRequest, { params }: Params) {
     return ok(await getPartnerSupportTicketDetail(id))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

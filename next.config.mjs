@@ -32,7 +32,9 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",   // Next.js requires unsafe-eval in dev
+              process.env.NODE_ENV === 'development'
+                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+                : "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
@@ -48,10 +50,10 @@ const nextConfig = {
       {
         source: '/api/v1/(.*)',
         headers: [
-          {
+          ...(process.env.CORS_ORIGIN ? [{
             key: 'Access-Control-Allow-Origin',
-            value: process.env.CORS_ORIGIN ?? 'same-origin',
-          },
+            value: process.env.CORS_ORIGIN,
+          }] : []),
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PATCH,DELETE,OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type,Authorization' },
         ],

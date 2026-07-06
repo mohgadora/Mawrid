@@ -4,6 +4,11 @@ import { getSystemSettings, upsertSettings } from '@/lib/settings'
 import { writeAuditLog } from '@/lib/audit'
 import type { SystemSettings } from '@/lib/settings'
 
+function isSafeUrl(s: string): boolean {
+  if (s.startsWith('/')) return true
+  try { return new URL(s).protocol === 'https:' } catch { return false }
+}
+
 function validateSettings(body: unknown): { data: Partial<SystemSettings>; error?: string } {
   if (!body || typeof body !== 'object') return { data: {}, error: 'Invalid body' }
   const b = body as Record<string, unknown>
@@ -13,8 +18,16 @@ function validateSettings(body: unknown): { data: Partial<SystemSettings>; error
     if (typeof b.storeName !== 'string' || !b.storeName.trim()) return { data, error: 'storeName must be a non-empty string' }
     data.storeName = b.storeName.trim().slice(0, 100)
   }
-  if ('storeLogo' in b) data.storeLogo = typeof b.storeLogo === 'string' ? b.storeLogo.slice(0, 500) : ''
-  if ('favicon' in b) data.favicon = typeof b.favicon === 'string' ? b.favicon.slice(0, 500) : ''
+  if ('storeLogo' in b) {
+    const v = typeof b.storeLogo === 'string' ? b.storeLogo.trim() : ''
+    if (v && !isSafeUrl(v)) return { data, error: 'storeLogo must be a valid https URL or a relative path' }
+    data.storeLogo = v.slice(0, 500)
+  }
+  if ('favicon' in b) {
+    const v = typeof b.favicon === 'string' ? b.favicon.trim() : ''
+    if (v && !isSafeUrl(v)) return { data, error: 'favicon must be a valid https URL or a relative path' }
+    data.favicon = v.slice(0, 500)
+  }
 
   const validCurrencies = ['SAR', 'AED', 'KWD', 'USD', 'EGP']
   if ('defaultCurrency' in b) {
@@ -68,6 +81,17 @@ function validateSettings(body: unknown): { data: Partial<SystemSettings>; error
     data.shippingResponsibility = b.shippingResponsibility as SystemSettings['shippingResponsibility']
   }
 
+  if ('referralBonusReferrer' in b) {
+    const v = Number(b.referralBonusReferrer)
+    if (isNaN(v) || v < 0 || v > 10000) return { data, error: 'referralBonusReferrer must be 0–10000' }
+    data.referralBonusReferrer = v
+  }
+  if ('referralBonusReferee' in b) {
+    const v = Number(b.referralBonusReferee)
+    if (isNaN(v) || v < 0 || v > 10000) return { data, error: 'referralBonusReferee must be 0–10000' }
+    data.referralBonusReferee = v
+  }
+
   return { data }
 }
 
@@ -107,3 +131,5 @@ export async function PATCH(req: NextRequest) {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

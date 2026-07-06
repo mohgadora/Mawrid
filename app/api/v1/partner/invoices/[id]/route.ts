@@ -12,3 +12,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

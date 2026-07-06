@@ -18,3 +18,5 @@ export async function POST(req: NextRequest) {
     return ok(await createPartnerSupportTicket(body))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

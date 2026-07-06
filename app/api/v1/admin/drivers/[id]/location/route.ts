@@ -3,8 +3,8 @@ import { ok, apiError, badRequest, requireAdmin } from '@/lib/api-helpers'
 import { updateDriverLocation } from '@/services/admin'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const __guard = await requireAdmin(req)
-  if (__guard instanceof NextResponse) return __guard
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return guard
 
   try {
     const { id } = await params
@@ -27,3 +27,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

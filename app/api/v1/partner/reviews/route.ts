@@ -18,3 +18,5 @@ export async function GET(req: NextRequest) {
     return ok({ reviews, summary })
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

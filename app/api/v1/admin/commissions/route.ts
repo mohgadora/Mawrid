@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { ok, requireAdmin, serverError } from '@/lib/api-helpers'
 import { getCommissionReport } from '@/services/admin'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
   try {
@@ -11,3 +11,5 @@ export async function GET() {
     return serverError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

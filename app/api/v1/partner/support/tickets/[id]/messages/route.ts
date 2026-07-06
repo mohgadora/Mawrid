@@ -14,3 +14,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     return ok(await addPartnerTicketMessage(id, body.body))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

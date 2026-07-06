@@ -115,3 +115,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return ok({ updated: true })
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

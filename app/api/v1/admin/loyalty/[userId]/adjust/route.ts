@@ -28,3 +28,5 @@ export async function POST(
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

@@ -18,3 +18,5 @@ export async function PATCH(req: NextRequest) {
     return apiError(err)
   }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

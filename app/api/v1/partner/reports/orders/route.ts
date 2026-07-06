@@ -11,3 +11,5 @@ export async function GET(req: NextRequest) {
     return ok(await getPartnerReportSales(guard, from, to))
   } catch (err) { return serverError(err) }
 }
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }
