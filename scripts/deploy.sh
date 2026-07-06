@@ -66,11 +66,16 @@ pnpm build
 
 # ── 5. Restart PM2 ───────────────────────────────────────────────────────────
 log "Restarting PM2 process: $PM2_NAME ..."
+PORT="${PORT:-3600}"
 if pm2 list | grep -q "$PM2_NAME"; then
-  pm2 restart "$PM2_NAME"
+  pm2 stop "$PM2_NAME" || true
+  # Release the port before starting a new process
+  fuser -k "${PORT}/tcp" 2>/dev/null || true
+  sleep 1
+  pm2 start "$PM2_NAME"
 else
   pm2 start node --name "$PM2_NAME" --cwd "$APP_DIR" \
-    -- node_modules/next/dist/bin/next start -p "${PORT:-3600}"
+    -- node_modules/next/dist/bin/next start -p "$PORT"
 fi
 
 pm2 save
