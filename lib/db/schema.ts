@@ -125,8 +125,16 @@ export const supplier = pgTable('supplier', {
   shippingPolicy: text('shippingPolicy'),
   returnPolicy:   text('returnPolicy'),
   status:         text('status').notNull().default('active'),
+  followerCount:  integer('followerCount').notNull().default(0),
   createdAt:      now(),
   updatedAt:      timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const shopFollower = pgTable('shop_follower', {
+  id:         uuid(),
+  supplierId: text('supplierId').notNull().references(() => supplier.id, { onDelete: 'cascade' }),
+  userId:     text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  createdAt:  now(),
 })
 
 export const product = pgTable('product', {
@@ -887,6 +895,8 @@ export type StoreSubscription  = typeof storeSubscription.$inferSelect
 export type NewStoreSubscription = typeof storeSubscription.$inferInsert
 export type PhoneVerification  = typeof phoneVerification.$inferSelect
 export type NewPhoneVerification = typeof phoneVerification.$inferInsert
+export type ShopFollower       = typeof shopFollower.$inferSelect
+export type NewShopFollower    = typeof shopFollower.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect

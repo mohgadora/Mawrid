@@ -1190,6 +1190,34 @@ export function verifyOtpApi(phone: string, code: string): Promise<{ verified: b
   return apiFetch('auth/otp/verify', { method: 'POST', body: JSON.stringify({ phone, code }) })
 }
 
+// ── Shop follow ─────────────────────────────────────────────────────────────
+
+export function fetchFollowStatus(supplierId: string): Promise<{ following: boolean }> {
+  return apiFetch(`shops/${supplierId}/follow`)
+}
+
+export function followShopApi(supplierId: string): Promise<{ following: boolean; followerCount: number }> {
+  return apiFetch(`shops/${supplierId}/follow`, { method: 'POST' })
+}
+
+export function unfollowShopApi(supplierId: string): Promise<{ following: boolean; followerCount: number }> {
+  return apiFetch(`shops/${supplierId}/follow`, { method: 'DELETE' })
+}
+
+export type FollowedShop = {
+  id: string
+  name: string
+  nameAr: string | null
+  logo: string | null
+  rating: string
+  followerCount: number
+  productCount: number
+}
+
+export function fetchFollowedShops(): Promise<FollowedShop[]> {
+  return apiFetch('account/following')
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
