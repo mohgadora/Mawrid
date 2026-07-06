@@ -14,8 +14,13 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (isSkipCheck) return
-    fetch('/api/v1/partner/store')
+    const ctrl = new AbortController()
+    fetch('/api/v1/partner/store', { signal: ctrl.signal })
       .then(async (res) => {
+        if (res.status === 401) {
+          router.replace('/partner/sign-in')
+          return
+        }
         if (res.status === 403) {
           const body = await res.json().catch(() => ({}))
           if (body?.message === 'account_pending' || body?.error?.message === 'account_pending') {
@@ -24,6 +29,7 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
         }
       })
       .catch(() => undefined)
+    return () => ctrl.abort()
   }, [isSkipCheck, router])
 
   if (isAuth || isPending) return <>{children}</>

@@ -8,6 +8,9 @@ import {
   Handshake,
   Shield,
   ArrowRight,
+  Eye,
+  EyeOff,
+  Loader2,
   type LucideIcon,
 } from 'lucide-react'
 import { authClient } from '@/lib/auth-client'
@@ -28,12 +31,37 @@ const PORTAL_META: Record<AuthPortal, PortalMeta> = {
   admin: { icon: Shield, accent: 'text-destructive' },
 }
 
+// Map Better Auth error codes / messages → user-friendly Arabic
+const AUTH_ERROR_MAP: Record<string, string> = {
+  INVALID_EMAIL_OR_PASSWORD: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+  INVALID_PASSWORD: 'كلمة المرور غير صحيحة',
+  USER_NOT_FOUND: 'لا يوجد حساب بهذا البريد الإلكتروني',
+  EMAIL_NOT_VERIFIED: 'يرجى تأكيد بريدك الإلكتروني أولاً',
+  USER_ALREADY_EXISTS: 'يوجد حساب مسجّل بهذا البريد الإلكتروني',
+  EMAIL_ALREADY_EXISTS: 'يوجد حساب مسجّل بهذا البريد الإلكتروني',
+  TOO_MANY_REQUESTS: 'محاولات كثيرة، يرجى الانتظار قليلاً ثم المحاولة مجدداً',
+  ACCOUNT_DISABLED: 'الحساب موقوف، تواصل مع الدعم',
+  timeout: 'انتهت مهلة الاتصال، تحقق من اتصالك بالإنترنت',
+  'Failed to fetch': 'تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت',
+  NetworkError: 'تعذّر الاتصال بالخادم، تحقق من اتصالك بالإنترنت',
+}
+
+function mapAuthError(raw: string | undefined): string {
+  if (!raw) return 'حدث خطأ، يرجى المحاولة مرة أخرى'
+  for (const [key, msg] of Object.entries(AUTH_ERROR_MAP)) {
+    if (raw.toUpperCase().includes(key.toUpperCase()) || raw.includes(key)) return msg
+  }
+  return raw
+}
+
 type Props = {
   portal: AuthPortal
   mode: 'sign-in' | 'sign-up'
   extraFields?: React.ReactNode
   onAfterSignUp?: (ctx: { name: string; email: string }) => Promise<void>
 }
+
+const AUTH_TIMEOUT_MS = 15_000
 
 export function PortalAuthShell({ portal, mode, extraFields, onAfterSignUp }: Props) {
   const { t, brand } = useI18n()
@@ -45,6 +73,7 @@ export function PortalAuthShell({ portal, mode, extraFields, onAfterSignUp }: Pr
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -64,30 +93,51 @@ export function PortalAuthShell({ portal, mode, extraFields, onAfterSignUp }: Pr
     e.preventDefault()
     setError('')
     setLoading(true)
+
+    const abort = new AbortController()
+    const timer = setTimeout(() => abort.abort(), AUTH_TIMEOUT_MS)
+
     try {
       if (mode === 'sign-in') {
-        const result = await authClient.signIn.email({ email, password })
+        const result = await authClient.signIn.email({ email, password, fetchOptions: { signal: abort.signal } })
         if (result.error) {
-          setError(result.error.message ?? t('authErrorGeneric'))
+          setError(mapAuthError(result.error.message))
+          setLoading(false)
           return
         }
-      } else {
-        const result = await authClient.signUp.email({ name, email, password })
-        if (result.error) {
-          setError(result.error.message ?? t('authErrorGeneric'))
-          return
-        }
-        if (onAfterSignUp) await onAfterSignUp({ name, email })
+        const role = (result.data?.user as { role?: string } | undefined)?.role ?? 'consumer'
+        // Keep loading=true during navigation so button doesn't re-enable mid-redirect
+        router.push(resolvePostAuthRedirect(portal, role, from))
+        return
       }
 
-      const session = await authClient.getSession()
-      const role = (session.data?.user as { role?: string } | undefined)?.role ?? 'consumer'
+      // Sign-up
+      const result = await authClient.signUp.email({ name, email, password, fetchOptions: { signal: abort.signal } })
+      if (result.error) {
+        setError(mapAuthError(result.error.message))
+        setLoading(false)
+        return
+      }
+      if (onAfterSignUp) {
+        try {
+          await onAfterSignUp({ name, email })
+        } catch {
+          // Best-effort — account is created; don't block navigation
+        }
+      }
+      const role = (result.data?.user as { role?: string } | undefined)?.role ?? 'consumer'
+      // Keep loading=true during navigation
       router.push(resolvePostAuthRedirect(portal, role, from))
-      router.refresh()
-    } catch {
-      setError(t('authErrorGeneric'))
-    } finally {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError(AUTH_ERROR_MAP.timeout)
+      } else {
+        setError(mapAuthError(msg))
+      }
       setLoading(false)
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -120,16 +170,67 @@ export function PortalAuthShell({ portal, mode, extraFields, onAfterSignUp }: Pr
               </AuthField>
             )}
             <AuthField label={t('email')} id="email">
-              <input id="email" type="email" autoComplete="email" required dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" />
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+                placeholder="you@example.com"
+                disabled={loading}
+              />
             </AuthField>
             <AuthField label={t('password')} id="password">
-              <input id="password" type="password" autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} required minLength={mode === 'sign-up' ? 8 : undefined} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="••••••••" />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+                  required
+                  minLength={mode === 'sign-up' ? 8 : undefined}
+                  dir="ltr"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={cn(inputClass, 'pe-10')}
+                  placeholder="••••••••"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </AuthField>
             {mode === 'sign-up' && extraFields}
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50">
-              {loading ? t('saving') : mode === 'sign-in' ? t('login') : t('signup')}
-              {!loading && <ArrowRight className="size-4 rtl:rotate-180" />}
+            {error && (
+              <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>{mode === 'sign-in' ? 'جارٍ الدخول...' : 'جارٍ إنشاء الحساب...'}</span>
+                </>
+              ) : (
+                <>
+                  <span>{mode === 'sign-in' ? t('login') : t('signup')}</span>
+                  <ArrowRight className="size-4 rtl:rotate-180" />
+                </>
+              )}
             </button>
           </form>
           {mode === 'sign-in' && (portal === 'store' || portal === 'partner') && (
@@ -167,7 +268,7 @@ function AuthField({ label, id, children }: { label: string; id: string; childre
   )
 }
 
-const inputClass = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+const inputClass = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60'
 
 function PortalSwitcher({ current }: { current: AuthPortal }) {
   const { t } = useI18n()
