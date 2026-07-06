@@ -1218,6 +1218,16 @@ export function fetchFollowedShops(): Promise<FollowedShop[]> {
   return apiFetch('account/following')
 }
 
+// ── Restock alerts ──────────────────────────────────────────────────────────
+
+export function fetchRestockStatus(productId: string): Promise<{ requested: boolean }> {
+  return apiFetch(`products/${productId}/restock-request`)
+}
+
+export function requestRestockApi(productId: string): Promise<{ requested: boolean }> {
+  return apiFetch(`products/${productId}/restock-request`, { method: 'POST' })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

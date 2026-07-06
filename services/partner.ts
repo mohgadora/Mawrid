@@ -29,6 +29,7 @@ import { eq, desc, and, inArray, asc, sum, count, max } from 'drizzle-orm'
 import { getSystemSettings } from '@/lib/settings'
 import { resolveActor, type Actor } from '@/lib/actor'
 import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors'
+import { notifyRestocked } from '@/services/restock'
 
 const clip = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n)
 
@@ -335,6 +336,11 @@ export async function updatePartnerProduct(id: string, data: PartnerProductInput
         sortOrder: 0,
       })
     }
+  }
+
+  // إشعار المنتظرين إذا عاد المنتج للمخزون — لا يُسقط التحديث عند الفشل
+  if (data.stock !== undefined && row.stock > 0) {
+    await notifyRestocked(id).catch((err) => console.error('[restock] notify failed:', err))
   }
 
   return row
@@ -836,6 +842,9 @@ export async function adjustPartnerStock(
     type: 'manual', delta: data.delta, stockAfter: newStock,
     reason: clip(data.reason, 200), createdBy: actorId, createdAt: new Date(),
   })
+  if (newStock > 0 && prod.stock <= 0) {
+    await notifyRestocked(data.productId).catch((err) => console.error('[restock] notify failed:', err))
+  }
   return { stock: newStock }
 }
 

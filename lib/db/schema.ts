@@ -137,6 +137,14 @@ export const shopFollower = pgTable('shop_follower', {
   createdAt:  now(),
 })
 
+export const restockRequest = pgTable('restock_request', {
+  id:        uuid(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  userId:    text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  notified:  boolean('notified').notNull().default(false),
+  createdAt: now(),
+})
+
 export const product = pgTable('product', {
   id:              uuid(),
   sku:             text('sku').unique(),
@@ -897,6 +905,8 @@ export type PhoneVerification  = typeof phoneVerification.$inferSelect
 export type NewPhoneVerification = typeof phoneVerification.$inferInsert
 export type ShopFollower       = typeof shopFollower.$inferSelect
 export type NewShopFollower    = typeof shopFollower.$inferInsert
+export type RestockRequest     = typeof restockRequest.$inferSelect
+export type NewRestockRequest  = typeof restockRequest.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
