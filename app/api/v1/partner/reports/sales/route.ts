@@ -8,6 +8,20 @@ export async function GET(req: NextRequest) {
   try {
     const from = req.nextUrl.searchParams.get('from') ?? undefined
     const to = req.nextUrl.searchParams.get('to') ?? undefined
-    return ok(await getPartnerReportSales(undefined, from, to))
+    const raw = await getPartnerReportSales(undefined, from, to)
+    return ok({
+      summary: {
+        totalRevenue: raw.totals.revenue,
+        totalOrders: raw.totals.orders,
+        totalItems: raw.totals.items,
+      },
+      orders: raw.rows.map((r) => ({
+        orderRef: r.ref,
+        date: r.date,
+        status: r.status,
+        items: r.items,
+        revenue: r.revenue,
+      })),
+    })
   } catch (err) { return serverError(err) }
 }

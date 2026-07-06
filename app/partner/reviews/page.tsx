@@ -33,6 +33,7 @@ type PartnerReview = {
   rating: number
   userId: string
   comment: string
+  body?: string
   createdAt: string
   verified: boolean
   reply?: {
@@ -172,7 +173,7 @@ function ReplyDialog({
             <StarRating rating={review.rating} size="md" />
             <span className="text-xs text-muted-foreground font-mono">{review.userId.slice(0, 8)}…</span>
           </div>
-          <p className="text-sm text-foreground leading-relaxed">{review.comment}</p>
+          <p className="text-sm text-foreground leading-relaxed">{review.body ?? review.comment}</p>
           <p className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString('ar-SA')}</p>
         </div>
 
