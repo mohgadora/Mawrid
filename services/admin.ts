@@ -947,3 +947,23 @@ export async function createAdminProduct(data: {
   await writeAuditLog({ userId: adminUserId, action: 'product.create', entity: 'product', entityId: row.id })
   return row
 }
+
+export async function deleteTicket(ticketId: string, adminUserId: string) {
+  await db.delete(ticketMessage).where(eq(ticketMessage.ticketId, ticketId))
+  await db.delete(supportTicket).where(eq(supportTicket.id, ticketId))
+  await writeAuditLog({ userId: adminUserId, action: 'ticket.delete', entity: 'ticket', entityId: ticketId })
+}
+
+export async function updateTicket(ticketId: string, data: { subject?: string; priority?: string; status?: string }, adminUserId: string) {
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (data.subject) set.subject = data.subject
+  if (data.priority) set.priority = data.priority
+  if (data.status) {
+    set.status = data.status
+    if (data.status === 'resolved') set.resolvedAt = new Date()
+  }
+  const [row] = await db.update(supportTicket).set(set).where(eq(supportTicket.id, ticketId)).returning()
+  if (!row) throw new NotFoundError('Ticket not found')
+  await writeAuditLog({ userId: adminUserId, action: 'ticket.update', entity: 'ticket', entityId: ticketId })
+  return row
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, badRequest, serverError, requireAdmin } from '@/lib/api-helpers'
-import { updateTicketStatus } from '@/services/admin'
+import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
+import { updateTicket, deleteTicket } from '@/services/admin'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -10,8 +10,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params
     const body = await req.json()
-    if (!body.status) return badRequest('status is required')
-    return ok(await updateTicketStatus(id, body.status, guard.id))
+    return ok(await updateTicket(id, body, guard.id))
+  } catch (err) {
+    return serverError(err)
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return guard
+  try {
+    const { id } = await params
+    await deleteTicket(id, guard.id)
+    return ok({ success: true })
   } catch (err) {
     return serverError(err)
   }
