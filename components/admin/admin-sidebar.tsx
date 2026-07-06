@@ -78,6 +78,8 @@ const NAV: Section[] = [
       { labelKey: 'adminSegments', href: '/admin/segments', icon: PieChart },
       { labelKey: 'adminCampaigns', href: '/admin/campaigns', icon: Megaphone },
       { labelKey: 'adminAds', href: '/admin/ads', icon: Image },
+      { labelKey: 'adminDeals', href: '/admin/deals', icon: Megaphone },
+      { labelKey: 'adminClearance', href: '/admin/clearance', icon: Tag },
       { labelKey: 'adminLoyalty', href: '/admin/loyalty', icon: Star },
       { labelKey: 'adminReferrals', href: '/admin/referrals', icon: Gift },
     ],

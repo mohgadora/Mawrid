@@ -750,6 +750,8 @@ const DICT = {
   adminSeo: { ar: 'تحسين محركات البحث', en: 'SEO' },
   adminAds: { ar: 'الإعلانات', en: 'Advertisements' },
   adminSubscriptions: { ar: 'باقات الاشتراك', en: 'Subscription Plans' },
+  adminDeals: { ar: 'عرض اليوم', en: 'Deal of the Day' },
+  adminClearance: { ar: 'تصفية المخزون', en: 'Clearance' },
   authOr: { ar: 'أو', en: 'or' },
   authContinueGoogle: { ar: 'المتابعة عبر Google', en: 'Continue with Google' },
   authContinueApple: { ar: 'المتابعة عبر Apple', en: 'Continue with Apple' },

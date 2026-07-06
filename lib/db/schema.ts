@@ -145,6 +145,35 @@ export const restockRequest = pgTable('restock_request', {
   createdAt: now(),
 })
 
+export const dealOfDay = pgTable('deal_of_day', {
+  id:           uuid(),
+  productId:    text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  titleAr:      text('titleAr').notNull(),
+  titleEn:      text('titleEn'),
+  discountType: text('discountType').notNull().default('percent'), // percent | fixed
+  discount:     numeric('discount', { precision: 12, scale: 2 }).notNull(),
+  date:         date('date').notNull(),
+  active:       boolean('active').notNull().default(true),
+  createdAt:    now(),
+})
+
+export const clearanceSale = pgTable('clearance_sale', {
+  id:        uuid(),
+  titleAr:   text('titleAr').notNull(),
+  titleEn:   text('titleEn'),
+  startsAt:  timestamp('startsAt', { withTimezone: true }).notNull(),
+  endsAt:    timestamp('endsAt', { withTimezone: true }).notNull(),
+  active:    boolean('active').notNull().default(true),
+  createdAt: now(),
+})
+
+export const clearanceSaleProduct = pgTable('clearance_sale_product', {
+  id:              uuid(),
+  clearanceId:     text('clearanceId').notNull().references(() => clearanceSale.id, { onDelete: 'cascade' }),
+  productId:       text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  discountPercent: numeric('discountPercent', { precision: 5, scale: 2 }).notNull(),
+})
+
 export const product = pgTable('product', {
   id:              uuid(),
   sku:             text('sku').unique(),
@@ -907,6 +936,11 @@ export type ShopFollower       = typeof shopFollower.$inferSelect
 export type NewShopFollower    = typeof shopFollower.$inferInsert
 export type RestockRequest     = typeof restockRequest.$inferSelect
 export type NewRestockRequest  = typeof restockRequest.$inferInsert
+export type DealOfDay          = typeof dealOfDay.$inferSelect
+export type NewDealOfDay       = typeof dealOfDay.$inferInsert
+export type ClearanceSale      = typeof clearanceSale.$inferSelect
+export type NewClearanceSale   = typeof clearanceSale.$inferInsert
+export type ClearanceSaleProduct = typeof clearanceSaleProduct.$inferSelect
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect

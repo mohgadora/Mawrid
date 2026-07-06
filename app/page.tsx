@@ -12,6 +12,7 @@ import { BundlesSection } from '@/components/bundles-section'
 import { RequestProductBanner } from '@/components/request-product-banner'
 import { AdBanner } from '@/components/ad-banner'
 import { ProductRecommendations } from '@/components/product-recommendations'
+import { DealOfDayBanner } from '@/components/deal-of-day-banner'
 
 export default function Page() {
   return (
@@ -22,6 +23,7 @@ export default function Page() {
         <div className="mx-auto max-w-7xl px-4">
           <AdBanner placement="home_top" className="pt-4" />
         </div>
+        <DealOfDayBanner />
         <RecentlyViewedStrip />
         <ProductRecommendations type="personalized" />
         <AiRecommendations />

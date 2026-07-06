@@ -1239,6 +1239,48 @@ export function fetchRecommendations(
   return apiFetch<Product[]>(`recommendations?${qs.toString()}`)
 }
 
+// ── Deals of day + Clearance ────────────────────────────────────────────────
+
+export type TodayDeal = {
+  id: string
+  productId: string
+  titleAr: string
+  titleEn: string | null
+  productName: string
+  image: string | null
+  basePrice: number
+  salePrice: number
+  discountType: string
+  discount: number
+} | null
+
+export function fetchTodayDeal(): Promise<TodayDeal> {
+  return apiFetch('deals/today')
+}
+
+export type ClearanceGroup = {
+  id: string
+  titleAr: string
+  titleEn: string | null
+  endsAt: string
+  products: { productId: string; name: string; image: string | null; discountPercent: number; basePrice: number; salePrice: number }[]
+}
+
+export function fetchClearances(): Promise<ClearanceGroup[]> {
+  return apiFetch('clearance')
+}
+
+// admin
+export type DealRow = { id: string; productId: string; titleAr: string; titleEn: string | null; discountType: string; discount: string; date: string; active: boolean }
+export function fetchAdminDeals(): Promise<DealRow[]> { return apiFetch('admin/deals') }
+export function createDealApi(data: Record<string, unknown>): Promise<DealRow> { return apiFetch('admin/deals', { method: 'POST', body: JSON.stringify(data) }) }
+export function deleteDealApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/deals/${id}`, { method: 'DELETE' }) }
+
+export type ClearanceRow = { id: string; titleAr: string; titleEn: string | null; startsAt: string; endsAt: string; active: boolean }
+export function fetchAdminClearances(): Promise<ClearanceRow[]> { return apiFetch('admin/clearance') }
+export function createClearanceApi(data: Record<string, unknown>): Promise<{ id: string }> { return apiFetch('admin/clearance', { method: 'POST', body: JSON.stringify(data) }) }
+export function deleteClearanceApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/clearance/${id}`, { method: 'DELETE' }) }
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
