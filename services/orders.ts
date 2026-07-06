@@ -20,6 +20,7 @@ import { ValidationError, NotFoundError } from '@/lib/errors'
 import { resolveActor, type Actor } from '@/lib/actor'
 import { writeAuditLog } from '@/lib/audit'
 import { validateCoupon, applyCoupon } from '@/services/coupon'
+import { walletDeltaTx } from '@/services/wallet'
 
 import type { OrderStatus, OrderEvent, OrderLine, OrderAddress, Order } from '@/lib/order-types'
 export type { OrderStatus, OrderEvent, OrderLine, OrderAddress, Order } from '@/lib/order-types'
@@ -69,7 +70,7 @@ function mapOrder(row: DbOrder, lines: DbLine[], events: DbEvent[]): Order {
     addressLabel: addr.label ?? '',
     deliverySlotAr: 'غداً، الصباح',
     deliverySlotEn: 'Tomorrow, Morning',
-    paymentMethod: (row.paymentMethod as 'cod' | 'card' | 'bank') ?? 'cod',
+    paymentMethod: (row.paymentMethod as 'cod' | 'card' | 'bank' | 'wallet') ?? 'cod',
   }
 }
 
@@ -150,7 +151,7 @@ export async function createOrder(
   if (!Array.isArray(params.lines) || !params.lines.length) throw new ValidationError('السلة فارغة')
   if (params.lines.length > MAX_LINES) throw new ValidationError(`عدد أصناف الطلب كبير جداً (الحد ${MAX_LINES})`)
 
-  const PAYMENT_METHODS = ['cod', 'card', 'bank'] as const
+  const PAYMENT_METHODS = ['cod', 'card', 'bank', 'wallet'] as const
   if (!(PAYMENT_METHODS as readonly string[]).includes(params.paymentMethod)) {
     throw new ValidationError(`طريقة دفع غير صالحة. المسموح: ${PAYMENT_METHODS.join(', ')}`)
   }
@@ -292,6 +293,7 @@ export async function createOrder(
       userId,
       status: 'pending',
       paymentMethod,
+      paymentStatus: paymentMethod === 'wallet' ? 'paid' : 'unpaid',
       shippingAddress: address,
       subtotal: subtotalUsd.toFixed(2),
       shippingFee: shippingUsd.toFixed(2),
@@ -337,6 +339,16 @@ export async function createOrder(
 
     if (appliedCoupon) {
       await applyCoupon(tx, { couponId: appliedCoupon.id, userId, orderId, discountUsd })
+    }
+
+    // الدفع من المحفظة: خصم الإجمالي ذرّياً داخل نفس معاملة الطلب
+    if (paymentMethod === 'wallet') {
+      await walletDeltaTx(tx, userId, {
+        amountUsd: -totalUsd,
+        type: 'purchase',
+        reference: orderId,
+        note: `طلب ${ref}`,
+      })
     }
   })
 
@@ -387,6 +399,17 @@ export async function cancelOrder(id: string, actor?: Actor): Promise<void> {
         .update(productTable)
         .set({ stock: sql`${productTable.stock} + ${line.qty}`, updatedAt: new Date() })
         .where(eq(productTable.id, line.productId))
+    }
+
+    // استرجاع المبلغ للمحفظة إذا كان الطلب مدفوعاً منها
+    if (rows[0].paymentMethod === 'wallet' && rows[0].paymentStatus === 'paid') {
+      await walletDeltaTx(tx, userId, {
+        amountUsd: Number(rows[0].total),
+        type: 'refund',
+        reference: id,
+        note: `استرجاع طلب ملغى ${rows[0].ref}`,
+      })
+      await tx.update(order).set({ paymentStatus: 'refunded', updatedAt: new Date() }).where(eq(order.id, id))
     }
 
     await tx.insert(orderEvent).values({

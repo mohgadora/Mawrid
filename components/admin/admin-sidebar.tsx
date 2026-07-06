@@ -10,7 +10,7 @@ import {
   Key, ScrollText, Wifi, Bell, Activity, FileText, UserCircle,
   Layers, ToggleLeft, Image, Smartphone, RefreshCw, BookOpen,
   HelpCircle, Megaphone, PieChart, ShieldCheck, X, Package,
-  BarChart2, CreditCard,
+  BarChart2, CreditCard, Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authClient } from '@/lib/auth-client'
@@ -152,6 +152,8 @@ const NAV: Section[] = [
       { labelKey: 'adminSettings', href: '/admin/settings', icon: ToggleLeft },
       { labelKey: 'adminCommission', href: '/admin/finance/commissions', icon: PieChart },
       { labelKey: 'adminCoupons', href: '/admin/coupons', icon: Gift },
+      { labelKey: 'adminWallets', href: '/admin/wallets', icon: Wallet },
+      { labelKey: 'adminWalletBonuses', href: '/admin/wallet-bonuses', icon: Gift },
       { labelKey: 'adminRefunds', href: '/admin/refunds', icon: AlertTriangle },
     ],
   },

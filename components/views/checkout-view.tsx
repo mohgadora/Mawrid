@@ -32,12 +32,12 @@ import { useRole } from '@/lib/role'
 import { useToast } from '@/lib/toast'
 import { SHIPPING } from '@/lib/config'
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money'
-import { fetchAddresses, createOrderApi, validateCouponApi, type Address, type CouponValidation } from '@/lib/api-client'
+import { fetchAddresses, createOrderApi, validateCouponApi, fetchWallet, type Address, type CouponValidation, type WalletSummary } from '@/lib/api-client'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
 
-type PaymentMethod = 'cod' | 'card' | 'bank'
+type PaymentMethod = 'cod' | 'card' | 'bank' | 'wallet'
 
 const STEP_KEYS = ['stepAddress', 'stepDelivery', 'stepPayment'] as const
 
@@ -54,6 +54,8 @@ export function CheckoutView() {
     isLoading: addressesLoading,
     mutate: reloadAddresses,
   } = useSWR<Address[]>('addresses', fetchAddresses)
+
+  const { data: wallet } = useSWR<WalletSummary>('wallet', fetchWallet)
 
   const [step, setStep] = useState(0)
   const [addressId, setAddressId] = useState<string | null>(null)
@@ -111,6 +113,7 @@ export function CheckoutView() {
     0,
     fromCents(toCents(totals.subtotalUsd) + toCents(effectiveShippingUsd) - toCents(couponDiscountUsd)),
   )
+  const walletInsufficient = payment === 'wallet' && (wallet?.balance ?? 0) < grandTotalUsd
 
   const selectedAddress = useMemo(() => {
     if (!addresses?.length) return null
@@ -423,10 +426,43 @@ export function CheckoutView() {
                       </span>
                     </button>
                   ))}
+                  {/* Wallet */}
+                  <button
+                    type="button"
+                    onClick={() => setPayment('wallet')}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border p-3 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      payment === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-accent',
+                    )}
+                  >
+                    <Wallet className="size-5 text-primary" />
+                    <span className="flex-1 font-medium text-foreground">
+                      {lang === 'ar' ? 'الدفع من المحفظة' : 'Pay from wallet'}
+                      <span className="ms-2 text-xs text-muted-foreground">
+                        ({lang === 'ar' ? 'الرصيد' : 'balance'}: {formatPrice(wallet?.balance ?? 0)})
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'grid size-5 place-items-center rounded-full border-2',
+                        payment === 'wallet' ? 'border-primary' : 'border-muted-foreground/40',
+                      )}
+                    >
+                      {payment === 'wallet' && <span className="size-2.5 rounded-full bg-primary" />}
+                    </span>
+                  </button>
                 </div>
                 {payment === 'bank' && (
                   <p className="mt-3 rounded-lg bg-accent/60 px-3 py-2 text-xs text-accent-foreground">
                     {t('bankNote')}
+                  </p>
+                )}
+                {payment === 'wallet' && walletInsufficient && (
+                  <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    {lang === 'ar'
+                      ? `الرصيد غير كافٍ. المطلوب ${formatPrice(grandTotalUsd)} والرصيد ${formatPrice(wallet?.balance ?? 0)}.`
+                      : `Insufficient balance. Need ${formatPrice(grandTotalUsd)}, have ${formatPrice(wallet?.balance ?? 0)}.`}
                   </p>
                 )}
               </section>
@@ -492,7 +528,7 @@ export function CheckoutView() {
             ) : (
               <button
                 type="button"
-                disabled={placing || !selectedAddress}
+                disabled={placing || !selectedAddress || walletInsufficient}
                 onClick={placeOrder}
                 className="ms-auto flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.01] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >

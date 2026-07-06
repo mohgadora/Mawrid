@@ -60,5 +60,5 @@ export type Order = {
   addressLabel: string
   deliverySlotAr: string
   deliverySlotEn: string
-  paymentMethod: 'cod' | 'card' | 'bank'
+  paymentMethod: 'cod' | 'card' | 'bank' | 'wallet'
 }

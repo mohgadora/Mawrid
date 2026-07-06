@@ -743,6 +743,8 @@ const DICT = {
   adminSettingsBusiness: { ar: 'الأعمال', en: 'Business' },
   adminCommission: { ar: 'العمولات', en: 'Commissions' },
   adminCoupons: { ar: 'الكوبونات', en: 'Coupons' },
+  adminWallets: { ar: 'المحافظ', en: 'Wallets' },
+  adminWalletBonuses: { ar: 'بونص الشحن', en: 'Top-up Bonuses' },
   adminRefunds: { ar: 'المرتجعات', en: 'Refunds' },
   adminProducts: { ar: 'المنتجات', en: 'Products' },
   adminWithdrawals: { ar: 'طلبات السحب', en: 'Withdrawal Requests' },

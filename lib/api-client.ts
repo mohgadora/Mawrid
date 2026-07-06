@@ -48,7 +48,7 @@ export async function cancelOrderApi(id: string): Promise<void> {
 export function createOrderApi(body: {
   lines: { productId: string; qty: number; variantId?: string }[]
   address: { label: string; line1?: string; city?: string; phone?: string }
-  paymentMethod: 'cod' | 'card' | 'bank'
+  paymentMethod: 'cod' | 'card' | 'bank' | 'wallet'
   couponCode?: string
 }): Promise<Order> {
   return apiFetch<Order>('orders', { method: 'POST', body: JSON.stringify(body) })
@@ -89,6 +89,92 @@ export type AvailableCoupon = {
 
 export function fetchAvailableCoupons(): Promise<AvailableCoupon[]> {
   return apiFetch<AvailableCoupon[]>('coupons')
+}
+
+// ── Wallet ────────────────────────────────────────────────────────────────
+
+export type WalletSummary = {
+  balance: number
+  lifetimeCredit: number
+  lifetimeDebit: number
+  currency: string
+}
+
+export type WalletTx = {
+  id: string
+  type: string
+  amount: string
+  balanceAfter: string
+  reference: string | null
+  note: string | null
+  createdAt: string
+}
+
+export function fetchWallet(): Promise<WalletSummary> {
+  return apiFetch<WalletSummary>('wallet')
+}
+
+export function fetchWalletTransactions(page = 1): Promise<{
+  items: WalletTx[]
+  total: number
+  page: number
+  pageSize: number
+}> {
+  return apiFetch(`wallet/transactions?page=${page}`)
+}
+
+export function topupWalletApi(amount: number, method = 'manual'): Promise<{ balance: number; bonus: number }> {
+  return apiFetch('wallet/topup', { method: 'POST', body: JSON.stringify({ amount, method }) })
+}
+
+// ── Admin: wallets + bonus rules ──────────────────────────────────────────
+
+export type AdminWalletData = {
+  wallet: {
+    id: string
+    userId: string
+    balance: string
+    lifetimeCredit: string
+    lifetimeDebit: string
+    currency: string
+  }
+  transactions: WalletTx[]
+}
+
+export function adminGetUserWalletApi(userId: string): Promise<AdminWalletData> {
+  return apiFetch(`admin/wallets?userId=${encodeURIComponent(userId)}`)
+}
+
+export function adminAdjustWalletApi(userId: string, amount: number, note?: string): Promise<{ balance: number }> {
+  return apiFetch(`admin/wallets/${userId}/adjust`, { method: 'POST', body: JSON.stringify({ amount, note }) })
+}
+
+export type WalletBonusRule = {
+  id: string
+  minTopup: string
+  bonusType: string
+  bonusValue: string
+  maxBonus: string | null
+  active: boolean
+  startsAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function fetchWalletBonusRules(): Promise<WalletBonusRule[]> {
+  return apiFetch('admin/wallet-bonuses')
+}
+
+export function createWalletBonusRuleApi(data: Record<string, unknown>): Promise<WalletBonusRule> {
+  return apiFetch('admin/wallet-bonuses', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateWalletBonusRuleApi(id: string, data: Record<string, unknown>): Promise<WalletBonusRule> {
+  return apiFetch(`admin/wallet-bonuses/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteWalletBonusRuleApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/wallet-bonuses/${id}`, { method: 'DELETE' })
 }
 
 // ── Account ─────────────────────────────────────────────────────────────────

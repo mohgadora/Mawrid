@@ -489,6 +489,45 @@ export const sellerEarning = pgTable('seller_earning', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DIGITAL WALLET
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const wallet = pgTable('wallet', {
+  id:             uuid(),
+  userId:         text('userId').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  balance:        numeric('balance', { precision: 12, scale: 2 }).notNull().default('0'),
+  lifetimeCredit: numeric('lifetimeCredit', { precision: 12, scale: 2 }).notNull().default('0'),
+  lifetimeDebit:  numeric('lifetimeDebit', { precision: 12, scale: 2 }).notNull().default('0'),
+  currency:       text('currency').notNull().default('USD'),
+  createdAt:      now(),
+  updatedAt:      timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const walletTransaction = pgTable('wallet_transaction', {
+  id:           uuid(),
+  walletId:     text('walletId').notNull().references(() => wallet.id, { onDelete: 'cascade' }),
+  type:         text('type').notNull(), // topup|purchase|refund|bonus|loyalty_convert|cashback|admin_credit|admin_debit
+  amount:       numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: numeric('balanceAfter', { precision: 12, scale: 2 }).notNull(),
+  reference:    text('reference'),
+  note:         text('note'),
+  createdBy:    text('createdBy'),
+  createdAt:    now(),
+})
+
+export const walletBonusRule = pgTable('wallet_bonus_rule', {
+  id:         uuid(),
+  minTopup:   numeric('minTopup', { precision: 12, scale: 2 }).notNull(),
+  bonusType:  text('bonusType').notNull(), // percent | fixed
+  bonusValue: numeric('bonusValue', { precision: 12, scale: 2 }).notNull(),
+  maxBonus:   numeric('maxBonus', { precision: 12, scale: 2 }),
+  active:     boolean('active').notNull().default(true),
+  startsAt:   timestamp('startsAt', { withTimezone: true }),
+  expiresAt:  timestamp('expiresAt', { withTimezone: true }),
+  createdAt:  now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // REFUND REQUESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -702,6 +741,12 @@ export type ProductVariant  = typeof productVariant.$inferSelect
 export type NewProductVariant = typeof productVariant.$inferInsert
 export type Coupon          = typeof coupon.$inferSelect
 export type CouponUsage     = typeof couponUsage.$inferSelect
+export type Wallet             = typeof wallet.$inferSelect
+export type NewWallet          = typeof wallet.$inferInsert
+export type WalletTransaction  = typeof walletTransaction.$inferSelect
+export type NewWalletTransaction = typeof walletTransaction.$inferInsert
+export type WalletBonusRule    = typeof walletBonusRule.$inferSelect
+export type NewWalletBonusRule = typeof walletBonusRule.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
