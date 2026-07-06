@@ -635,6 +635,18 @@ export const blogPost = pgTable('blog_post', {
 // SEO
 // ═══════════════════════════════════════════════════════════════════════════
 
+export const emailTemplate = pgTable('email_template', {
+  id:        uuid(),
+  event:     text('event').notNull().unique(),
+  subjectAr: text('subjectAr').notNull(),
+  bodyAr:    text('bodyAr').notNull(),
+  subjectEn: text('subjectEn'),
+  bodyEn:    text('bodyEn'),
+  active:    boolean('active').notNull().default(true),
+  updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: now(),
+})
+
 export const seoMeta = pgTable('seo_meta', {
   id:            uuid(),
   entityType:    text('entityType').notNull(), // product | category | supplier | page
@@ -961,6 +973,8 @@ export type BlogCategory       = typeof blogCategory.$inferSelect
 export type NewBlogCategory    = typeof blogCategory.$inferInsert
 export type BlogPost           = typeof blogPost.$inferSelect
 export type NewBlogPost        = typeof blogPost.$inferInsert
+export type EmailTemplate      = typeof emailTemplate.$inferSelect
+export type NewEmailTemplate   = typeof emailTemplate.$inferInsert
 export type Advertisement      = typeof advertisement.$inferSelect
 export type NewAdvertisement   = typeof advertisement.$inferInsert
 export type SubscriptionPlan   = typeof subscriptionPlan.$inferSelect

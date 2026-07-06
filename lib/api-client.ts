@@ -1302,6 +1302,24 @@ export function createBlogPostApi(data: Record<string, unknown>): Promise<BlogPo
 export function updateBlogPostApi(id: string, data: Record<string, unknown>): Promise<BlogPostRow> { return apiFetch(`admin/blog/${id}`, { method: 'PATCH', body: JSON.stringify(data) }) }
 export function deleteBlogPostApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/blog/${id}`, { method: 'DELETE' }) }
 
+// ── Email templates (admin) ─────────────────────────────────────────────────
+
+export type EmailTemplateRow = {
+  id: string
+  event: string
+  subjectAr: string
+  bodyAr: string
+  subjectEn: string | null
+  bodyEn: string | null
+  active: boolean
+  updatedAt: string
+}
+
+export function fetchEmailTemplates(): Promise<EmailTemplateRow[]> { return apiFetch('admin/email-templates') }
+export function upsertEmailTemplateApi(data: Record<string, unknown>): Promise<EmailTemplateRow> { return apiFetch('admin/email-templates', { method: 'POST', body: JSON.stringify(data) }) }
+export function deleteEmailTemplateApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/email-templates/${id}`, { method: 'DELETE' }) }
+export function testEmailTemplateApi(id: string, to: string): Promise<{ sent: boolean }> { return apiFetch(`admin/email-templates/${id}/test`, { method: 'POST', body: JSON.stringify({ to }) }) }
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

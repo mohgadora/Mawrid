@@ -749,6 +749,7 @@ const DICT = {
   adminCashback: { ar: 'الاسترجاع النقدي', en: 'CashBack' },
   adminSeo: { ar: 'تحسين محركات البحث', en: 'SEO' },
   adminBlog: { ar: 'المدونة', en: 'Blog' },
+  adminEmailTemplates: { ar: 'قوالب البريد', en: 'Email Templates' },
   adminAds: { ar: 'الإعلانات', en: 'Advertisements' },
   adminSubscriptions: { ar: 'باقات الاشتراك', en: 'Subscription Plans' },
   adminDeals: { ar: 'عرض اليوم', en: 'Deal of the Day' },

@@ -128,6 +128,7 @@ const NAV: Section[] = [
   {
     titleKey: 'adminContent',
     items: [
+      { labelKey: 'adminEmailTemplates', href: '/admin/email-templates', icon: FileText },
       { labelKey: 'adminPages', href: '/admin/content/pages', icon: BookOpen },
       { labelKey: 'adminFaq', href: '/admin/content/faq', icon: HelpCircle },
       { labelKey: 'adminAnnouncements', href: '/admin/content/announcements', icon: Bell },
