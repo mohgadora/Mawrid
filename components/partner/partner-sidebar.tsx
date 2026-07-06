@@ -117,7 +117,7 @@ function StoreSwitcher({ currentSupplierId }: { currentSupplierId?: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ supplierId }),
       })
-      router.refresh()
+      window.location.href = '/partner'
     } finally {
       setSwitching(false)
     }
