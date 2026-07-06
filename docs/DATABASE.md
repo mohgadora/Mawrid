@@ -1,0 +1,72 @@
+# مرجع قاعدة البيانات — Mawrid
+
+> يُولَّد آليًا من `lib/db/schema.ts`. عدد الجداول: 66. الهجرات في `drizzle/`.
+
+| الجدول | متغيّر Drizzle |
+|---|---|
+| `user` | `user` |
+| `phone_verification` | `phoneVerification` |
+| `session` | `session` |
+| `account` | `account` |
+| `verification` | `verification` |
+| `category` | `category` |
+| `supplier` | `supplier` |
+| `shop_follower` | `shopFollower` |
+| `restock_request` | `restockRequest` |
+| `recent_search` | `recentSearch` |
+| `deal_of_day` | `dealOfDay` |
+| `clearance_sale` | `clearanceSale` |
+| `clearance_sale_product` | `clearanceSaleProduct` |
+| `product` | `product` |
+| `price_tier` | `priceTier` |
+| `address` | `address` |
+| `guest_user` | `guestUser` |
+| `order` | `order` |
+| `order_edit` | `orderEdit` |
+| `order_edit_payment` | `orderEditPayment` |
+| `order_line` | `orderLine` |
+| `order_event` | `orderEvent` |
+| `favorite` | `favorite` |
+| `order_template` | `orderTemplate` |
+| `support_ticket` | `supportTicket` |
+| `ticket_message` | `ticketMessage` |
+| `kyc_approval` | `kycApproval` |
+| `payout` | `payout` |
+| `transaction` | `transaction` |
+| `driver` | `driver` |
+| `country` | `country` |
+| `delivery_zone` | `deliveryZone` |
+| `shipping_rule` | `shippingRule` |
+| `audit_log` | `auditLog` |
+| `admin_collection` | `adminCollection` |
+| `system_setting` | `systemSetting` |
+| `product_variant` | `productVariant` |
+| `coupon` | `coupon` |
+| `coupon_usage` | `couponUsage` |
+| `seller_earning` | `sellerEarning` |
+| `subscription_plan` | `subscriptionPlan` |
+| `store_subscription` | `storeSubscription` |
+| `advertisement` | `advertisement` |
+| `blog_category` | `blogCategory` |
+| `blog_post` | `blogPost` |
+| `email_template` | `emailTemplate` |
+| `seo_meta` | `seoMeta` |
+| `conversation` | `conversation` |
+| `chat_message` | `chatMessage` |
+| `wallet` | `wallet` |
+| `wallet_transaction` | `walletTransaction` |
+| `wallet_bonus_rule` | `walletBonusRule` |
+| `cashback_rule` | `cashbackRule` |
+| `refund_request` | `refundRequest` |
+| `stock_movement` | `stockMovement` |
+| `product_review` | `productReview` |
+| `review_reply` | `reviewReply` |
+| `review_helpful` | `reviewHelpful` |
+| `product_approval_history` | `productApprovalHistory` |
+| `flash_sale` | `flashSale` |
+| `flash_sale_product` | `flashSaleProduct` |
+| `loyalty_account` | `loyaltyAccount` |
+| `loyalty_transaction` | `loyaltyTransaction` |
+| `referral_code` | `referralCode` |
+| `referral` | `referral` |
+| `notification` | `notification` |

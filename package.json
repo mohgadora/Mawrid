@@ -13,7 +13,8 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docs:gen": "bash scripts/gen-docs.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
