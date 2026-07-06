@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
         lines: body.lines,
         address: body.address ?? { label: body.addressLabel ?? 'الرئيسي' },
         paymentMethod: body.paymentMethod ?? 'cod',
+        couponCode: typeof body.couponCode === 'string' ? body.couponCode : undefined,
       },
       user,
     )

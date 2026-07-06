@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ok, requirePartner, apiError, badRequest } from '@/lib/api-helpers'
 import { getPartnerOrderDetail, recordSellerEarning } from '@/services/partner'
+import { awardCashbackForOrder } from '@/services/cashback'
 import { db } from '@/lib/db'
 import { order, orderEvent } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -69,6 +70,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (newStatus === 'delivered') {
       await recordSellerEarning(id).catch((err) => {
         console.error(`[earnings] Failed to record earning for order ${id}:`, err)
+      })
+      // منح الاسترجاع النقدي للمحفظة (idempotent) — لا يُسقط الطلب عند الفشل
+      await awardCashbackForOrder(id).catch((err) => {
+        console.error(`[cashback] Failed to award cashback for order ${id}:`, err)
       })
     }
 

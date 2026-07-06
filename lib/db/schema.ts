@@ -37,8 +37,19 @@ export const user = pgTable('user', {
   banned:        boolean('banned').default(false),
   banReason:     text('banReason'),
   banExpires:    timestamp('banExpires', { withTimezone: true }),
+  phoneVerified: boolean('phoneVerified').notNull().default(false),
   createdAt:     timestamp('createdAt', { withTimezone: true }).notNull(),
   updatedAt:     timestamp('updatedAt', { withTimezone: true }).notNull(),
+})
+
+export const phoneVerification = pgTable('phone_verification', {
+  id:        uuid(),
+  phone:     text('phone').notNull(),
+  codeHash:  text('codeHash').notNull(),
+  expiresAt: timestamp('expiresAt', { withTimezone: true }).notNull(),
+  attempts:  integer('attempts').notNull().default(0),
+  verified:  boolean('verified').notNull().default(false),
+  createdAt: now(),
 })
 
 export const session = pgTable('session', {
@@ -114,8 +125,61 @@ export const supplier = pgTable('supplier', {
   shippingPolicy: text('shippingPolicy'),
   returnPolicy:   text('returnPolicy'),
   status:         text('status').notNull().default('active'),
+  followerCount:  integer('followerCount').notNull().default(0),
   createdAt:      now(),
   updatedAt:      timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const shopFollower = pgTable('shop_follower', {
+  id:         uuid(),
+  supplierId: text('supplierId').notNull().references(() => supplier.id, { onDelete: 'cascade' }),
+  userId:     text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  createdAt:  now(),
+})
+
+export const restockRequest = pgTable('restock_request', {
+  id:        uuid(),
+  productId: text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  userId:    text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  notified:  boolean('notified').notNull().default(false),
+  createdAt: now(),
+})
+
+export const recentSearch = pgTable('recent_search', {
+  id:          uuid(),
+  userId:      text('userId').references(() => user.id, { onDelete: 'cascade' }),
+  query:       text('query').notNull(),
+  resultCount: integer('resultCount').notNull().default(0),
+  createdAt:   now(),
+})
+
+export const dealOfDay = pgTable('deal_of_day', {
+  id:           uuid(),
+  productId:    text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  titleAr:      text('titleAr').notNull(),
+  titleEn:      text('titleEn'),
+  discountType: text('discountType').notNull().default('percent'), // percent | fixed
+  discount:     numeric('discount', { precision: 12, scale: 2 }).notNull(),
+  date:         date('date').notNull(),
+  active:       boolean('active').notNull().default(true),
+  createdAt:    now(),
+})
+
+export const clearanceSale = pgTable('clearance_sale', {
+  id:        uuid(),
+  titleAr:   text('titleAr').notNull(),
+  titleEn:   text('titleEn'),
+  startsAt:  timestamp('startsAt', { withTimezone: true }).notNull(),
+  endsAt:    timestamp('endsAt', { withTimezone: true }).notNull(),
+  active:    boolean('active').notNull().default(true),
+  createdAt: now(),
+})
+
+export const clearanceSaleProduct = pgTable('clearance_sale_product', {
+  id:              uuid(),
+  clearanceId:     text('clearanceId').notNull().references(() => clearanceSale.id, { onDelete: 'cascade' }),
+  productId:       text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
+  discountPercent: numeric('discountPercent', { precision: 5, scale: 2 }).notNull(),
 })
 
 export const product = pgTable('product', {
@@ -170,10 +234,19 @@ export const address = pgTable('address', {
   createdAt:  now(),
 })
 
+export const guestUser = pgTable('guest_user', {
+  id:        uuid(),
+  email:     text('email'),
+  phone:     text('phone'),
+  fullName:  text('fullName'),
+  createdAt: now(),
+})
+
 export const order = pgTable('order', {
   id:               uuid(),
   ref:              text('ref').notNull().unique(),
-  userId:           text('userId').notNull(),
+  userId:           text('userId'),
+  guestId:          text('guestId').references(() => guestUser.id),
   supplierId:       text('supplierId').references(() => supplier.id),
   status:           text('status').notNull().default('pending'),
   addressId:        text('addressId').references(() => address.id),
@@ -184,11 +257,36 @@ export const order = pgTable('order', {
   shippingFee:      numeric('shippingFee', { precision: 12, scale: 2 }).notNull().default('0'),
   discount:         numeric('discount', { precision: 12, scale: 2 }).notNull().default('0'),
   total:            numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
+  couponId:         text('couponId'),
+  couponCode:       text('couponCode'),
+  paymentRef:       text('paymentRef'),
   notes:            text('notes'),
   estimatedDelivery: date('estimatedDelivery'),
   deliveredAt:      timestamp('deliveredAt', { withTimezone: true }),
   createdAt:        now(),
   updatedAt:        timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const orderEdit = pgTable('order_edit', {
+  id:            uuid(),
+  orderId:       text('orderId').notNull().references(() => order.id, { onDelete: 'cascade' }),
+  editedBy:      text('editedBy'),
+  editType:      text('editType').notNull(), // quantity | remove_item
+  changeDetails: jsonb('changeDetails').notNull().default('[]'),
+  priceDiff:     numeric('priceDiff', { precision: 12, scale: 2 }).notNull().default('0'),
+  status:        text('status').notNull().default('applied'),
+  createdAt:     now(),
+})
+
+export const orderEditPayment = pgTable('order_edit_payment', {
+  id:          uuid(),
+  orderEditId: text('orderEditId').notNull().references(() => orderEdit.id, { onDelete: 'cascade' }),
+  type:        text('type').notNull(), // due | return
+  amount:      numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  status:      text('status').notNull().default('pending'), // pending | settled
+  method:      text('method'),
+  processedAt: timestamp('processedAt', { withTimezone: true }),
+  createdAt:   now(),
 })
 
 export const orderLine = pgTable('order_line', {
@@ -446,6 +544,13 @@ export const coupon = pgTable('coupon', {
   firstOrderOnly:       boolean('firstOrderOnly').notNull().default(false),
   applicableProductIds: jsonb('applicableProductIds').notNull().default('[]'),
   applicableCategoryIds:jsonb('applicableCategoryIds').notNull().default('[]'),
+  scope:                text('scope').notNull().default('global'), // global | supplier | category | product | first_order
+  scopeIds:             jsonb('scopeIds').notNull().default('[]'),
+  supplierId:           text('supplierId').references(() => supplier.id, { onDelete: 'cascade' }),
+  titleAr:              text('titleAr'),
+  titleEn:              text('titleEn'),
+  descriptionAr:        text('descriptionAr'),
+  descriptionEn:        text('descriptionEn'),
   startsAt:             timestamp('startsAt', { withTimezone: true }),
   expiresAt:            timestamp('expiresAt', { withTimezone: true }),
   active:               boolean('active').notNull().default(true),
@@ -454,11 +559,12 @@ export const coupon = pgTable('coupon', {
 })
 
 export const couponUsage = pgTable('coupon_usage', {
-  id:        uuid(),
-  couponId:  text('couponId').notNull().references(() => coupon.id, { onDelete: 'cascade' }),
-  userId:    text('userId').notNull(),
-  orderId:   text('orderId').references(() => order.id),
-  createdAt: now(),
+  id:             uuid(),
+  couponId:       text('couponId').notNull().references(() => coupon.id, { onDelete: 'cascade' }),
+  userId:         text('userId').notNull(),
+  orderId:        text('orderId').references(() => order.id),
+  discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  createdAt:      now(),
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -476,6 +582,203 @@ export const sellerEarning = pgTable('seller_earning', {
   status:             text('status').notNull().default('pending'), // pending | settled | reversed
   settledAt:          timestamp('settledAt', { withTimezone: true }),
   createdAt:          now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STORE SUBSCRIPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionPlan = pgTable('subscription_plan', {
+  id:             uuid(),
+  nameAr:         text('nameAr').notNull(),
+  nameEn:         text('nameEn'),
+  priceMonthly:   numeric('priceMonthly', { precision: 12, scale: 2 }).notNull(),
+  priceYearly:    numeric('priceYearly', { precision: 12, scale: 2 }),
+  maxProducts:    integer('maxProducts'),
+  maxOrders:      integer('maxOrders'),
+  commissionRate: numeric('commissionRate', { precision: 5, scale: 2 }),
+  features:       jsonb('features').notNull().default('[]'),
+  active:         boolean('active').notNull().default(true),
+  sortOrder:      integer('sortOrder').notNull().default(0),
+  createdAt:      now(),
+})
+
+export const storeSubscription = pgTable('store_subscription', {
+  id:                 uuid(),
+  supplierId:         text('supplierId').notNull().references(() => supplier.id, { onDelete: 'cascade' }),
+  planId:             text('planId').notNull().references(() => subscriptionPlan.id),
+  status:             text('status').notNull().default('active'), // active | expired | cancelled | trial
+  currentPeriodStart: timestamp('currentPeriodStart', { withTimezone: true }).notNull(),
+  currentPeriodEnd:   timestamp('currentPeriodEnd', { withTimezone: true }).notNull(),
+  autoRenew:          boolean('autoRenew').notNull().default(true),
+  createdAt:          now(),
+  updatedAt:          timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADVERTISEMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const advertisement = pgTable('advertisement', {
+  id:          uuid(),
+  titleAr:     text('titleAr').notNull(),
+  titleEn:     text('titleEn'),
+  type:        text('type').notNull(), // banner | popup | product_highlight | category_highlight
+  imageUrl:    text('imageUrl').notNull(),
+  targetUrl:   text('targetUrl'),
+  placement:   text('placement').notNull(), // home_top | home_middle | category_page | search_results | checkout
+  priority:    integer('priority').notNull().default(0),
+  impressions: integer('impressions').notNull().default(0),
+  clicks:      integer('clicks').notNull().default(0),
+  supplierId:  text('supplierId').references(() => supplier.id, { onDelete: 'cascade' }),
+  status:      text('status').notNull().default('approved'), // pending | approved | rejected
+  active:      boolean('active').notNull().default(true),
+  startsAt:    timestamp('startsAt', { withTimezone: true }),
+  expiresAt:   timestamp('expiresAt', { withTimezone: true }),
+  createdAt:   now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOG
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const blogCategory = pgTable('blog_category', {
+  id:        uuid(),
+  slug:      text('slug').notNull().unique(),
+  nameAr:    text('nameAr').notNull(),
+  nameEn:    text('nameEn'),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  createdAt: now(),
+})
+
+export const blogPost = pgTable('blog_post', {
+  id:          uuid(),
+  slug:        text('slug').notNull().unique(),
+  titleAr:     text('titleAr').notNull(),
+  titleEn:     text('titleEn'),
+  bodyAr:      text('bodyAr').notNull(),
+  bodyEn:      text('bodyEn'),
+  excerptAr:   text('excerptAr'),
+  excerptEn:   text('excerptEn'),
+  coverImage:  text('coverImage'),
+  categoryId:  text('categoryId').references(() => blogCategory.id, { onDelete: 'set null' }),
+  authorId:    text('authorId'),
+  status:      text('status').notNull().default('draft'), // draft | published
+  tags:        jsonb('tags').notNull().default('[]'),
+  publishedAt: timestamp('publishedAt', { withTimezone: true }),
+  viewCount:   integer('viewCount').notNull().default(0),
+  createdAt:   now(),
+  updatedAt:   timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEO
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const emailTemplate = pgTable('email_template', {
+  id:        uuid(),
+  event:     text('event').notNull().unique(),
+  subjectAr: text('subjectAr').notNull(),
+  bodyAr:    text('bodyAr').notNull(),
+  subjectEn: text('subjectEn'),
+  bodyEn:    text('bodyEn'),
+  active:    boolean('active').notNull().default(true),
+  updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: now(),
+})
+
+export const seoMeta = pgTable('seo_meta', {
+  id:            uuid(),
+  entityType:    text('entityType').notNull(), // product | category | supplier | page
+  entityId:      text('entityId').notNull(),
+  titleAr:       text('titleAr'),
+  titleEn:       text('titleEn'),
+  descriptionAr: text('descriptionAr'),
+  descriptionEn: text('descriptionEn'),
+  keywords:      jsonb('keywords').notNull().default('[]'),
+  ogImage:       text('ogImage'),
+  canonicalUrl:  text('canonicalUrl'),
+  noIndex:       boolean('noIndex').notNull().default(false),
+  createdAt:     now(),
+  updatedAt:     timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAT
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const conversation = pgTable('conversation', {
+  id:             uuid(),
+  type:           text('type').notNull(), // buyer_supplier | buyer_admin | buyer_driver
+  orderId:        text('orderId').references(() => order.id),
+  participantIds: jsonb('participantIds').notNull().default('[]'),
+  lastMessageAt:  timestamp('lastMessageAt', { withTimezone: true }),
+  createdAt:      now(),
+})
+
+export const chatMessage = pgTable('chat_message', {
+  id:             uuid(),
+  conversationId: text('conversationId').notNull().references(() => conversation.id, { onDelete: 'cascade' }),
+  senderId:       text('senderId').notNull().references(() => user.id),
+  body:           text('body').notNull(),
+  images:         jsonb('images').notNull().default('[]'),
+  readAt:         timestamp('readAt', { withTimezone: true }),
+  createdAt:      now(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIGITAL WALLET
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const wallet = pgTable('wallet', {
+  id:             uuid(),
+  userId:         text('userId').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  balance:        numeric('balance', { precision: 12, scale: 2 }).notNull().default('0'),
+  lifetimeCredit: numeric('lifetimeCredit', { precision: 12, scale: 2 }).notNull().default('0'),
+  lifetimeDebit:  numeric('lifetimeDebit', { precision: 12, scale: 2 }).notNull().default('0'),
+  currency:       text('currency').notNull().default('USD'),
+  createdAt:      now(),
+  updatedAt:      timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const walletTransaction = pgTable('wallet_transaction', {
+  id:           uuid(),
+  walletId:     text('walletId').notNull().references(() => wallet.id, { onDelete: 'cascade' }),
+  type:         text('type').notNull(), // topup|purchase|refund|bonus|loyalty_convert|cashback|admin_credit|admin_debit
+  amount:       numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: numeric('balanceAfter', { precision: 12, scale: 2 }).notNull(),
+  reference:    text('reference'),
+  note:         text('note'),
+  createdBy:    text('createdBy'),
+  createdAt:    now(),
+})
+
+export const walletBonusRule = pgTable('wallet_bonus_rule', {
+  id:         uuid(),
+  minTopup:   numeric('minTopup', { precision: 12, scale: 2 }).notNull(),
+  bonusType:  text('bonusType').notNull(), // percent | fixed
+  bonusValue: numeric('bonusValue', { precision: 12, scale: 2 }).notNull(),
+  maxBonus:   numeric('maxBonus', { precision: 12, scale: 2 }),
+  active:     boolean('active').notNull().default(true),
+  startsAt:   timestamp('startsAt', { withTimezone: true }),
+  expiresAt:  timestamp('expiresAt', { withTimezone: true }),
+  createdAt:  now(),
+})
+
+export const cashbackRule = pgTable('cashback_rule', {
+  id:             uuid(),
+  type:           text('type').notNull(), // percent | fixed
+  value:          numeric('value', { precision: 12, scale: 2 }).notNull(),
+  maxCashback:    numeric('maxCashback', { precision: 12, scale: 2 }),
+  minOrderAmount: numeric('minOrderAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  scope:          text('scope').notNull().default('global'), // global | supplier | category | first_order
+  scopeIds:       jsonb('scopeIds').notNull().default('[]'),
+  titleAr:        text('titleAr'),
+  titleEn:        text('titleEn'),
+  active:         boolean('active').notNull().default(true),
+  startsAt:       timestamp('startsAt', { withTimezone: true }),
+  expiresAt:      timestamp('expiresAt', { withTimezone: true }),
+  createdAt:      now(),
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -692,6 +995,50 @@ export type ProductVariant  = typeof productVariant.$inferSelect
 export type NewProductVariant = typeof productVariant.$inferInsert
 export type Coupon          = typeof coupon.$inferSelect
 export type CouponUsage     = typeof couponUsage.$inferSelect
+export type Wallet             = typeof wallet.$inferSelect
+export type NewWallet          = typeof wallet.$inferInsert
+export type WalletTransaction  = typeof walletTransaction.$inferSelect
+export type NewWalletTransaction = typeof walletTransaction.$inferInsert
+export type WalletBonusRule    = typeof walletBonusRule.$inferSelect
+export type NewWalletBonusRule = typeof walletBonusRule.$inferInsert
+export type CashbackRule       = typeof cashbackRule.$inferSelect
+export type NewCashbackRule    = typeof cashbackRule.$inferInsert
+export type Conversation       = typeof conversation.$inferSelect
+export type NewConversation    = typeof conversation.$inferInsert
+export type ChatMessage        = typeof chatMessage.$inferSelect
+export type NewChatMessage     = typeof chatMessage.$inferInsert
+export type SeoMeta            = typeof seoMeta.$inferSelect
+export type NewSeoMeta         = typeof seoMeta.$inferInsert
+export type BlogCategory       = typeof blogCategory.$inferSelect
+export type NewBlogCategory    = typeof blogCategory.$inferInsert
+export type BlogPost           = typeof blogPost.$inferSelect
+export type NewBlogPost        = typeof blogPost.$inferInsert
+export type EmailTemplate      = typeof emailTemplate.$inferSelect
+export type NewEmailTemplate   = typeof emailTemplate.$inferInsert
+export type Advertisement      = typeof advertisement.$inferSelect
+export type NewAdvertisement   = typeof advertisement.$inferInsert
+export type SubscriptionPlan   = typeof subscriptionPlan.$inferSelect
+export type NewSubscriptionPlan = typeof subscriptionPlan.$inferInsert
+export type StoreSubscription  = typeof storeSubscription.$inferSelect
+export type NewStoreSubscription = typeof storeSubscription.$inferInsert
+export type PhoneVerification  = typeof phoneVerification.$inferSelect
+export type NewPhoneVerification = typeof phoneVerification.$inferInsert
+export type ShopFollower       = typeof shopFollower.$inferSelect
+export type NewShopFollower    = typeof shopFollower.$inferInsert
+export type RestockRequest     = typeof restockRequest.$inferSelect
+export type NewRestockRequest  = typeof restockRequest.$inferInsert
+export type RecentSearch       = typeof recentSearch.$inferSelect
+export type NewRecentSearch    = typeof recentSearch.$inferInsert
+export type GuestUser          = typeof guestUser.$inferSelect
+export type NewGuestUser       = typeof guestUser.$inferInsert
+export type OrderEdit          = typeof orderEdit.$inferSelect
+export type NewOrderEdit       = typeof orderEdit.$inferInsert
+export type OrderEditPayment   = typeof orderEditPayment.$inferSelect
+export type DealOfDay          = typeof dealOfDay.$inferSelect
+export type NewDealOfDay       = typeof dealOfDay.$inferInsert
+export type ClearanceSale      = typeof clearanceSale.$inferSelect
+export type NewClearanceSale   = typeof clearanceSale.$inferInsert
+export type ClearanceSaleProduct = typeof clearanceSaleProduct.$inferSelect
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect

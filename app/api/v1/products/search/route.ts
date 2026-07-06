@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
-import { ok, serverError } from '@/lib/api-helpers'
+import { ok, serverError, getApiUser } from '@/lib/api-helpers'
 import { rateLimit, clientKey } from '@/lib/rate-limit'
 import { searchProductsAdvanced, type SearchFilters } from '@/services/catalog'
+import { recordSearch } from '@/services/search-history'
 
 export async function GET(req: NextRequest) {
   const limited = rateLimit(clientKey(req, 'search'), 30, 60_000)
@@ -44,6 +45,13 @@ export async function GET(req: NextRequest) {
     if (limit) filters.limit = Number(limit)
 
     const result = await searchProductsAdvanced(filters)
+
+    // سجّل البحث للصفحة الأولى فقط (تتبّع تاريخ/شائع) — fire-and-forget
+    if (filters.query && (filters.page ?? 1) === 1) {
+      const user = await getApiUser(req).catch(() => null)
+      void recordSearch(filters.query, result.total, user?.id)
+    }
+
     return ok(result)
   } catch (err) {
     return serverError(err)

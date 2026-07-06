@@ -18,6 +18,8 @@ import {
   Plus,
   AlertCircle,
   RefreshCw,
+  Ticket,
+  X,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import {
@@ -30,12 +32,14 @@ import { useRole } from '@/lib/role'
 import { useToast } from '@/lib/toast'
 import { SHIPPING } from '@/lib/config'
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money'
-import { fetchAddresses, createOrderApi, type Address } from '@/lib/api-client'
+import { fetchAddresses, createOrderApi, validateCouponApi, fetchWallet, previewCashbackApi, type Address, type CouponValidation, type WalletSummary } from '@/lib/api-client'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
+import { authClient } from '@/lib/auth-client'
+import { GuestCheckout } from '@/components/views/guest-checkout'
 
-type PaymentMethod = 'cod' | 'card' | 'bank'
+type PaymentMethod = 'cod' | 'card' | 'bank' | 'wallet'
 
 const STEP_KEYS = ['stepAddress', 'stepDelivery', 'stepPayment'] as const
 
@@ -53,12 +57,19 @@ export function CheckoutView() {
     mutate: reloadAddresses,
   } = useSWR<Address[]>('addresses', fetchAddresses)
 
+  const { data: wallet } = useSWR<WalletSummary>('wallet', fetchWallet)
+  const { data: session, isPending: sessionPending } = authClient.useSession()
+
   const [step, setStep] = useState(0)
   const [addressId, setAddressId] = useState<string | null>(null)
   const [day, setDay] = useState<'today' | 'tomorrow'>('tomorrow')
   const [slot, setSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [payment, setPayment] = useState<PaymentMethod>('cod')
   const [placing, setPlacing] = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [coupon, setCoupon] = useState<CouponValidation | null>(null)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [applyingCoupon, setApplyingCoupon] = useState(false)
 
   const lines = useMemo(
     () =>
@@ -98,6 +109,21 @@ export function CheckoutView() {
     }
   }, [lines, role])
 
+  const couponDiscountUsd = coupon?.valid ? coupon.discountUsd : 0
+  const couponFreeShipping = coupon?.valid ? coupon.freeShipping : false
+  const effectiveShippingUsd = couponFreeShipping ? 0 : totals.shippingUsd
+  const grandTotalUsd = Math.max(
+    0,
+    fromCents(toCents(totals.subtotalUsd) + toCents(effectiveShippingUsd) - toCents(couponDiscountUsd)),
+  )
+  const walletInsufficient = payment === 'wallet' && (wallet?.balance ?? 0) < grandTotalUsd
+
+  const cartKey = lines.map(({ item }) => `${item.productId}:${item.qty}`).join(',')
+  const { data: cashback } = useSWR(
+    cartKey ? `cashback:${cartKey}` : null,
+    () => previewCashbackApi(lines.map(({ item }) => ({ productId: item.productId, qty: item.qty }))),
+  )
+
   const selectedAddress = useMemo(() => {
     if (!addresses?.length) return null
     return addresses.find((a) => a.id === addressId) ?? addresses.find((a) => a.isDefault) ?? addresses[0]
@@ -107,6 +133,11 @@ export function CheckoutView() {
     morning: t('morning'),
     afternoon: t('afternoon'),
     evening: t('evening'),
+  }
+
+  // زوّار بلا حساب → مسار الشراء كضيف (لا يمسّ تدفّق المسجّلين)
+  if (!sessionPending && !session?.user) {
+    return <GuestCheckout />
   }
 
   if (items.length > 0 && lines.length === 0 && !placing) {
@@ -141,6 +172,39 @@ export function CheckoutView() {
     )
   }
 
+  async function applyCouponCode() {
+    const code = couponInput.trim()
+    if (!code || applyingCoupon) return
+    setApplyingCoupon(true)
+    setCouponError(null)
+    try {
+      const items = lines.map(({ item }) => ({
+        productId: item.productId,
+        qty: item.qty,
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+      }))
+      const res = await validateCouponApi({ code, items })
+      if (res.valid) {
+        setCoupon(res)
+        setCouponError(null)
+      } else {
+        setCoupon(null)
+        setCouponError(res.message)
+      }
+    } catch (err) {
+      setCoupon(null)
+      setCouponError(err instanceof Error ? err.message : t('errorTitle'))
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
+  function removeCoupon() {
+    setCoupon(null)
+    setCouponInput('')
+    setCouponError(null)
+  }
+
   async function placeOrder() {
     if (!selectedAddress) return
     setPlacing(true)
@@ -159,6 +223,7 @@ export function CheckoutView() {
           phone: selectedAddress.phone ?? '',
         },
         paymentMethod: payment,
+        ...(coupon?.valid ? { couponCode: coupon.code } : {}),
       })
       clear()
       toast.success(t('toastOrderPlaced'))
@@ -375,10 +440,43 @@ export function CheckoutView() {
                       </span>
                     </button>
                   ))}
+                  {/* Wallet */}
+                  <button
+                    type="button"
+                    onClick={() => setPayment('wallet')}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border p-3 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      payment === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-accent',
+                    )}
+                  >
+                    <Wallet className="size-5 text-primary" />
+                    <span className="flex-1 font-medium text-foreground">
+                      {lang === 'ar' ? 'الدفع من المحفظة' : 'Pay from wallet'}
+                      <span className="ms-2 text-xs text-muted-foreground">
+                        ({lang === 'ar' ? 'الرصيد' : 'balance'}: {formatPrice(wallet?.balance ?? 0)})
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'grid size-5 place-items-center rounded-full border-2',
+                        payment === 'wallet' ? 'border-primary' : 'border-muted-foreground/40',
+                      )}
+                    >
+                      {payment === 'wallet' && <span className="size-2.5 rounded-full bg-primary" />}
+                    </span>
+                  </button>
                 </div>
                 {payment === 'bank' && (
                   <p className="mt-3 rounded-lg bg-accent/60 px-3 py-2 text-xs text-accent-foreground">
                     {t('bankNote')}
+                  </p>
+                )}
+                {payment === 'wallet' && walletInsufficient && (
+                  <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    {lang === 'ar'
+                      ? `الرصيد غير كافٍ. المطلوب ${formatPrice(grandTotalUsd)} والرصيد ${formatPrice(wallet?.balance ?? 0)}.`
+                      : `Insufficient balance. Need ${formatPrice(grandTotalUsd)}, have ${formatPrice(wallet?.balance ?? 0)}.`}
                   </p>
                 )}
               </section>
@@ -444,7 +542,7 @@ export function CheckoutView() {
             ) : (
               <button
                 type="button"
-                disabled={placing || !selectedAddress}
+                disabled={placing || !selectedAddress || walletInsufficient}
                 onClick={placeOrder}
                 className="ms-auto flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.01] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
@@ -458,27 +556,96 @@ export function CheckoutView() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="mb-3 text-base font-bold text-foreground">{t('orderSummary')}</h2>
+
+            {/* Coupon */}
+            <div className="mb-3">
+              {coupon?.valid ? (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-success/40 bg-success/10 px-3 py-2">
+                  <span className="flex items-center gap-2 text-sm font-bold text-success">
+                    <Ticket className="size-4 shrink-0" />
+                    <span dir="ltr">{coupon.code}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="grid size-6 place-items-center rounded-full text-success/70 transition-colors hover:bg-success/20 hover:text-success"
+                    aria-label={lang === 'ar' ? 'إزالة الكوبون' : 'Remove coupon'}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        applyCouponCode()
+                      }
+                    }}
+                    placeholder={lang === 'ar' ? 'كود الكوبون' : 'Coupon code'}
+                    className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium uppercase text-foreground placeholder:normal-case placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    dir="ltr"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCouponCode}
+                    disabled={!couponInput.trim() || applyingCoupon}
+                    className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {applyingCoupon ? t('loading') : lang === 'ar' ? 'تطبيق' : 'Apply'}
+                  </button>
+                </div>
+              )}
+              {couponError && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  {couponError}
+                </p>
+              )}
+            </div>
+
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t('subtotal')}</dt>
                 <dd className="font-semibold text-foreground">{formatPrice(totals.subtotalUsd)}</dd>
               </div>
+              {couponDiscountUsd > 0 && (
+                <div className="flex justify-between">
+                  <dt className="flex items-center gap-1.5 text-success">
+                    <Ticket className="size-3.5" />
+                    {lang === 'ar' ? 'خصم الكوبون' : 'Coupon discount'}
+                  </dt>
+                  <dd className="font-semibold text-success">− {formatPrice(couponDiscountUsd)}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t('shipping')}</dt>
                 <dd className="font-semibold text-foreground">
-                  {totals.shippingUsd === 0 ? (
+                  {effectiveShippingUsd === 0 ? (
                     <span className="text-success">{t('freeShipping')}</span>
                   ) : (
-                    formatPrice(totals.shippingUsd)
+                    formatPrice(effectiveShippingUsd)
                   )}
                 </dd>
               </div>
               <div className="my-1 border-t border-border" />
               <div className="flex items-center justify-between">
                 <dt className="font-bold text-foreground">{t('total')}</dt>
-                <dd className="text-xl font-black text-primary">{formatPrice(totals.totalUsd)}</dd>
+                <dd className="text-xl font-black text-primary">{formatPrice(grandTotalUsd)}</dd>
               </div>
             </dl>
+            {cashback && cashback.cashbackUsd > 0 && (
+              <p className="mt-3 flex items-center gap-2 rounded-lg bg-chart-3/10 px-3 py-2 text-sm font-semibold text-chart-3">
+                <Wallet className="size-4 shrink-0" />
+                {lang === 'ar'
+                  ? `ستربح استرجاعاً ${formatPrice(cashback.cashbackUsd)} في محفظتك`
+                  : `You'll earn ${formatPrice(cashback.cashbackUsd)} cashback to your wallet`}
+              </p>
+            )}
             <p className="mt-3 text-xs text-muted-foreground">
               {lang === 'ar'
                 ? 'السعر النهائي يُحسب من الخادم عند تأكيد الطلب.'

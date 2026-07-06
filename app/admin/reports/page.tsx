@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { BarChart2, TrendingUp, ShoppingCart, Users, DollarSign, Package, Store } from 'lucide-react'
+import { BarChart2, TrendingUp, ShoppingCart, Users, DollarSign, Package, Store, Ticket, Wallet, Download } from 'lucide-react'
 import {
   getAnalyticsSummaryApi,
   getRevenueByDayApi,
   getTopProductsApi,
   getTopSuppliersApi,
   getAnalyticsKpiApi,
+  getCouponReportApi,
+  getWalletReportApi,
   type TopProducts,
   type TopSuppliers,
 } from '@/lib/api-client'
@@ -69,15 +71,45 @@ export default function ReportsPage() {
   const { data: revenueByDay, isLoading: chartLoading } = useSWR(['admin/analytics/revenue-by-day', period], () => getRevenueByDayApi(period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365))
   const { data: topProducts } = useSWR('admin/analytics/top-products', getTopProductsApi)
   const { data: topSuppliers } = useSWR('admin/analytics/top-suppliers', getTopSuppliersApi)
+  const { data: couponReport } = useSWR('admin/analytics/coupon-report', getCouponReportApi)
+  const { data: walletReport } = useSWR('admin/analytics/wallet-report', getWalletReportApi)
 
   const isLoading = kpiLoading || summaryLoading || chartLoading
+
+  function exportProductsCsv() {
+    const rows = topProducts ?? []
+    const header = ['المنتج', 'الكمية', 'الإيرادات']
+    const lines = rows.map((p) => [
+      `"${(p.name ?? '').replace(/"/g, '""')}"`,
+      p.totalQty,
+      p.totalRevenue,
+    ].join(','))
+    const csv = '﻿' + [header.join(','), ...lines].join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `top-products-${period}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="route-fade space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <BarChart2 className="size-5 text-primary" />
-        <h1 className="text-lg font-semibold text-foreground">التقارير والإحصاءات</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <BarChart2 className="size-5 text-primary" />
+          <h1 className="text-lg font-semibold text-foreground">التقارير والإحصاءات</h1>
+        </div>
+        <button
+          type="button"
+          onClick={exportProductsCsv}
+          disabled={!topProducts?.length}
+          className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent disabled:opacity-50"
+        >
+          <Download className="size-4" />
+          تصدير CSV
+        </button>
       </div>
 
       {/* Period selector */}
@@ -168,6 +200,70 @@ export default function ReportsPage() {
               </div>
             ))}
             {!topSuppliers?.length && <p className="text-sm text-muted-foreground text-center py-6">لا توجد بيانات</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Coupon + wallet reports */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Coupons */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Ticket className="size-4 text-primary" /> أداء الكوبونات
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {couponReport?.totalRedemptions ?? 0} استخدام · خصم {(couponReport?.totalDiscount ?? 0).toLocaleString('ar-SA')} $
+            </p>
+          </div>
+          <div className="divide-y divide-border/50">
+            {(couponReport?.coupons ?? []).filter((c) => c.redemptions > 0).slice(0, 8).map((c) => (
+              <div key={c.couponId} className="flex items-center gap-3 px-5 py-2.5">
+                <code className="text-xs font-bold text-foreground">{c.code}</code>
+                <span className="flex-1 text-[11px] text-muted-foreground">{c.type}</span>
+                <span className="text-[11px] text-muted-foreground">{c.redemptions} مرة</span>
+                <span className="text-xs font-semibold text-primary">{c.totalDiscount.toLocaleString('ar-SA')} $</span>
+              </div>
+            ))}
+            {!couponReport?.coupons?.some((c) => c.redemptions > 0) && (
+              <p className="text-sm text-muted-foreground text-center py-6">لا توجد استخدامات</p>
+            )}
+          </div>
+        </div>
+
+        {/* Wallet */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="px-5 py-3 border-b border-border">
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Wallet className="size-4 text-primary" /> المحافظ
+            </p>
+          </div>
+          <div className="p-5 space-y-3">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-[11px] text-muted-foreground">إجمالي الأرصدة</p>
+                <p className="text-sm font-bold text-primary">{(walletReport?.totalBalance ?? 0).toLocaleString('ar-SA')} $</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">الشحنات</p>
+                <p className="text-sm font-bold text-green-600">{(walletReport?.totalCredit ?? 0).toLocaleString('ar-SA')} $</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">المصروفات</p>
+                <p className="text-sm font-bold text-orange-600">{(walletReport?.totalDebit ?? 0).toLocaleString('ar-SA')} $</p>
+              </div>
+            </div>
+            <div className="divide-y divide-border/50">
+              {(walletReport?.byType ?? []).map((t) => (
+                <div key={t.type} className="flex items-center justify-between py-1.5 text-xs">
+                  <span className="text-muted-foreground">{t.type}</span>
+                  <span className="font-semibold text-foreground">{t.total.toLocaleString('ar-SA')} $ ({t.count})</span>
+                </div>
+              ))}
+              {!walletReport?.byType?.length && (
+                <p className="text-sm text-muted-foreground text-center py-6">لا توجد عمليات</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

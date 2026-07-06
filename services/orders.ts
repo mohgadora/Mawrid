@@ -11,13 +11,17 @@ import {
   productVariant,
   priceTier,
   deliveryZone,
+  guestUser,
 } from '@/lib/db/schema'
 import { eq, desc, and, inArray, asc, gte, sql, notInArray } from 'drizzle-orm'
 import { priceLinesUsd } from '@/lib/pricing'
+import { fromCents, toCents, sumCents, lineTotalCents } from '@/lib/money'
 import { SHIPPING } from '@/lib/config'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { resolveActor, type Actor } from '@/lib/actor'
 import { writeAuditLog } from '@/lib/audit'
+import { validateCoupon, applyCoupon } from '@/services/coupon'
+import { walletDeltaTx } from '@/services/wallet'
 
 import type { OrderStatus, OrderEvent, OrderLine, OrderAddress, Order } from '@/lib/order-types'
 export type { OrderStatus, OrderEvent, OrderLine, OrderAddress, Order } from '@/lib/order-types'
@@ -67,7 +71,8 @@ function mapOrder(row: DbOrder, lines: DbLine[], events: DbEvent[]): Order {
     addressLabel: addr.label ?? '',
     deliverySlotAr: 'غداً، الصباح',
     deliverySlotEn: 'Tomorrow, Morning',
-    paymentMethod: (row.paymentMethod as 'cod' | 'card' | 'bank') ?? 'cod',
+    paymentMethod: (row.paymentMethod as 'cod' | 'card' | 'bank' | 'wallet') ?? 'cod',
+    paymentStatus: (row.paymentStatus as 'unpaid' | 'paid' | 'refunded') ?? 'unpaid',
   }
 }
 
@@ -137,6 +142,7 @@ export async function createOrder(
     lines: { productId: string; qty: number; variantId?: string }[]
     address: { label: string; line1?: string; city?: string; phone?: string }
     paymentMethod: string
+    couponCode?: string
   },
   actor?: Actor,
 ): Promise<Order> {
@@ -147,7 +153,7 @@ export async function createOrder(
   if (!Array.isArray(params.lines) || !params.lines.length) throw new ValidationError('السلة فارغة')
   if (params.lines.length > MAX_LINES) throw new ValidationError(`عدد أصناف الطلب كبير جداً (الحد ${MAX_LINES})`)
 
-  const PAYMENT_METHODS = ['cod', 'card', 'bank'] as const
+  const PAYMENT_METHODS = ['cod', 'card', 'bank', 'wallet'] as const
   if (!(PAYMENT_METHODS as readonly string[]).includes(params.paymentMethod)) {
     throw new ValidationError(`طريقة دفع غير صالحة. المسموح: ${PAYMENT_METHODS.join(', ')}`)
   }
@@ -218,6 +224,28 @@ export async function createOrder(
 
   const productIds = [...new Set(pricedLines.map((l) => l.productId).filter(Boolean))]
 
+  // ── Totals + coupon (computed before the tx; validateCoupon is read-only) ──
+  const subtotalUsd = fromCents(sumCents(pricedLines.map((l) => lineTotalCents(l.unitPrice, l.qty))))
+  const shippingBaseUsd = await resolveShippingFee(subtotalUsd)
+
+  let discountUsd = 0
+  let shippingUsd = shippingBaseUsd
+  let appliedCoupon: { id: string; code: string } | null = null
+  const couponCode = String(params.couponCode ?? '').trim()
+  if (couponCode) {
+    const res = await validateCoupon(couponCode, userId, {
+      subtotalUsd,
+      shippingUsd: shippingBaseUsd,
+      productIds,
+    })
+    if (!res.valid || !res.coupon) throw new ValidationError(res.message)
+    discountUsd = res.discountUsd
+    if (res.freeShipping) shippingUsd = 0
+    appliedCoupon = { id: res.coupon.id, code: res.coupon.code }
+  }
+  const totalCents = Math.max(0, toCents(subtotalUsd) + toCents(shippingUsd) - toCents(discountUsd))
+  const totalUsd = fromCents(totalCents)
+
   const orderId = crypto.randomUUID()
   const ref = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
 
@@ -261,21 +289,20 @@ export async function createOrder(
       }
     }
 
-    const subtotal = pricedLines.reduce((s, l) => s + l.qty * l.unitPrice, 0)
-    const shipping = await resolveShippingFee(subtotal)
-    const total = subtotal + shipping
-
     await tx.insert(order).values({
       id: orderId,
       ref,
       userId,
       status: 'pending',
       paymentMethod,
+      paymentStatus: paymentMethod === 'wallet' ? 'paid' : 'unpaid',
       shippingAddress: address,
-      subtotal: subtotal.toFixed(2),
-      shippingFee: shipping.toFixed(2),
-      discount: '0',
-      total: total.toFixed(2),
+      subtotal: subtotalUsd.toFixed(2),
+      shippingFee: shippingUsd.toFixed(2),
+      discount: discountUsd.toFixed(2),
+      total: totalUsd.toFixed(2),
+      couponId: appliedCoupon?.id ?? null,
+      couponCode: appliedCoupon?.code ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -311,6 +338,20 @@ export async function createOrder(
       createdBy: userId,
       createdAt: new Date(),
     })
+
+    if (appliedCoupon) {
+      await applyCoupon(tx, { couponId: appliedCoupon.id, userId, orderId, discountUsd })
+    }
+
+    // الدفع من المحفظة: خصم الإجمالي ذرّياً داخل نفس معاملة الطلب
+    if (paymentMethod === 'wallet') {
+      await walletDeltaTx(tx, userId, {
+        amountUsd: -totalUsd,
+        type: 'purchase',
+        reference: orderId,
+        note: `طلب ${ref}`,
+      })
+    }
   })
 
   await writeAuditLog({
@@ -322,6 +363,139 @@ export async function createOrder(
 
   const result = await loadOrderForUser(orderId, userId)
   return result!
+}
+
+/**
+ * إنشاء طلب كضيف (بدون حساب). تسعير المستهلك القياسي، دفع cod/card/bank فقط،
+ * بلا محفظة/كوبون. يُنشئ سجل ضيف ويربط الطلب به (userId = NULL).
+ */
+export async function createGuestOrder(params: {
+  lines: { productId: string; qty: number }[]
+  contact: { fullName: string; email?: string; phone: string }
+  address: { label?: string; line1?: string; city?: string; phone?: string }
+  paymentMethod: string
+}): Promise<Order> {
+  const MAX_LINES = 100
+  const MAX_QTY = 100_000
+  if (!Array.isArray(params.lines) || !params.lines.length) throw new ValidationError('السلة فارغة')
+  if (params.lines.length > MAX_LINES) throw new ValidationError(`عدد أصناف الطلب كبير جداً (الحد ${MAX_LINES})`)
+
+  const PAYMENT_METHODS = ['cod', 'card', 'bank'] as const
+  if (!(PAYMENT_METHODS as readonly string[]).includes(params.paymentMethod)) {
+    throw new ValidationError(`طريقة دفع غير صالحة. المسموح: ${PAYMENT_METHODS.join(', ')}`)
+  }
+  const paymentMethod = params.paymentMethod as (typeof PAYMENT_METHODS)[number]
+
+  const clip = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n)
+  const fullName = clip(params.contact?.fullName, 80)
+  const phone = clip(params.contact?.phone, 20)
+  const email = clip(params.contact?.email, 120)
+  if (!fullName) throw new ValidationError('الاسم مطلوب')
+  if (!/^\+?[0-9]{7,20}$/.test(phone)) throw new ValidationError('رقم هاتف غير صالح')
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new ValidationError('بريد إلكتروني غير صالح')
+
+  // دمج الأسطر
+  const merged = new Map<string, number>()
+  for (const l of params.lines) {
+    const productId = String(l.productId ?? '').trim()
+    const qty = Math.max(1, Math.trunc(Number(l.qty) || 0))
+    if (!productId || qty <= 0) continue
+    merged.set(productId, Math.min(MAX_QTY, (merged.get(productId) ?? 0) + qty))
+  }
+  const cleanLines = [...merged.entries()].map(([productId, qty]) => ({ productId, qty }))
+  if (!cleanLines.length) throw new ValidationError('لا توجد أصناف صالحة في الطلب')
+
+  const priced = await priceLinesUsd(cleanLines, 'consumer')
+  const productIds = [...new Set(priced.map((l) => l.productId))]
+  const subtotalUsd = fromCents(sumCents(priced.map((l) => lineTotalCents(l.unitPrice, l.qty))))
+  const shippingUsd = await resolveShippingFee(subtotalUsd)
+  const totalUsd = fromCents(toCents(subtotalUsd) + toCents(shippingUsd))
+
+  const address = {
+    label: clip(params.address?.label, 60) || 'الرئيسي',
+    line1: clip(params.address?.line1, 200),
+    city: clip(params.address?.city, 80),
+    phone: clip(params.address?.phone, 20) || phone,
+  }
+
+  const guestId = crypto.randomUUID()
+  const orderId = crypto.randomUUID()
+  const ref = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
+
+  await db.transaction(async (tx) => {
+    const dbProducts = await tx
+      .select({ id: productTable.id, name: productTable.name, nameAr: productTable.nameAr, imageUrl: productTable.imageUrl, unitsPerCarton: productTable.unitsPerCarton, stock: productTable.stock })
+      .from(productTable)
+      .where(inArray(productTable.id, productIds))
+    const productMap = Object.fromEntries(dbProducts.map((p) => [p.id, p]))
+
+    for (const line of priced) {
+      const p = productMap[line.productId]
+      if (!p) throw new ValidationError('أحد المنتجات غير متاح')
+      const updated = await tx
+        .update(productTable)
+        .set({ stock: sql`${productTable.stock} - ${line.qty}`, updatedAt: new Date() })
+        .where(and(eq(productTable.id, line.productId), gte(productTable.stock, line.qty)))
+        .returning({ id: productTable.id })
+      if (!updated.length) throw new ValidationError(`الكمية غير متوفرة للمنتج: ${p.nameAr ?? p.name}`)
+    }
+
+    await tx.insert(guestUser).values({ id: guestId, fullName, email: email || null, phone })
+
+    await tx.insert(order).values({
+      id: orderId,
+      ref,
+      userId: null,
+      guestId,
+      status: 'pending',
+      paymentMethod,
+      paymentStatus: 'unpaid',
+      shippingAddress: address,
+      subtotal: subtotalUsd.toFixed(2),
+      shippingFee: shippingUsd.toFixed(2),
+      discount: '0',
+      total: totalUsd.toFixed(2),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    await tx.insert(orderLine).values(
+      priced.map((l) => {
+        const p = productMap[l.productId]
+        const unitsPerCarton = p?.unitsPerCarton ?? 1
+        return {
+          id: crypto.randomUUID(),
+          orderId,
+          productId: l.productId,
+          productName: p?.nameAr ?? p?.name ?? l.productId,
+          productImage: p?.imageUrl ?? null,
+          qty: l.qty,
+          unitPrice: l.unitPrice.toFixed(2),
+          cartonQty: Math.ceil(l.qty / unitsPerCarton),
+          unitsPerCarton,
+          subtotal: (l.qty * l.unitPrice).toFixed(2),
+        }
+      }),
+    )
+
+    await tx.insert(orderEvent).values({
+      id: crypto.randomUUID(),
+      orderId,
+      status: 'pending',
+      note: 'تم إنشاء الطلب (ضيف)',
+      createdBy: guestId,
+      createdAt: new Date(),
+    })
+  })
+
+  await writeAuditLog({ userId: null, action: 'order.create_guest', entity: 'order', entityId: orderId, meta: { guestId } })
+
+  const [row] = await db.select().from(order).where(eq(order.id, orderId)).limit(1)
+  const [lines, events] = await Promise.all([
+    db.select().from(orderLine).where(eq(orderLine.orderId, orderId)),
+    db.select().from(orderEvent).where(eq(orderEvent.orderId, orderId)),
+  ])
+  return mapOrder(row, lines, events)
 }
 
 export async function cancelOrder(id: string, actor?: Actor): Promise<void> {
@@ -360,6 +534,17 @@ export async function cancelOrder(id: string, actor?: Actor): Promise<void> {
         .update(productTable)
         .set({ stock: sql`${productTable.stock} + ${line.qty}`, updatedAt: new Date() })
         .where(eq(productTable.id, line.productId))
+    }
+
+    // استرجاع المبلغ للمحفظة إذا كان الطلب مدفوعاً منها
+    if (rows[0].paymentMethod === 'wallet' && rows[0].paymentStatus === 'paid') {
+      await walletDeltaTx(tx, userId, {
+        amountUsd: Number(rows[0].total),
+        type: 'refund',
+        reference: id,
+        note: `استرجاع طلب ملغى ${rows[0].ref}`,
+      })
+      await tx.update(order).set({ paymentStatus: 'refunded', updatedAt: new Date() }).where(eq(order.id, id))
     }
 
     await tx.insert(orderEvent).values({
