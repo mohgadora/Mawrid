@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { readImpersonation } from '@/lib/impersonation'
+import { db } from '@/lib/db'
+import { supplier } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export type ApiUser = { id: string; role: string; email: string; name: string; impersonatedSupplierId?: string }
 
@@ -57,6 +60,15 @@ export async function requirePartner(req?: NextRequest): Promise<ApiUser | NextR
   const user = await getApiUser(req)
   if (!user) return unauthorized()
   if (user.role !== 'supplier' && user.role !== 'admin') return forbidden()
+  // Admin impersonation bypasses verification check
+  if (user.role === 'admin') return user
+  // For suppliers: check that account is verified
+  if (!user.impersonatedSupplierId) {
+    const [sup] = await db.select({ verified: supplier.verified }).from(supplier).where(eq(supplier.userId, user.id)).limit(1)
+    if (!sup || !sup.verified) {
+      return NextResponse.json({ error: 'Forbidden', message: 'account_pending' }, { status: 403 })
+    }
+  }
   return user
 }
 

@@ -146,23 +146,60 @@ export async function getApprovals() {
 
   const userIds  = [...new Set(rows.map((r) => r.userId))]
   const userRows = userIds.length
-    ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, userIds))
+    ? await db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(inArray(user.id, userIds))
     : []
-  const userMap  = Object.fromEntries(userRows.map((u) => [u.id, u.name]))
+  const userMap  = Object.fromEntries(userRows.map((u) => [u.id, u]))
 
-  return rows.map((r) => ({
-    id:          r.id,
-    type:        'kyc' as ApprovalCategory,
-    title:       userMap[r.userId] ?? r.userId,
-    subtitle:    `KYC — ${r.crNumber ?? 'CR غير محدد'}`,
-    submittedAt: r.submittedAt.toISOString(),
-    status:      r.status,
-    priority:    'high' as ApprovalPriority,
-    crNumber:    r.crNumber ?? '',
-    vatNumber:   r.vatNumber ?? '',
-    documents:   (r.documents as unknown[]) ?? [],
-    userId:      r.userId,
+  // Fetch supplier rows for supplier-type KYC
+  const supplierRows = await db.select({ userId: supplier.userId, nameAr: supplier.nameAr, name: supplier.name }).from(supplier)
+  const supplierByUserId = Object.fromEntries(supplierRows.map((s) => [s.userId, s]))
+
+  // Fetch pending products
+  const pendingProducts = await db
+    .select()
+    .from(productTable)
+    .where(eq(productTable.status, 'pending_approval'))
+    .orderBy(desc(productTable.createdAt))
+    .limit(100)
+
+  const supIds = [...new Set(pendingProducts.map((p) => p.supplierId).filter(Boolean))] as string[]
+  const supRows = supIds.length ? await db.select({ id: supplier.id, nameAr: supplier.nameAr, name: supplier.name }).from(supplier).where(inArray(supplier.id, supIds)) : []
+  const supMap = Object.fromEntries(supRows.map((s) => [s.id, s.nameAr ?? s.name]))
+
+  const kycItems = rows.map((r) => {
+    const isSupplier = r.type === 'supplier'
+    const sup = supplierByUserId[r.userId]
+    const u = userMap[r.userId]
+    return {
+      id:          r.id,
+      type:        (isSupplier ? 'supplier' : 'kyc') as ApprovalCategory,
+      title:       isSupplier ? (sup?.nameAr ?? sup?.name ?? u?.name ?? r.userId) : (u?.name ?? r.userId),
+      subtitle:    isSupplier ? (u?.email ?? r.userId) : `KYC — ${r.crNumber ?? 'CR غير محدد'}`,
+      submittedAt: r.submittedAt.toISOString(),
+      status:      r.status,
+      priority:    'high' as ApprovalPriority,
+      crNumber:    r.crNumber ?? '',
+      vatNumber:   r.vatNumber ?? '',
+      documents:   (r.documents as unknown[]) ?? [],
+      userId:      r.userId,
+    }
+  })
+
+  const productItems = pendingProducts.map((p) => ({
+    id:          p.id,
+    type:        'product' as ApprovalCategory,
+    title:       p.nameAr ?? p.name,
+    subtitle:    p.supplierId ? (supMap[p.supplierId] ?? '') : '',
+    submittedAt: p.createdAt.toISOString(),
+    status:      'pending' as ApprovalStatus,
+    priority:    'medium' as ApprovalPriority,
+    crNumber:    '',
+    vatNumber:   '',
+    documents:   [] as unknown[],
+    userId:      '',
   }))
+
+  return [...kycItems, ...productItems]
 }
 
 export async function updateApprovalStatus(id: string, status: string, adminUserId?: string) {
@@ -173,16 +210,26 @@ export async function updateApprovalStatus(id: string, status: string, adminUser
     .returning()
   if (!row) throw new NotFoundError('Approval not found')
 
-  if (status === 'approved') {
-    await db
-      .update(user)
-      .set({ role: 'merchant', updatedAt: new Date() })
-      .where(eq(user.id, row.userId))
-  } else if (status === 'rejected') {
-    await db
-      .update(user)
-      .set({ role: 'consumer', updatedAt: new Date() })
-      .where(and(eq(user.id, row.userId), eq(user.role, 'merchant')))
+  if (row.type === 'supplier') {
+    if (status === 'approved') {
+      await db.update(user).set({ role: 'supplier', updatedAt: new Date() }).where(eq(user.id, row.userId))
+      await db.update(supplier).set({ verified: true, updatedAt: new Date() }).where(eq(supplier.userId, row.userId))
+    } else if (status === 'rejected') {
+      await db.update(user).set({ role: 'consumer', updatedAt: new Date() }).where(eq(user.id, row.userId))
+      await db.update(supplier).set({ verified: false, updatedAt: new Date() }).where(eq(supplier.userId, row.userId))
+    }
+  } else {
+    if (status === 'approved') {
+      await db
+        .update(user)
+        .set({ role: 'merchant', updatedAt: new Date() })
+        .where(eq(user.id, row.userId))
+    } else if (status === 'rejected') {
+      await db
+        .update(user)
+        .set({ role: 'consumer', updatedAt: new Date() })
+        .where(and(eq(user.id, row.userId), eq(user.role, 'merchant')))
+    }
   }
 
   await writeAuditLog({
@@ -952,6 +999,14 @@ export async function deleteTicket(ticketId: string, adminUserId: string) {
   await db.delete(ticketMessage).where(eq(ticketMessage.ticketId, ticketId))
   await db.delete(supportTicket).where(eq(supportTicket.id, ticketId))
   await writeAuditLog({ userId: adminUserId, action: 'ticket.delete', entity: 'ticket', entityId: ticketId })
+}
+
+export async function getAdminProductsPending() {
+  const rows = await db.select().from(productTable).where(eq(productTable.status, 'pending_approval')).orderBy(desc(productTable.createdAt)).limit(100)
+  const supIds = [...new Set(rows.map(r => r.supplierId).filter(Boolean))] as string[]
+  const sups = supIds.length ? await db.select({ id: supplier.id, name: supplier.nameAr }).from(supplier).where(inArray(supplier.id, supIds)) : []
+  const supMap = Object.fromEntries(sups.map(s => [s.id, s.name]))
+  return rows.map(r => ({ id: r.id, name: r.nameAr ?? r.name, sku: r.sku, supplierId: r.supplierId, supplierName: supMap[r.supplierId ?? ''] ?? '', imageUrl: r.imageUrl, createdAt: r.createdAt.toISOString(), status: r.status }))
 }
 
 export async function updateTicket(ticketId: string, data: { subject?: string; priority?: string; status?: string }, adminUserId: string) {
