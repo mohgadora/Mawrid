@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import { DollarSign, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { getAdminWithdrawals, updateAdminWithdrawal, approveWithdrawalApi, rejectWithdrawalApi, markWithdrawalPaidApi } from '@/lib/api-client'
+import { getAdminWithdrawals, approveWithdrawalApi, rejectWithdrawalApi, markWithdrawalPaidApi } from '@/lib/api-client'
 import { AsyncContent } from '@/components/async-content'
 import { AdminPageSkeleton } from '@/components/skeletons'
 import { EmptyState } from '@/components/empty-state'
@@ -33,19 +33,6 @@ export default function AdminWithdrawalsPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [paidId, setPaidId] = useState<string | null>(null)
   const [paidRef, setPaidRef] = useState('')
-
-  async function act(id: string, status: 'approved' | 'rejected' | 'completed', reference?: string) {
-    setActing(id)
-    try {
-      await updateAdminWithdrawal(id, { status, reference })
-      await mutate()
-      success(status === 'approved' ? 'تمت الموافقة' : status === 'completed' ? 'تم الصرف' : 'تم الرفض')
-    } catch {
-      toastError('فشل تنفيذ الإجراء')
-    } finally {
-      setActing(null)
-    }
-  }
 
   async function doApprove(id: string) {
     setActing(id)
