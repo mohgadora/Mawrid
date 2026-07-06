@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guard = await requireAdmin()
+    const guard = await requireAdmin(req)
     if (guard instanceof NextResponse) return guard
 
     const { id } = await params

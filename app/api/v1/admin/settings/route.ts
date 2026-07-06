@@ -71,8 +71,8 @@ function validateSettings(body: unknown): { data: Partial<SystemSettings>; error
   return { data }
 }
 
-export async function GET() {
-  const guard = await requireAdmin()
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
 
   try {

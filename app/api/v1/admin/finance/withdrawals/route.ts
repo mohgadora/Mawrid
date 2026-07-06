@@ -5,7 +5,7 @@ import { payout, supplier } from '@/lib/db/schema'
 import { desc } from 'drizzle-orm'
 
 export async function GET() {
-  const guard = await requireAdmin()
+  const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
 
   try {

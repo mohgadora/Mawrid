@@ -4,8 +4,8 @@ import { getAdminKpi } from '@/services/admin'
 
 // Auth is enforced by middleware for all /api/v1/admin/* routes
 export async function GET() {
-  const __guard = await requireAdmin()
-  if (__guard instanceof NextResponse) return __guard
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return __guard
 
   try {
     return ok(await getAdminKpi())

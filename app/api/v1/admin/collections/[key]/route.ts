@@ -5,8 +5,8 @@ import { isAllowedCollectionKey } from '@/lib/admin-collection-keys'
 
 type RouteCtx = { params: Promise<{ key: string }> }
 
-export async function GET(_req: NextRequest, ctx: RouteCtx) {
-  const guard = await requireAdmin()
+export async function GET(req: NextRequest, ctx: RouteCtx) {
+  const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
 
   const { key } = await ctx.params

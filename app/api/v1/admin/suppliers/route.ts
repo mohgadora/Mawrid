@@ -4,8 +4,8 @@ import { getAdminSuppliers, updateSupplierStatus } from '@/services/admin'
 import type { SupplierStatus } from '@/services/admin'
 
 export async function GET() {
-  const __guard = await requireAdmin()
-  if (__guard instanceof NextResponse) return __guard
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return __guard
 
   try {
     return ok(await getAdminSuppliers())
@@ -15,8 +15,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const __guard = await requireAdmin(req)
-  if (__guard instanceof NextResponse) return __guard
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return __guard
 
   try {
     const body = await req.json()

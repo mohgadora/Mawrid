@@ -3,7 +3,7 @@ import { ok, badRequest, serverError, requireAdmin } from '@/lib/api-helpers'
 import { getAdminProducts, createAdminProduct } from '@/services/admin'
 
 export async function GET() {
-  const guard = await requireAdmin()
+  const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
 
   try {

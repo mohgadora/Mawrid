@@ -4,7 +4,7 @@ import { getAdminReferrals, getAdminReferralStats } from '@/services/referrals'
 
 export async function GET() {
   try {
-    const guard = await requireAdmin()
+    const guard = await requireAdmin(req)
     if (guard instanceof NextResponse) return guard
 
     const [stats, referrals] = await Promise.all([

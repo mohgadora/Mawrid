@@ -3,7 +3,7 @@ import { ok, apiError, requireAdmin } from '@/lib/api-helpers'
 import { getFlashSales, createFlashSale } from '@/services/flash-sales'
 
 export async function GET() {
-  const guard = await requireAdmin()
+  const guard = await requireAdmin(req)
   if (guard instanceof NextResponse) return guard
   try {
     return ok(await getFlashSales())
