@@ -51,8 +51,8 @@ export function PartnerSidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={close} />}
       <aside className={cn(
-        'fixed inset-y-0 start-0 z-50 flex w-64 flex-col border-e border-border bg-card transition-transform lg:static lg:translate-x-0',
-        open ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full',
+        'fixed inset-y-0 right-0 z-50 flex w-64 flex-col border-s border-border bg-card transition-transform duration-200 lg:relative lg:inset-auto lg:translate-x-0 lg:block',
+        open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0',
       )}>
         <div className="flex h-14 items-center justify-between border-b border-border px-4">
           <span className="text-sm font-bold text-foreground">{t('authPortalPartner')}</span>
