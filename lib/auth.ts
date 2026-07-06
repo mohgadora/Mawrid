@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { admin } from 'better-auth/plugins'
 import { pool } from '@/lib/db'
+import { sendEmail, buildPasswordResetEmail } from '@/lib/email'
 
 const productionUrl = process.env.BETTER_AUTH_URL
   ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -42,7 +43,11 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
     sendResetPassword: async ({ user, url }) => {
-      console.info(`[auth] Password reset for ${user.email}: ${url}`)
+      await sendEmail({
+        to: user.email,
+        subject: 'إعادة تعيين كلمة المرور — مـوريد',
+        html: buildPasswordResetEmail(url),
+      })
     },
   },
 

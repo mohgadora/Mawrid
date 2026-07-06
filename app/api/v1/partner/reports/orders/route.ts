@@ -8,6 +8,6 @@ export async function GET(req: NextRequest) {
   try {
     const from = req.nextUrl.searchParams.get('from') ?? undefined
     const to = req.nextUrl.searchParams.get('to') ?? undefined
-    return ok(await getPartnerReportSales(undefined, from, to))
+    return ok(await getPartnerReportSales(guard, from, to))
   } catch (err) { return serverError(err) }
 }

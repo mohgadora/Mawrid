@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server'
 import { ok, serverError } from '@/lib/api-helpers'
+import { rateLimit, clientKey } from '@/lib/rate-limit'
 import { searchProductsAdvanced, type SearchFilters } from '@/services/catalog'
 
 export async function GET(req: NextRequest) {
+  const limited = rateLimit(clientKey(req, 'search'), 30, 60_000)
+  if (limited) return limited
   try {
     const sp = req.nextUrl.searchParams
 

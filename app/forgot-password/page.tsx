@@ -41,15 +41,20 @@ export default function ForgotPasswordPage() {
           <p className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">{t('forgotPasswordSent')}</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="email"
-              required
-              dir="ltr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
+            <label htmlFor="fp-email" className="block space-y-1.5">
+              <span className="text-sm font-medium text-foreground">{t('email')}</span>
+              <input
+                id="fp-email"
+                type="email"
+                required
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </label>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <button type="submit" disabled={loading} className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
               {loading ? t('saving') : t('sendResetLink')}

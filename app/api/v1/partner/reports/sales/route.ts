@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const from = req.nextUrl.searchParams.get('from') ?? undefined
     const to = req.nextUrl.searchParams.get('to') ?? undefined
-    const raw = await getPartnerReportSales(undefined, from, to)
+    const raw = await getPartnerReportSales(guard, from, to)
     return ok({
       summary: {
         totalRevenue: raw.totals.revenue,

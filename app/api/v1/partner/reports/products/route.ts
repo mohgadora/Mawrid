@@ -5,6 +5,6 @@ import { getPartnerReportProducts } from '@/services/partner'
 export async function GET(req: NextRequest) {
   const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
-  try { return ok(await getPartnerReportProducts()) }
+  try { return ok(await getPartnerReportProducts(guard)) }
   catch (err) { return serverError(err) }
 }

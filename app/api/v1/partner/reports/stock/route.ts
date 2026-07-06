@@ -5,6 +5,6 @@ import { getPartnerInventory } from '@/services/partner'
 export async function GET(req: NextRequest) {
   const guard = await requirePartner(req)
   if (guard instanceof NextResponse) return guard
-  try { return ok(await getPartnerInventory()) }
+  try { return ok(await getPartnerInventory(guard)) }
   catch (err) { return serverError(err) }
 }
