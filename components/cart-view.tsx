@@ -176,7 +176,7 @@ export function CartView() {
                 const alreadySaved = isSaved(product.id)
                 return (
                   <div
-                    key={item.productId}
+                    key={`${item.productId}::${item.variantId ?? ''}`}
                     className="flex gap-3 rounded-xl border border-border bg-card p-3"
                   >
                     <Link
@@ -210,7 +210,7 @@ export function CartView() {
                       <div className="mt-auto flex items-center justify-between pt-2">
                         <div className="flex items-center rounded-lg border border-border">
                           <button
-                            onClick={() => updateQty(item.productId, item.qty - 1)}
+                            onClick={() => updateQty(item.productId, item.qty - 1, item.variantId)}
                             className="grid size-8 place-items-center transition-colors hover:bg-accent disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             disabled={item.qty <= minQty}
                             aria-label={t('remove')}
@@ -221,7 +221,7 @@ export function CartView() {
                             {item.qty}
                           </span>
                           <button
-                            onClick={() => updateQty(item.productId, item.qty + 1)}
+                            onClick={() => updateQty(item.productId, item.qty + 1, item.variantId)}
                             className="grid size-8 place-items-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={t('addToCart')}
                           >
@@ -238,7 +238,7 @@ export function CartView() {
                             onClick={() => {
                               if (!alreadySaved) {
                                 saveItem(product.id, item.qty, product)
-                                removeItem(product.id)
+                                removeItem(product.id, item.variantId)
                               }
                             }}
                             disabled={alreadySaved}
@@ -253,7 +253,7 @@ export function CartView() {
                             )}
                           </button>
                           <button
-                            onClick={() => removeItem(item.productId)}
+                            onClick={() => removeItem(item.productId, item.variantId)}
                             className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={t('remove')}
                           >

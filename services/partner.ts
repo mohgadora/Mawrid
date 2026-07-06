@@ -565,6 +565,13 @@ export async function getPartnerEarnings(actor?: Actor) {
     .from(sellerEarning)
     .where(and(eq(sellerEarning.supplierId, sup.id), eq(sellerEarning.status, 'settled')))
 
+  // الرصيد المتاح يجب أن يحجز أيضاً طلبات السحب المعلّقة/المعتمدة، لا المكتملة فقط،
+  // وإلا أمكن للمورد تقديم عدة طلبات سحب معلّقة يتجاوز مجموعها رصيده.
+  const [reservedAgg] = await db
+    .select({ reserved: sum(payoutTable.amount) })
+    .from(payoutTable)
+    .where(and(eq(payoutTable.supplierId, sup.id), inArray(payoutTable.status, ['pending', 'approved', 'completed'])))
+
   const [payoutsAgg] = await db
     .select({ paid: sum(payoutTable.amount) })
     .from(payoutTable)
@@ -572,7 +579,8 @@ export async function getPartnerEarnings(actor?: Actor) {
 
   const totalNet    = Number(earningsAgg?.totalNet ?? 0)
   const totalPaid   = Number(payoutsAgg?.paid ?? 0)
-  const available   = Math.max(0, totalNet - totalPaid)
+  const totalReserved = Number(reservedAgg?.reserved ?? 0)
+  const available   = Math.max(0, totalNet - totalReserved)
 
   const recentEarnings = await db
     .select()
@@ -634,12 +642,13 @@ export async function requestWithdrawal(
       .from(sellerEarning)
       .where(eq(sellerEarning.supplierId, sup.id))
 
-    const [paidAgg] = await tx
-      .select({ paid: sum(payoutTable.amount) })
+    // احجز المكتملة والمعلّقة والمعتمدة معاً حتى لا يتجاوز مجموع الطلبات الرصيد.
+    const [reservedAgg] = await tx
+      .select({ reserved: sum(payoutTable.amount) })
       .from(payoutTable)
-      .where(and(eq(payoutTable.supplierId, sup.id), eq(payoutTable.status, 'completed')))
+      .where(and(eq(payoutTable.supplierId, sup.id), inArray(payoutTable.status, ['pending', 'approved', 'completed'])))
 
-    const available = Math.max(0, Number(netAgg?.totalNet ?? 0) - Number(paidAgg?.paid ?? 0))
+    const available = Math.max(0, Number(netAgg?.totalNet ?? 0) - Number(reservedAgg?.reserved ?? 0))
     if (data.amount > available) {
       throw new ValidationError(`الرصيد المتاح (${available.toFixed(2)}) أقل من المبلغ المطلوب`)
     }

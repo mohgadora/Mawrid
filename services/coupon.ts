@@ -167,10 +167,18 @@ export async function applyCoupon(
   tx: Pick<typeof db, 'insert' | 'update'>,
   params: { couponId: string; userId: string; orderId: string; discountUsd: number },
 ): Promise<void> {
-  await tx
+  // زيادة العدّاد مشروطة بعدم تجاوز الحد الكلي — تُنفَّذ ذرّياً داخل معاملة الطلب،
+  // فلا يمكن لطلبين متزامنين تجاوز usageLimitTotal (فحص القراءة في validateCoupon
+  // وحده لا يكفي بسبب سباق read-then-write).
+  const claimed = await tx
     .update(coupon)
     .set({ usedCount: sql`${coupon.usedCount} + 1` })
-    .where(eq(coupon.id, params.couponId))
+    .where(and(
+      eq(coupon.id, params.couponId),
+      sql`(${coupon.usageLimitTotal} IS NULL OR ${coupon.usedCount} < ${coupon.usageLimitTotal})`,
+    ))
+    .returning({ id: coupon.id })
+  if (!claimed.length) throw new ValidationError('انتهى الحد الأقصى لاستخدام هذا الكوبون')
 
   await tx.insert(couponUsage).values({
     id: crypto.randomUUID(),

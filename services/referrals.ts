@@ -5,7 +5,7 @@ import 'server-only'
 import { buildReferralCode } from '@/lib/referral-code'
 import { db } from '@/lib/db'
 import { referralCode, referral, user } from '@/lib/db/schema'
-import { eq, desc, count, sum, and, inArray } from 'drizzle-orm'
+import { eq, desc, count, sum, and, inArray, ne, sql } from 'drizzle-orm'
 import { earnPoints } from '@/services/loyalty'
 import { getSetting } from '@/lib/settings'
 import { writeAuditLog } from '@/lib/audit'
@@ -85,7 +85,7 @@ export async function applyReferralCode(refereeId: string, code: string) {
 
     await tx
       .update(referralCode)
-      .set({ usageCount: codeRow.usageCount + 1 })
+      .set({ usageCount: sql`${referralCode.usageCount} + 1` })
       .where(eq(referralCode.id, codeRow.id))
   })
 
@@ -108,22 +108,21 @@ export async function rewardReferral(referralId: string, adminUserId?: string) {
   const referrerBonus = Number(referrerBonusRaw) || 0
   const refereeBonus = Number(refereeBonusRaw) || 0
 
+  // اطلب المكافأة ذرّياً: فقط أول استدعاء ينجح في قلب pending→rewarded يمنح النقاط.
+  // يمنع المنح المزدوج عند النقر المتكرر أو إعادة المحاولة.
+  const claimed = await db
+    .update(referral)
+    .set({ status: 'rewarded', referrerBonus, refereeBonus, rewardedAt: new Date() })
+    .where(and(eq(referral.id, referralId), ne(referral.status, 'rewarded')))
+    .returning({ id: referral.id })
+  if (!claimed.length) throw new Error('تم منح المكافأة مسبقاً')
+
   if (referrerBonus > 0) {
     await earnPoints(ref.referrerId, referrerBonus, undefined, `مكافأة الإحالة #${referralId}`)
   }
   if (refereeBonus > 0) {
     await earnPoints(ref.refereeId, refereeBonus, undefined, `مكافأة الترحيب بالإحالة #${referralId}`)
   }
-
-  await db
-    .update(referral)
-    .set({
-      status: 'rewarded',
-      referrerBonus,
-      refereeBonus,
-      rewardedAt: new Date(),
-    })
-    .where(eq(referral.id, referralId))
 
   await writeAuditLog({
     userId: adminUserId,

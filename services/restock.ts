@@ -5,7 +5,7 @@
 import 'server-only'
 import { db } from '@/lib/db'
 import { restockRequest, product } from '@/lib/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import { NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { createNotification } from '@/services/notifications'
@@ -59,6 +59,7 @@ export async function notifyRestocked(productId: string): Promise<number> {
     ).catch((err) => console.error('[restock] notify failed:', err))
   }
 
-  await db.update(restockRequest).set({ notified: true }).where(eq(restockRequest.productId, productId))
+  // علّم فقط الطلبات التي عالجناها — لا كل طلبات المنتج (قد يُضاف طلب جديد أثناء الحلقة)
+  await db.update(restockRequest).set({ notified: true }).where(inArray(restockRequest.id, pending.map((p) => p.id)))
   return pending.length
 }

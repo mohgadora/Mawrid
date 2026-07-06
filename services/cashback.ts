@@ -6,13 +6,13 @@
  */
 import 'server-only'
 import { db } from '@/lib/db'
-import { cashbackRule, order, orderLine, product, walletTransaction, wallet } from '@/lib/db/schema'
-import { eq, and, desc, inArray, count } from 'drizzle-orm'
+import { cashbackRule, order, orderLine, product } from '@/lib/db/schema'
+import { eq, desc, inArray, count } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { cashbackUsd } from '@/lib/discounts'
 import { isWithinWindow } from '@/lib/time-window'
-import { credit } from '@/services/wallet'
+import { creditOnce } from '@/services/wallet'
 
 type DbRule = typeof cashbackRule.$inferSelect
 
@@ -80,30 +80,17 @@ export async function awardCashbackForOrder(orderId: string): Promise<number> {
   if (row.status !== 'delivered') return 0
   if (!row.userId) return 0 // طلبات الضيوف لا تملك محفظة/استرجاع
 
-  // idempotency: تحقّق من عدم منح استرجاع لهذا الطلب سابقاً
-  const [w] = await db.select({ id: wallet.id }).from(wallet).where(eq(wallet.userId, row.userId)).limit(1)
-  if (w) {
-    const [dup] = await db
-      .select({ id: walletTransaction.id })
-      .from(walletTransaction)
-      .where(and(
-        eq(walletTransaction.walletId, w.id),
-        eq(walletTransaction.type, 'cashback'),
-        eq(walletTransaction.reference, orderId),
-      ))
-      .limit(1)
-    if (dup) return 0
-  }
-
   const lines = await db.select({ productId: orderLine.productId }).from(orderLine).where(eq(orderLine.orderId, orderId))
   const productIds = [...new Set(lines.map((l) => l.productId).filter((id): id is string => Boolean(id)))]
 
   const amount = await calculateCashback(Number(row.total), row.userId, productIds, { excludeOrderId: orderId })
   if (amount <= 0) return 0
 
-  await credit(row.userId, amount, orderId, 'cashback', `استرجاع طلب ${row.ref}`, 'system')
-  await writeAuditLog({ userId: row.userId, action: 'cashback.award', entity: 'order', entityId: orderId, meta: { amount } })
-  return amount
+  // إيداع ذرّي مرة واحدة: يمنع المنح المزدوج عند الاستدعاءات المتزامنة لنفس الطلب.
+  const credited = await creditOnce(row.userId, amount, orderId, 'cashback', `استرجاع طلب ${row.ref}`, 'system')
+  if (credited <= 0) return 0
+  await writeAuditLog({ userId: row.userId, action: 'cashback.award', entity: 'order', entityId: orderId, meta: { amount: credited } })
+  return credited
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

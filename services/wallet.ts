@@ -8,7 +8,7 @@
 import 'server-only'
 import { db } from '@/lib/db'
 import { wallet, walletTransaction, walletBonusRule } from '@/lib/db/schema'
-import { eq, desc, count } from 'drizzle-orm'
+import { eq, desc, count, and } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { toCents, fromCents } from '@/lib/money'
@@ -190,6 +190,39 @@ export async function credit(
   return db.transaction((tx) =>
     walletDeltaTx(tx, userId, { amountUsd: Math.abs(amountUsd), type, reference, note, createdBy }),
   )
+}
+
+/**
+ * إيداع ذرّي مرة واحدة فقط: يقفل صف المحفظة ثم يتحقّق داخل نفس المعاملة من عدم
+ * وجود عملية سابقة بنفس (walletId, type, reference)، فيُلغى منح مزدوج عند
+ * الاستدعاءات المتزامنة (تتسلسل على قفل صف المحفظة). يُرجع المبلغ المُودَع
+ * فعلياً (0 إن كان مكرّراً). reference إلزامي لأنه مفتاح إزالة التكرار.
+ */
+export async function creditOnce(
+  userId: string,
+  amountUsd: number,
+  reference: string,
+  type: WalletTxType,
+  note?: string,
+  createdBy?: string,
+): Promise<number> {
+  const amount = Math.abs(amountUsd)
+  if (toCents(amount) === 0) return 0
+  return db.transaction(async (tx) => {
+    const w = await lockWallet(tx, userId)
+    const [dup] = await tx
+      .select({ id: walletTransaction.id })
+      .from(walletTransaction)
+      .where(and(
+        eq(walletTransaction.walletId, w.id),
+        eq(walletTransaction.type, type),
+        eq(walletTransaction.reference, reference),
+      ))
+      .limit(1)
+    if (dup) return 0
+    await walletDeltaTx(tx, userId, { amountUsd: amount, type, reference, note, createdBy })
+    return amount
+  })
 }
 
 /** تعديل يدوي من الأدمن (موجب = شحن، سالب = خصم). */

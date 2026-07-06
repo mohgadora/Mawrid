@@ -7,7 +7,7 @@
  */
 import 'server-only'
 import { db } from '@/lib/db'
-import { order, orderLine, orderEvent, orderEdit, orderEditPayment, product as productTable } from '@/lib/db/schema'
+import { order, orderLine, orderEvent, orderEdit, orderEditPayment, product as productTable, productVariant } from '@/lib/db/schema'
 import { eq, and, gte, sql, inArray } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
@@ -61,8 +61,20 @@ export async function editOrderQuantities(
       const delta = newQty - line.qty
       if (delta === 0) continue
 
-      // اضبط مخزون المنتج (المتغيّرات غير مدعومة في التعديل)
-      if (line.productId && !line.variantId) {
+      // اضبط المخزون حسب الفرق. أسطر المتغيّرات تخصم من مخزون المتغيّر (product_variant)
+      // وليس من المنتج، وإلا بِيع المتغيّر بلا رصيد عند زيادة الكمية.
+      if (line.variantId) {
+        if (delta > 0) {
+          const upd = await tx
+            .update(productVariant)
+            .set({ stock: sql`${productVariant.stock} - ${delta}`, updatedAt: new Date() })
+            .where(and(eq(productVariant.id, line.variantId), gte(productVariant.stock, delta)))
+            .returning({ id: productVariant.id })
+          if (!upd.length) throw new ValidationError(`الكمية غير متوفرة للمنتج: ${line.productName}`)
+        } else {
+          await tx.update(productVariant).set({ stock: sql`${productVariant.stock} + ${-delta}`, updatedAt: new Date() }).where(eq(productVariant.id, line.variantId))
+        }
+      } else if (line.productId) {
         if (delta > 0) {
           const upd = await tx
             .update(productTable)

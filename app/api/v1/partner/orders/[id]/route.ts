@@ -1,19 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ok, requirePartner, apiError, badRequest } from '@/lib/api-helpers'
-import { getPartnerOrderDetail, recordSellerEarning } from '@/services/partner'
-import { awardCashbackForOrder } from '@/services/cashback'
-import { db } from '@/lib/db'
-import { order, orderEvent } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-
-const PARTNER_ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  pending:          ['confirmed', 'cancelled'],
-  confirmed:        ['processing', 'cancelled'],
-  processing:       ['packed'],
-  packed:           ['shipped'],
-  shipped:          ['out_for_delivery'],
-  out_for_delivery: ['delivered'],
-}
+import { getPartnerOrderDetail, updatePartnerOrderStatus } from '@/services/partner'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requirePartner(req)
@@ -32,52 +19,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   try {
     const { id } = await params
-    const body = await req.json() as { status?: unknown; note?: unknown }
+    const body = await req.json() as { status?: unknown; note?: unknown; trackingNumber?: unknown }
     const newStatus = String(body.status ?? '')
+    if (!newStatus) return badRequest('الحالة مطلوبة')
 
-    // Verify this order belongs to this supplier (ownership check)
-    const detail = await getPartnerOrderDetail(id, guard)
-    if (!detail) return badRequest('الطلب غير موجود')
-
-    const current = detail.status as string
-    const allowed = PARTNER_ALLOWED_TRANSITIONS[current] ?? []
-    if (!allowed.includes(newStatus)) {
-      return badRequest(`لا يمكن الانتقال من "${current}" إلى "${newStatus}"`)
-    }
-
-    await db.transaction(async (tx) => {
-      await tx
-        .update(order)
-        .set({
-          status: newStatus,
-          updatedAt: new Date(),
-          ...(newStatus === 'delivered' ? { deliveredAt: new Date() } : {}),
-        })
-        .where(eq(order.id, id))
-
-      await tx.insert(orderEvent).values({
-        id:        crypto.randomUUID(),
-        orderId:   id,
-        status:    newStatus,
-        note:      body.note ? String(body.note).slice(0, 500) : null,
-        createdBy: guard.id,
-        createdAt: new Date(),
-      })
-    })
-
-    // Record seller commission after the status transaction
-    // Log failures so they can be manually reconciled — never silently drop
-    if (newStatus === 'delivered') {
-      await recordSellerEarning(id).catch((err) => {
-        console.error(`[earnings] Failed to record earning for order ${id}:`, err)
-      })
-      // منح الاسترجاع النقدي للمحفظة (idempotent) — لا يُسقط الطلب عند الفشل
-      await awardCashbackForOrder(id).catch((err) => {
-        console.error(`[cashback] Failed to award cashback for order ${id}:`, err)
-      })
-    }
-
-    return ok({ success: true, status: newStatus })
+    // فوّض إلى الخدمة المعتمدة: تتحقق من الملكية وتفرض آلة الحالة المسموحة
+    // (تتوقف عند "shipped"). المورد لا يمكنه وسم طلبه "delivered" ذاتياً — وهو ما
+    // كان يفتح أرباحه/استرجاعه بلا تأكيد تسليم حقيقي.
+    const updated = await updatePartnerOrderStatus(
+      id,
+      newStatus,
+      { note: body.note ? String(body.note).slice(0, 500) : undefined, trackingNumber: body.trackingNumber ? String(body.trackingNumber) : undefined },
+      guard,
+    )
+    return ok({ success: true, status: updated.status })
   } catch (err) {
     return apiError(err)
   }
