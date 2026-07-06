@@ -1011,6 +1011,28 @@ export function getAnalyticsKpiApi(): Promise<KpiSnapshot> {
   return apiFetch<KpiSnapshot>('admin/analytics/kpi')
 }
 
+export type CouponReport = {
+  totalDiscount: number
+  totalRedemptions: number
+  coupons: { couponId: string; code: string; type: string; redemptions: number; totalDiscount: number }[]
+}
+
+export function getCouponReportApi(): Promise<CouponReport> {
+  return apiFetch<CouponReport>('admin/analytics/coupon-report')
+}
+
+export type WalletReport = {
+  totalBalance: number
+  totalCredit: number
+  totalDebit: number
+  walletCount: number
+  byType: { type: string; total: number; count: number }[]
+}
+
+export function getWalletReportApi(): Promise<WalletReport> {
+  return apiFetch<WalletReport>('admin/analytics/wallet-report')
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
