@@ -14,6 +14,10 @@ import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
 
+type PendingProduct = { id: string; name: string | null; sku: string | null; supplierId: string | null; supplierName: string; imageUrl: string | null; createdAt: string; status: string }
+
+const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data)
+
 const TYPE_LABEL_KEYS: Record<ApprovalCategory, string> = {
   kyc: 'approvalTypeKyc',
   supplier: 'approvalTypeSupplier',
@@ -31,9 +35,23 @@ export default function ApprovalsPage() {
   const router = useRouter()
   const { success, error: toastError } = useToast()
   const { data, error, isLoading, mutate } = useSWR<ApprovalItem[]>('admin/approvals', getApprovals)
+  const { data: pendingProducts, mutate: mutatePending } = useSWR<PendingProduct[]>('/api/v1/admin/products/pending', fetcher)
   const [tab, setTab] = useState<ApprovalCategory | 'all'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [acting, setActing] = useState<string | null>(null)
+
+  async function productAction(id: string, action: 'approve' | 'reject') {
+    setActing(id)
+    try {
+      await fetch(`/api/v1/admin/products/${id}/${action}`, { method: 'POST' })
+      await mutatePending()
+      success(t('toastApprovalUpdated'))
+    } catch {
+      toastError(t('toastSaveFailed'))
+    } finally {
+      setActing(null)
+    }
+  }
 
   async function applyAction(id: string, action: 'approved' | 'rejected') {
     setActing(id)
@@ -79,7 +97,61 @@ export default function ApprovalsPage() {
   ]
 
   return (
-    <div className="space-y-5 route-fade">
+    <div className="space-y-8 route-fade">
+      {/* Pending Products Section */}
+      {pendingProducts && pendingProducts.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold">منتجات تنتظر الاعتماد</h2>
+          <div className="rounded-xl border border-border bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    <th className="px-4 py-3 text-start font-medium">المنتج</th>
+                    <th className="px-4 py-3 text-start font-medium">المورد</th>
+                    <th className="px-4 py-3 text-start font-medium">SKU</th>
+                    <th className="px-4 py-3 text-start font-medium">تاريخ الإضافة</th>
+                    <th className="px-4 py-3 text-start font-medium">الإجراء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingProducts.map((p) => (
+                    <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium">{p.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.supplierName || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.sku ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 gap-1 px-2 text-xs border-success/40 text-success hover:bg-success/10"
+                            disabled={acting !== null}
+                            onClick={() => productAction(p.id, 'approve')}
+                          >
+                            <Check className="size-3" /> اعتماد
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 gap-1 px-2 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                            disabled={acting !== null}
+                            onClick={() => productAction(p.id, 'reject')}
+                          >
+                            <X className="size-3" /> رفض
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AsyncContent
         data={data}
         error={error}

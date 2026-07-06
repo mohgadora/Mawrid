@@ -1,14 +1,32 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { PartnerSidebar, PartnerSidebarProvider, PartnerHeader } from '@/components/partner/partner-sidebar'
 import { ImpersonationBanner } from '@/components/partner/impersonation-banner'
 
 export default function PartnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const isAuth = pathname === '/partner/sign-in' || pathname === '/partner/sign-up'
+  const isPending = pathname === '/partner/pending'
+  const isSkipCheck = isAuth || isPending
 
-  if (isAuth) return <>{children}</>
+  useEffect(() => {
+    if (isSkipCheck) return
+    fetch('/api/v1/partner/store')
+      .then(async (res) => {
+        if (res.status === 403) {
+          const body = await res.json().catch(() => ({}))
+          if (body?.message === 'account_pending' || body?.error?.message === 'account_pending') {
+            router.replace('/partner/pending')
+          }
+        }
+      })
+      .catch(() => undefined)
+  }, [isSkipCheck, router])
+
+  if (isAuth || isPending) return <>{children}</>
 
   return (
     <PartnerSidebarProvider>

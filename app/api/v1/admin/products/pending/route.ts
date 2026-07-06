@@ -1,15 +1,15 @@
-import { NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
-import { getPendingProducts } from '@/services/approvals'
+import { NextRequest } from 'next/server'
+import { requireAdmin, ok, apiError } from '@/lib/api-helpers'
+import { getAdminProductsPending } from '@/services/admin'
 
-export async function GET() {
-  const guard = await requireAdmin()
-  if (guard instanceof NextResponse) return guard
+export async function GET(req: NextRequest) {
+  const guard = await requireAdmin(req)
+  if (guard instanceof Response) return guard
 
   try {
-    const data = await getPendingProducts()
-    return ok(data)
+    const result = await getAdminProductsPending()
+    return ok(result)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }

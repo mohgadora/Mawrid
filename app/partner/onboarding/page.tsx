@@ -27,7 +27,10 @@ interface FormData {
   shippingPolicy: string
   returnPolicy: string
   minOrder: string
-  // Step 4 – Payout
+  // Step 4 – KYC
+  crNumber: string
+  vatNumber: string
+  // Step 5 – Payout
   bankName: string
   iban: string
 }
@@ -45,6 +48,8 @@ const INITIAL: FormData = {
   shippingPolicy: '',
   returnPolicy: '',
   minOrder: '1',
+  crNumber: '',
+  vatNumber: '',
   bankName: '',
   iban: '',
 }
@@ -53,6 +58,7 @@ const STEPS = [
   'بيانات الحساب',
   'بيانات المتجر',
   'سياسات المتجر',
+  'التحقق من الهوية (KYC)',
   'بيانات التوصيل',
   'مراجعة وإرسال',
 ]
@@ -221,7 +227,67 @@ function Step3({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
   )
 }
 
-function Step4({ form, set }: { form: FormData; set: (k: keyof FormData, v: string) => void }) {
+function Step4Kyc({ form, set, docUrls, setDocUrls }: { form: FormData; set: (k: keyof FormData, v: string) => void; docUrls: string[]; setDocUrls: (u: string[]) => void }) {
+  function addDoc() {
+    if (docUrls.length < 5) setDocUrls([...docUrls, ''])
+  }
+  function removeDoc(i: number) {
+    setDocUrls(docUrls.filter((_, idx) => idx !== i))
+  }
+  function updateDoc(i: number, v: string) {
+    const updated = [...docUrls]
+    updated[i] = v
+    setDocUrls(updated)
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        يُرجى إدخال بيانات التحقق من الهوية التجارية لإتمام التسجيل.
+      </p>
+      <Field label="رقم السجل التجاري">
+        <Input
+          value={form.crNumber}
+          onChange={(e) => set('crNumber', e.target.value)}
+          placeholder="مثال: 1010000000"
+          dir="ltr"
+        />
+      </Field>
+      <Field label="الرقم الضريبي">
+        <Input
+          value={form.vatNumber}
+          onChange={(e) => set('vatNumber', e.target.value)}
+          placeholder="مثال: 300000000000003"
+          dir="ltr"
+        />
+      </Field>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">روابط المستندات (حتى 5)</Label>
+        {docUrls.map((url, i) => (
+          <div key={i} className="flex gap-2">
+            <Input
+              value={url}
+              onChange={(e) => updateDoc(i, e.target.value)}
+              placeholder="https://..."
+              dir="ltr"
+              className="flex-1"
+            />
+            <Button type="button" variant="outline" size="sm" className="px-2" onClick={() => removeDoc(i)}>
+              ×
+            </Button>
+          </div>
+        ))}
+        {docUrls.length < 5 && (
+          <Button type="button" variant="outline" size="sm" onClick={addDoc} className="w-full">
+            + إضافة رابط مستند
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Step5Bank({ form, set }: { form: FormData; set: (k: keyof FormData, v: string) => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -256,7 +322,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Step5({ form }: { form: FormData }) {
+function Step6Review({ form }: { form: FormData }) {
   return (
     <div className="space-y-1">
       <p className="text-sm text-muted-foreground mb-4">راجع بياناتك قبل الإرسال:</p>
@@ -274,6 +340,9 @@ function Step5({ form }: { form: FormData }) {
         <ReviewRow label="سياسة الشحن" value={form.shippingPolicy} />
         <ReviewRow label="سياسة الإرجاع" value={form.returnPolicy} />
         <ReviewRow label="الحد الأدنى للطلب" value={form.minOrder ? `${form.minOrder} ريال` : ''} />
+        <p className="text-xs font-semibold text-muted-foreground pt-3 pb-1">التحقق من الهوية</p>
+        <ReviewRow label="السجل التجاري" value={form.crNumber} />
+        <ReviewRow label="الرقم الضريبي" value={form.vatNumber} />
         <p className="text-xs font-semibold text-muted-foreground pt-3 pb-1">بيانات التوصيل</p>
         <ReviewRow label="البنك" value={form.bankName} />
         <ReviewRow label="IBAN" value={form.iban} />
@@ -288,8 +357,9 @@ function validate(step: number, form: FormData): string | null {
   if (step === 0 && !form.company.trim()) return 'يرجى إدخال اسم الشركة'
   if (step === 1 && !form.name.trim()) return 'يرجى إدخال اسم المتجر بالعربي'
   if (step === 1 && !form.nameEn.trim()) return 'يرجى إدخال اسم المتجر بالإنجليزي'
-  if (step === 3 && !form.bankName.trim()) return 'يرجى إدخال اسم البنك'
-  if (step === 3 && !form.iban.trim()) return 'يرجى إدخال رقم IBAN'
+  if (step === 3 && !form.crNumber.trim()) return 'يرجى إدخال رقم السجل التجاري'
+  if (step === 4 && !form.bankName.trim()) return 'يرجى إدخال اسم البنك'
+  if (step === 4 && !form.iban.trim()) return 'يرجى إدخال رقم IBAN'
   return null
 }
 
@@ -301,6 +371,7 @@ export default function PartnerOnboardingPage() {
   const [checking, setChecking] = useState(true)
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormData>(INITIAL)
+  const [docUrls, setDocUrls] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   function set(key: keyof FormData, value: string) {
@@ -316,7 +387,7 @@ export default function PartnerOnboardingPage() {
           router.replace('/partner')
         } else if (dash?.store) {
           info('طلبك قيد المراجعة')
-          router.replace('/partner')
+          router.replace('/partner/pending')
         } else {
           setChecking(false)
         }
@@ -358,8 +429,18 @@ export default function PartnerOnboardingPage() {
         company: form.company,
         phone: form.phone || undefined,
       })
+      // Submit KYC data
+      await fetch('/api/v1/partner/kyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          crNumber: form.crNumber || undefined,
+          vatNumber: form.vatNumber || undefined,
+          documents: docUrls.filter(Boolean),
+        }),
+      })
       success('تم إرسال طلبك بنجاح! سيتم مراجعته قريباً.')
-      router.replace('/partner')
+      router.replace('/partner/pending')
     } catch {
       toastError('حدث خطأ أثناء الإرسال، حاول مرة أخرى')
     } finally {
@@ -396,8 +477,9 @@ export default function PartnerOnboardingPage() {
           {step === 0 && <Step1 form={form} set={set} />}
           {step === 1 && <Step2 form={form} set={set} />}
           {step === 2 && <Step3 form={form} set={set} />}
-          {step === 3 && <Step4 form={form} set={set} />}
-          {step === 4 && <Step5 form={form} />}
+          {step === 3 && <Step4Kyc form={form} set={set} docUrls={docUrls} setDocUrls={setDocUrls} />}
+          {step === 4 && <Step5Bank form={form} set={set} />}
+          {step === 5 && <Step6Review form={form} />}
 
           {/* Navigation */}
           <div className="mt-6 flex items-center justify-between gap-3">
