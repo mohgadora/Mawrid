@@ -36,7 +36,7 @@ log "Code updated to: $(git rev-parse --short HEAD)"
 
 # ── 2. Install dependencies ──────────────────────────────────────────────────
 log "Installing dependencies ..."
-pnpm install --frozen-lockfile
+pnpm install --no-frozen-lockfile
 
 # ── 3. Patch database (idempotent — safe to run every time) ─────────────────
 log "Running database patch ..."
