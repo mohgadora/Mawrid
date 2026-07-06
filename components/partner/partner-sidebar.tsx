@@ -6,12 +6,13 @@ import {
   LayoutDashboard, Package, ShoppingCart, Receipt, Store,
   X, LogOut, Menu, TrendingUp, Warehouse, CreditCard,
   Star, Headphones, Bell, BarChart2, ClipboardList,
+  ChevronDown, Building2, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { authClient } from '@/lib/auth-client'
 import { useToast } from '@/lib/toast'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { LanguageSwitcher } from '@/components/language-switcher'
 
@@ -80,6 +81,97 @@ export function PartnerSidebar() {
   )
 }
 
+// ── Store Switcher (admin only) ───────────────────────────────────────────────
+
+type SupplierItem = { id: string; name: string; status: string }
+
+function StoreSwitcher({ currentSupplierId }: { currentSupplierId?: string }) {
+  const [open, setOpen] = useState(false)
+  const [stores, setStores] = useState<SupplierItem[]>([])
+  const [switching, setSwitching] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    fetch('/api/v1/admin/suppliers-list')
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (j?.data) setStores(j.data) })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  async function switchTo(supplierId: string) {
+    if (supplierId === currentSupplierId || switching) return
+    setSwitching(true)
+    setOpen(false)
+    try {
+      await fetch('/api/v1/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supplierId }),
+      })
+      router.refresh()
+    } finally {
+      setSwitching(false)
+    }
+  }
+
+  if (!stores.length) return null
+
+  const current = stores.find((s) => s.id === currentSupplierId)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors max-w-[180px]"
+      >
+        <Building2 className="size-3.5 shrink-0 text-primary" />
+        <span className="truncate">{current?.name ?? 'اختر متجراً'}</span>
+        <ChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute start-0 top-full z-50 mt-1 w-56 rounded-xl border border-border bg-card shadow-lg py-1 max-h-72 overflow-y-auto">
+          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            تبديل المتجر
+          </p>
+          {stores.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => switchTo(s.id)}
+              disabled={switching}
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-2 text-sm text-start transition-colors hover:bg-accent',
+                s.id === currentSupplierId && 'bg-primary/5 text-primary',
+              )}
+            >
+              <Check className={cn('size-3.5 shrink-0', s.id === currentSupplierId ? 'opacity-100 text-primary' : 'opacity-0')} />
+              <span className="min-w-0 truncate">{s.name}</span>
+              {s.status !== 'active' && (
+                <span className="ms-auto shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-700 dark:bg-orange-950 dark:text-orange-400">
+                  معلق
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+
 export function PartnerHeader() {
   const { toggle } = usePartnerSidebar()
   const { t } = useI18n()
@@ -88,6 +180,8 @@ export function PartnerHeader() {
   const pathname = usePathname()
   const title = NAV.find((n) => (n.href === '/partner' ? pathname === n.href : pathname.startsWith(n.href)))?.labelKey ?? 'partnerNavDashboard'
   const [unreadCount, setUnreadCount] = useState(0)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [currentSupplierId, setCurrentSupplierId] = useState<string | undefined>()
 
   useEffect(() => {
     fetch('/api/v1/partner/notifications')
@@ -96,7 +190,18 @@ export function PartnerHeader() {
         if (data && typeof data.unread === 'number') setUnreadCount(data.unread)
       })
       .catch(() => {})
-  }, [])
+
+    // Check if current user is admin and get impersonation state
+    fetch('/api/v1/admin/impersonate')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.data?.active) {
+          setIsAdmin(true)
+          setCurrentSupplierId(data.data.supplierId)
+        }
+      })
+      .catch(() => {})
+  }, [pathname])
 
   async function logout() {
     await authClient.signOut()
@@ -111,6 +216,9 @@ export function PartnerHeader() {
         <Menu className="size-5" />
       </button>
       <h1 className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">{t(title as Parameters<typeof t>[0])}</h1>
+
+      {isAdmin && <StoreSwitcher currentSupplierId={currentSupplierId} />}
+
       <Link href="/partner/notifications" className="relative rounded-md p-2 hover:bg-accent" aria-label={t('partnerNavNotifications')}>
         <Bell className="size-5" />
         {unreadCount > 0 && (
