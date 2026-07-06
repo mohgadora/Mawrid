@@ -157,6 +157,7 @@ const NAV: Section[] = [
       { labelKey: 'adminWallets', href: '/admin/wallets', icon: Wallet },
       { labelKey: 'adminWalletBonuses', href: '/admin/wallet-bonuses', icon: Gift },
       { labelKey: 'adminCashback', href: '/admin/cashback', icon: DollarSign },
+      { labelKey: 'adminSubscriptions', href: '/admin/subscription-plans', icon: Star },
       { labelKey: 'adminRefunds', href: '/admin/refunds', icon: AlertTriangle },
     ],
   },

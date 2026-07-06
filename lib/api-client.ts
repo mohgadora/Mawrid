@@ -1117,6 +1117,69 @@ export function deleteAdApi(id: string): Promise<{ success: boolean }> {
   return apiFetch(`admin/ads/${id}`, { method: 'DELETE' })
 }
 
+// ── Store Subscriptions ────────────────────────────────────────────────────
+
+export type SubscriptionPlanRow = {
+  id: string
+  nameAr: string
+  nameEn: string | null
+  priceMonthly: string
+  priceYearly: string | null
+  maxProducts: number | null
+  maxOrders: number | null
+  commissionRate: string | null
+  features: string[]
+  active: boolean
+  sortOrder: number
+}
+
+export type StoreSubscriptionRow = {
+  id: string
+  supplierId: string
+  planId: string
+  status: string
+  currentPeriodStart: string
+  currentPeriodEnd: string
+  autoRenew: boolean
+}
+
+export function fetchSubscriptionPlans(): Promise<SubscriptionPlanRow[]> {
+  return apiFetch('subscription-plans')
+}
+
+export function fetchPartnerSubscription(): Promise<{ subscription: StoreSubscriptionRow | null; plan: SubscriptionPlanRow | null }> {
+  return apiFetch('partner/subscription')
+}
+
+export function subscribePartnerApi(planId: string, cycle: 'monthly' | 'yearly'): Promise<StoreSubscriptionRow> {
+  return apiFetch('partner/subscription', { method: 'POST', body: JSON.stringify({ planId, cycle }) })
+}
+
+export function cancelPartnerSubscriptionApi(): Promise<{ success: boolean }> {
+  return apiFetch('partner/subscription', { method: 'DELETE' })
+}
+
+// admin
+export function fetchAllSubscriptionPlans(): Promise<SubscriptionPlanRow[]> {
+  return apiFetch('admin/subscription-plans')
+}
+
+export function createSubscriptionPlanApi(data: Record<string, unknown>): Promise<SubscriptionPlanRow> {
+  return apiFetch('admin/subscription-plans', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateSubscriptionPlanApi(id: string, data: Record<string, unknown>): Promise<SubscriptionPlanRow> {
+  return apiFetch(`admin/subscription-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteSubscriptionPlanApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/subscription-plans/${id}`, { method: 'DELETE' })
+}
+
+export function fetchStoreSubscriptions(): Promise<(StoreSubscriptionRow & { planName: string; supplierName: string })[]> {
+  return apiFetch('admin/store-subscriptions')
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

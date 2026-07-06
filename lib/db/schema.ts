@@ -489,6 +489,37 @@ export const sellerEarning = pgTable('seller_earning', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// STORE SUBSCRIPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionPlan = pgTable('subscription_plan', {
+  id:             uuid(),
+  nameAr:         text('nameAr').notNull(),
+  nameEn:         text('nameEn'),
+  priceMonthly:   numeric('priceMonthly', { precision: 12, scale: 2 }).notNull(),
+  priceYearly:    numeric('priceYearly', { precision: 12, scale: 2 }),
+  maxProducts:    integer('maxProducts'),
+  maxOrders:      integer('maxOrders'),
+  commissionRate: numeric('commissionRate', { precision: 5, scale: 2 }),
+  features:       jsonb('features').notNull().default('[]'),
+  active:         boolean('active').notNull().default(true),
+  sortOrder:      integer('sortOrder').notNull().default(0),
+  createdAt:      now(),
+})
+
+export const storeSubscription = pgTable('store_subscription', {
+  id:                 uuid(),
+  supplierId:         text('supplierId').notNull().references(() => supplier.id, { onDelete: 'cascade' }),
+  planId:             text('planId').notNull().references(() => subscriptionPlan.id),
+  status:             text('status').notNull().default('active'), // active | expired | cancelled | trial
+  currentPeriodStart: timestamp('currentPeriodStart', { withTimezone: true }).notNull(),
+  currentPeriodEnd:   timestamp('currentPeriodEnd', { withTimezone: true }).notNull(),
+  autoRenew:          boolean('autoRenew').notNull().default(true),
+  createdAt:          now(),
+  updatedAt:          timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ADVERTISEMENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -839,6 +870,10 @@ export type SeoMeta            = typeof seoMeta.$inferSelect
 export type NewSeoMeta         = typeof seoMeta.$inferInsert
 export type Advertisement      = typeof advertisement.$inferSelect
 export type NewAdvertisement   = typeof advertisement.$inferInsert
+export type SubscriptionPlan   = typeof subscriptionPlan.$inferSelect
+export type NewSubscriptionPlan = typeof subscriptionPlan.$inferInsert
+export type StoreSubscription  = typeof storeSubscription.$inferSelect
+export type NewStoreSubscription = typeof storeSubscription.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
