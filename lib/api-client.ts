@@ -1342,6 +1342,31 @@ export function createGuestOrderApi(body: {
   return apiFetch<Order>('orders/guest', { method: 'POST', body: JSON.stringify(body) })
 }
 
+// ── Admin: order editing ────────────────────────────────────────────────────
+
+export type AdminOrderEditDetail = {
+  id: string
+  ref: string
+  status: string
+  editable: boolean
+  subtotal: number
+  shippingFee: number
+  discount: number
+  total: number
+  paymentMethod: string
+  paymentStatus: string
+  lines: { id: string; productName: string; productImage: string | null; qty: number; unitPrice: number; subtotal: number }[]
+  edits: { id: string; editType: string; priceDiff: string; createdAt: string; changeDetails: unknown; payments: { type: string; amount: string; status: string }[] }[]
+}
+
+export function fetchAdminOrderForEdit(id: string): Promise<AdminOrderEditDetail> {
+  return apiFetch(`admin/orders/${id}`)
+}
+
+export function editOrderQuantitiesApi(id: string, changes: { orderLineId: string; newQty: number }[]): Promise<{ priceDiff: number; newTotal: number; settlement: string }> {
+  return apiFetch(`admin/orders/${id}/edit`, { method: 'POST', body: JSON.stringify({ changes }) })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

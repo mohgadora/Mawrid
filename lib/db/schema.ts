@@ -267,6 +267,28 @@ export const order = pgTable('order', {
   updatedAt:        timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const orderEdit = pgTable('order_edit', {
+  id:            uuid(),
+  orderId:       text('orderId').notNull().references(() => order.id, { onDelete: 'cascade' }),
+  editedBy:      text('editedBy'),
+  editType:      text('editType').notNull(), // quantity | remove_item
+  changeDetails: jsonb('changeDetails').notNull().default('[]'),
+  priceDiff:     numeric('priceDiff', { precision: 12, scale: 2 }).notNull().default('0'),
+  status:        text('status').notNull().default('applied'),
+  createdAt:     now(),
+})
+
+export const orderEditPayment = pgTable('order_edit_payment', {
+  id:          uuid(),
+  orderEditId: text('orderEditId').notNull().references(() => orderEdit.id, { onDelete: 'cascade' }),
+  type:        text('type').notNull(), // due | return
+  amount:      numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  status:      text('status').notNull().default('pending'), // pending | settled
+  method:      text('method'),
+  processedAt: timestamp('processedAt', { withTimezone: true }),
+  createdAt:   now(),
+})
+
 export const orderLine = pgTable('order_line', {
   id:             uuid(),
   orderId:        text('orderId').notNull().references(() => order.id, { onDelete: 'cascade' }),
@@ -1009,6 +1031,9 @@ export type RecentSearch       = typeof recentSearch.$inferSelect
 export type NewRecentSearch    = typeof recentSearch.$inferInsert
 export type GuestUser          = typeof guestUser.$inferSelect
 export type NewGuestUser       = typeof guestUser.$inferInsert
+export type OrderEdit          = typeof orderEdit.$inferSelect
+export type NewOrderEdit       = typeof orderEdit.$inferInsert
+export type OrderEditPayment   = typeof orderEditPayment.$inferSelect
 export type DealOfDay          = typeof dealOfDay.$inferSelect
 export type NewDealOfDay       = typeof dealOfDay.$inferInsert
 export type ClearanceSale      = typeof clearanceSale.$inferSelect
