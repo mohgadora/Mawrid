@@ -11,7 +11,8 @@ import { order, orderLine, orderEvent, orderEdit, orderEditPayment, product as p
 import { eq, and, gte, sql, inArray } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
-import { toCents, fromCents, sumCents, lineTotalUsd } from '@/lib/money'
+import { toCents, fromCents, lineTotalUsd } from '@/lib/money'
+import { orderTotals } from '@/lib/order-totals'
 import { walletDeltaTx } from '@/services/wallet'
 import { SHIPPING } from '@/lib/config'
 import { deliveryZone } from '@/lib/db/schema'
@@ -89,10 +90,10 @@ export async function editOrderQuantities(
     // أعد حساب الإجماليات من الأسطر الحالية
     const freshLines = await tx.select().from(orderLine).where(eq(orderLine.orderId, orderId))
     const discount = Number(ord.discount)
-    const subtotalUsd = fromCents(sumCents(freshLines.map((l) => toCents(Number(l.subtotal)))))
-    const shipUsd = await shippingFee(subtotalUsd)
-    const newTotalCents = Math.max(0, toCents(subtotalUsd) + toCents(shipUsd) - toCents(discount))
-    const newTotalUsd = fromCents(newTotalCents)
+    const lineSubtotals = freshLines.map((l) => Number(l.subtotal))
+    const subtotalOnly = orderTotals(lineSubtotals).subtotalUsd
+    const shipUsd = await shippingFee(subtotalOnly)
+    const { subtotalUsd, totalUsd: newTotalUsd } = orderTotals(lineSubtotals, shipUsd, discount)
     const oldTotalUsd = Number(ord.total)
     const priceDiffUsd = fromCents(toCents(newTotalUsd) - toCents(oldTotalUsd))
 

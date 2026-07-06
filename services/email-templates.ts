@@ -9,16 +9,11 @@ import { eq } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { sendEmail } from '@/lib/email'
+import { renderTemplate } from '@/lib/template'
 
 type DbTemplate = typeof emailTemplate.$inferSelect
 
-/** يستبدل {{key}} بقيمها. المفاتيح غير الموجودة تُترك فارغة. */
-export function renderTemplate(text: string, variables: Record<string, string | number>): string {
-  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => {
-    const v = variables[key]
-    return v == null ? '' : String(v)
-  })
-}
+export { renderTemplate }
 
 export async function listTemplates(): Promise<DbTemplate[]> {
   return db.select().from(emailTemplate).orderBy(emailTemplate.event).limit(200)
