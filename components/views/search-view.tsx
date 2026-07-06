@@ -10,6 +10,7 @@ import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/product-card'
 import { AsyncContent } from '@/components/async-content'
 import { EmptyState } from '@/components/empty-state'
+import { SearchSuggestions } from '@/components/search-suggestions'
 import { ProductGridSkeleton } from '@/components/skeletons'
 import { useState, useCallback } from 'react'
 
@@ -84,6 +85,7 @@ export function SearchView() {
           actionLabel={t('backToHome')}
           actionHref="/"
         />
+        <SearchSuggestions />
       </div>
     )
   }

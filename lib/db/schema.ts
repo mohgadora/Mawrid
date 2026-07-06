@@ -145,6 +145,14 @@ export const restockRequest = pgTable('restock_request', {
   createdAt: now(),
 })
 
+export const recentSearch = pgTable('recent_search', {
+  id:          uuid(),
+  userId:      text('userId').references(() => user.id, { onDelete: 'cascade' }),
+  query:       text('query').notNull(),
+  resultCount: integer('resultCount').notNull().default(0),
+  createdAt:   now(),
+})
+
 export const dealOfDay = pgTable('deal_of_day', {
   id:           uuid(),
   productId:    text('productId').notNull().references(() => product.id, { onDelete: 'cascade' }),
@@ -987,6 +995,8 @@ export type ShopFollower       = typeof shopFollower.$inferSelect
 export type NewShopFollower    = typeof shopFollower.$inferInsert
 export type RestockRequest     = typeof restockRequest.$inferSelect
 export type NewRestockRequest  = typeof restockRequest.$inferInsert
+export type RecentSearch       = typeof recentSearch.$inferSelect
+export type NewRecentSearch    = typeof recentSearch.$inferInsert
 export type DealOfDay          = typeof dealOfDay.$inferSelect
 export type NewDealOfDay       = typeof dealOfDay.$inferInsert
 export type ClearanceSale      = typeof clearanceSale.$inferSelect

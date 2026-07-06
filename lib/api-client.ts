@@ -1320,6 +1320,11 @@ export function upsertEmailTemplateApi(data: Record<string, unknown>): Promise<E
 export function deleteEmailTemplateApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/email-templates/${id}`, { method: 'DELETE' }) }
 export function testEmailTemplateApi(id: string, to: string): Promise<{ sent: boolean }> { return apiFetch(`admin/email-templates/${id}/test`, { method: 'POST', body: JSON.stringify({ to }) }) }
 
+// ── Search suggestions ──────────────────────────────────────────────────────
+
+export function fetchPopularSearches(): Promise<string[]> { return apiFetch('search/popular') }
+export function fetchRecentSearches(): Promise<string[]> { return apiFetch('search/recent') }
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
