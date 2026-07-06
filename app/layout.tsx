@@ -70,7 +70,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {process.env.VERCEL && process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

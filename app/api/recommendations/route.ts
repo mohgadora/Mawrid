@@ -9,9 +9,10 @@ const RATE_PER_DAY = Number(process.env.AI_RATELIMIT_PER_DAY ?? 100)
 const AI_CONFIGURED = Boolean(process.env.AI_GATEWAY_API_KEY)
 
 export async function POST(req: NextRequest) {
-  // فشل مغلق: بلا إعداد AI لا نشغّل التوليد.
+  // بلا إعداد AI نُرجع أفضل المنتجات مبيعاً (fallback بدل 503)
   if (!AI_CONFIGURED) {
-    return NextResponse.json({ error: 'Recommendations are unavailable' }, { status: 503 })
+    const products = await getProducts()
+    return NextResponse.json({ products: [...products].sort((a, b) => b.sold - a.sold).slice(0, 6), source: 'fallback' })
   }
 
   const user = await getApiUser(req)
