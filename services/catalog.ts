@@ -164,6 +164,7 @@ export async function getProducts(): Promise<Product[]> {
     .from(product)
     .where(and(...conditions))
     .orderBy(desc(product.featured), desc(product.createdAt))
+    .limit(500)
   if (!rows.length) return mock('products', PRODUCTS)
   const ids = rows.map((r) => r.id)
   const [tiersMap, catSlug, ratingsMap] = await Promise.all([tiersForProducts(ids), categorySlugById(), ratingsForProducts(ids)])

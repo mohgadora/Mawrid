@@ -1,11 +1,11 @@
 import { requireAdmin, ok, apiError } from '@/lib/api-helpers'
 import { getAdminLoyaltyAccounts, getAdminLoyaltySummary } from '@/services/loyalty'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
+  const guard = await requireAdmin(req)
+  if (guard instanceof NextResponse) return guard
   try {
-    const guard = await requireAdmin(req)
-    if ('status' in guard) return guard
 
     const [summary, accounts] = await Promise.all([
       getAdminLoyaltySummary(),

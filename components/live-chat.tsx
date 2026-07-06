@@ -56,6 +56,7 @@ export function LiveChat() {
   ])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const botTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (open && !minimized) {
@@ -63,6 +64,8 @@ export function LiveChat() {
       inputRef.current?.focus()
     }
   }, [open, minimized, messages])
+
+  useEffect(() => () => { if (botTimerRef.current) clearTimeout(botTimerRef.current) }, [])
 
   function send() {
     if (!input.trim()) return
@@ -75,7 +78,8 @@ export function LiveChat() {
     const reply = replies[replyIdx % replies.length]
     replyIdx++
 
-    setTimeout(() => {
+    if (botTimerRef.current) clearTimeout(botTimerRef.current)
+    botTimerRef.current = setTimeout(() => {
       setMessages((prev) => [
         ...prev,
         { id: (Date.now() + 1).toString(), from: 'bot', text: reply, time: now() },

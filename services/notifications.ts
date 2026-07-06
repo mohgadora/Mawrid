@@ -61,8 +61,17 @@ export async function broadcastNotification(
 ) {
   let targetUserIds = userIds
   if (!targetUserIds || targetUserIds.length === 0) {
-    const users = await db.select({ id: user.id }).from(user)
-    targetUserIds = users.map((u) => u.id)
+    // Fetch in pages to avoid materialising the entire user table at once
+    const PAGE = 500
+    let offset = 0
+    targetUserIds = []
+    while (true) {
+      const page = await db.select({ id: user.id }).from(user).limit(PAGE).offset(offset)
+      if (!page.length) break
+      targetUserIds.push(...page.map((u) => u.id))
+      if (page.length < PAGE) break
+      offset += PAGE
+    }
   }
   if (targetUserIds.length === 0) return
   const rows = targetUserIds.map((userId) => ({

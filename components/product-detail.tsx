@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   BadgeCheck,
   Star,
@@ -60,6 +60,8 @@ export function ProductDetail({
   const [qty, setQty] = useState(minQty)
   const [added, setAdded] = useState(false)
   const [shared, setShared] = useState(false)
+  const addedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sharedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<PartnerVariant | null>(null)
 
   // Fetch variants for this product (public endpoint)
@@ -110,7 +112,8 @@ export function ProductDetail({
     } else {
       await navigator.clipboard.writeText(url).catch(() => {})
       setShared(true)
-      setTimeout(() => setShared(false), 2000)
+      if (sharedTimerRef.current) clearTimeout(sharedTimerRef.current)
+      sharedTimerRef.current = setTimeout(() => setShared(false), 2000)
     }
   }
 
@@ -131,7 +134,8 @@ export function ProductDetail({
       selectedVariant ? variantLabel(selectedVariant) : undefined,
     )
     setAdded(true)
-    setTimeout(() => setAdded(false), 1800)
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+    addedTimerRef.current = setTimeout(() => setAdded(false), 1800)
   }
 
   function handleBuyNow() {

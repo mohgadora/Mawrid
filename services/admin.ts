@@ -203,34 +203,35 @@ export async function getApprovals() {
 }
 
 export async function updateApprovalStatus(id: string, status: string, adminUserId?: string) {
-  const [row] = await db
-    .update(kycApproval)
-    .set({ status, reviewedAt: new Date() })
-    .where(eq(kycApproval.id, id))
-    .returning()
-  if (!row) throw new NotFoundError('Approval not found')
+  let row: typeof kycApproval.$inferSelect | undefined
 
-  if (row.type === 'supplier') {
-    if (status === 'approved') {
-      await db.update(user).set({ role: 'supplier', updatedAt: new Date() }).where(eq(user.id, row.userId))
-      await db.update(supplier).set({ verified: true, updatedAt: new Date() }).where(eq(supplier.userId, row.userId))
-    } else if (status === 'rejected') {
-      await db.update(user).set({ role: 'consumer', updatedAt: new Date() }).where(eq(user.id, row.userId))
-      await db.update(supplier).set({ verified: false, updatedAt: new Date() }).where(eq(supplier.userId, row.userId))
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(kycApproval)
+      .set({ status, reviewedAt: new Date() })
+      .where(eq(kycApproval.id, id))
+      .returning()
+    if (!updated) throw new NotFoundError('Approval not found')
+    row = updated
+
+    if (updated.type === 'supplier') {
+      if (status === 'approved') {
+        await tx.update(user).set({ role: 'supplier', updatedAt: new Date() }).where(eq(user.id, updated.userId))
+        await tx.update(supplier).set({ verified: true, updatedAt: new Date() }).where(eq(supplier.userId, updated.userId))
+      } else if (status === 'rejected') {
+        await tx.update(user).set({ role: 'consumer', updatedAt: new Date() }).where(eq(user.id, updated.userId))
+        await tx.update(supplier).set({ verified: false, updatedAt: new Date() }).where(eq(supplier.userId, updated.userId))
+      }
+    } else {
+      if (status === 'approved') {
+        await tx.update(user).set({ role: 'merchant', updatedAt: new Date() }).where(eq(user.id, updated.userId))
+      } else if (status === 'rejected') {
+        await tx.update(user).set({ role: 'consumer', updatedAt: new Date() }).where(and(eq(user.id, updated.userId), eq(user.role, 'merchant')))
+      }
     }
-  } else {
-    if (status === 'approved') {
-      await db
-        .update(user)
-        .set({ role: 'merchant', updatedAt: new Date() })
-        .where(eq(user.id, row.userId))
-    } else if (status === 'rejected') {
-      await db
-        .update(user)
-        .set({ role: 'consumer', updatedAt: new Date() })
-        .where(and(eq(user.id, row.userId), eq(user.role, 'merchant')))
-    }
-  }
+  })
+
+  if (!row) throw new NotFoundError('Approval not found')
 
   await writeAuditLog({
     userId: adminUserId ?? null,

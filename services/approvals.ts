@@ -37,18 +37,19 @@ export async function approveProduct(productId: string, adminUserId: string) {
   const [p] = await db.select().from(product).where(eq(product.id, productId)).limit(1)
   if (!p) throw new NotFoundError('المنتج غير موجود')
 
-  await db.update(product).set({ status: 'approved', active: true, updatedAt: new Date() }).where(eq(product.id, productId))
-
-  if (p.supplierId) {
-    await db.insert(productApprovalHistory).values({
-      id: crypto.randomUUID(),
-      productId,
-      supplierId: p.supplierId,
-      status: 'approved',
-      reviewedBy: adminUserId,
-      createdAt: new Date(),
-    })
-  }
+  await db.transaction(async (tx) => {
+    await tx.update(product).set({ status: 'approved', active: true, updatedAt: new Date() }).where(eq(product.id, productId))
+    if (p.supplierId) {
+      await tx.insert(productApprovalHistory).values({
+        id: crypto.randomUUID(),
+        productId,
+        supplierId: p.supplierId,
+        status: 'approved',
+        reviewedBy: adminUserId,
+        createdAt: new Date(),
+      })
+    }
+  })
 
   await writeAuditLog({ userId: adminUserId, action: 'product.approved', entity: 'product', entityId: productId })
 }
@@ -57,19 +58,20 @@ export async function rejectProduct(productId: string, adminUserId: string, reas
   const [p] = await db.select().from(product).where(eq(product.id, productId)).limit(1)
   if (!p) throw new NotFoundError('المنتج غير موجود')
 
-  await db.update(product).set({ status: 'rejected', active: false, updatedAt: new Date() }).where(eq(product.id, productId))
-
-  if (p.supplierId) {
-    await db.insert(productApprovalHistory).values({
-      id: crypto.randomUUID(),
-      productId,
-      supplierId: p.supplierId,
-      status: 'rejected',
-      reason,
-      reviewedBy: adminUserId,
-      createdAt: new Date(),
-    })
-  }
+  await db.transaction(async (tx) => {
+    await tx.update(product).set({ status: 'rejected', active: false, updatedAt: new Date() }).where(eq(product.id, productId))
+    if (p.supplierId) {
+      await tx.insert(productApprovalHistory).values({
+        id: crypto.randomUUID(),
+        productId,
+        supplierId: p.supplierId,
+        status: 'rejected',
+        reason,
+        reviewedBy: adminUserId,
+        createdAt: new Date(),
+      })
+    }
+  })
 
   await writeAuditLog({ userId: adminUserId, action: 'product.rejected', entity: 'product', entityId: productId, meta: { reason } })
 }

@@ -4,7 +4,7 @@
 import 'server-only'
 import { db } from '@/lib/db'
 import { referralCode, referral, user } from '@/lib/db/schema'
-import { eq, desc, count, sum, and } from 'drizzle-orm'
+import { eq, desc, count, sum, and, inArray } from 'drizzle-orm'
 import { earnPoints } from '@/services/loyalty'
 import { getSetting } from '@/lib/settings'
 import { writeAuditLog } from '@/lib/audit'
@@ -65,29 +65,30 @@ export async function applyReferralCode(refereeId: string, code: string) {
   if (!codeRow) throw new Error('رمز الإحالة غير صالح')
   if (codeRow.userId === refereeId) throw new Error('لا يمكنك استخدام رمز الإحالة الخاص بك')
 
-  // Check if referee is already referred
-  const existing = await db
-    .select({ id: referral.id })
-    .from(referral)
-    .where(eq(referral.refereeId, refereeId))
-    .limit(1)
-
-  if (existing.length) throw new Error('تم تطبيق رمز الإحالة مسبقاً')
-
   const id = newId()
-  await db.insert(referral).values({
-    id,
-    referrerId: codeRow.userId,
-    refereeId,
-    code: codeRow.code,
-    status: 'pending',
-  })
+  await db.transaction(async (tx) => {
+    // Re-check duplicate inside transaction to prevent TOCTOU
+    const existing = await tx
+      .select({ id: referral.id })
+      .from(referral)
+      .where(eq(referral.refereeId, refereeId))
+      .limit(1)
 
-  // Increment usage count
-  await db
-    .update(referralCode)
-    .set({ usageCount: codeRow.usageCount + 1 })
-    .where(eq(referralCode.id, codeRow.id))
+    if (existing.length) throw new Error('تم تطبيق رمز الإحالة مسبقاً')
+
+    await tx.insert(referral).values({
+      id,
+      referrerId: codeRow.userId,
+      refereeId,
+      code: codeRow.code,
+      status: 'pending',
+    })
+
+    await tx
+      .update(referralCode)
+      .set({ usageCount: codeRow.usageCount + 1 })
+      .where(eq(referralCode.id, codeRow.id))
+  })
 
   return id
 }
@@ -165,7 +166,7 @@ export async function getAdminReferrals() {
   // Fetch user names separately to avoid complex join typing
   const userIds = Array.from(new Set([...rows.map(r => r.referrerId), ...rows.map(r => r.refereeId)]))
   const users = userIds.length
-    ? await db.select({ id: user.id, name: user.name, email: user.email }).from(user)
+    ? await db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(inArray(user.id, userIds))
     : []
   const userMap = Object.fromEntries(users.map(u => [u.id, u]))
 
