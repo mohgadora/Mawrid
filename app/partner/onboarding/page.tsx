@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { ImageUpload } from '@/components/ui/image-upload'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -166,22 +167,8 @@ function Step2({ form, set }: { form: FormData; set: (k: keyof FormData, v: stri
           />
         </Field>
       </div>
-      <Field label="رابط الشعار (Logo URL)">
-        <Input
-          value={form.logo}
-          onChange={(e) => set('logo', e.target.value)}
-          placeholder="https://..."
-          dir="ltr"
-        />
-      </Field>
-      <Field label="رابط البانر (Banner URL)">
-        <Input
-          value={form.banner}
-          onChange={(e) => set('banner', e.target.value)}
-          placeholder="https://..."
-          dir="ltr"
-        />
-      </Field>
+      <ImageUpload value={form.logo} onChange={(url) => set('logo', url)} label="شعار المتجر (Logo)" />
+      <ImageUpload value={form.banner} onChange={(url) => set('banner', url)} label="صورة البانر (Banner)" aspectRatio="banner" />
       <Field label="وصف المتجر">
         <Textarea
           value={form.description}

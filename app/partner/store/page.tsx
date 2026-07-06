@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ImageUpload } from '@/components/ui/image-upload'
 
 export default function PartnerStorePage() {
   const { t } = useI18n()
@@ -65,7 +66,7 @@ export default function PartnerStorePage() {
             <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('nameLabel')} />
             <Input value={form.nameEn} onChange={(e) => setForm((f) => ({ ...f, nameEn: e.target.value }))} placeholder={`${t('nameLabel')} (EN)`} dir="ltr" />
             <Input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder={t('city')} />
-            <Input value={form.logo} onChange={(e) => setForm((f) => ({ ...f, logo: e.target.value }))} placeholder={t('imageUrl')} dir="ltr" />
+            <ImageUpload value={form.logo} onChange={(url) => setForm((f) => ({ ...f, logo: url }))} label="شعار المتجر (Logo)" />
             <Input type="number" min={1} value={form.minOrder} onChange={(e) => setForm((f) => ({ ...f, minOrder: e.target.value }))} placeholder={t('minOrder')} dir="ltr" />
             <Input value={form.responseTime} onChange={(e) => setForm((f) => ({ ...f, responseTime: e.target.value }))} placeholder={t('partnerResponseTime')} />
           </div>

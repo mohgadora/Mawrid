@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { ImageUpload } from '@/components/ui/image-upload'
 import { useI18n } from '@/lib/i18n'
 import { fetchPartnerCategories } from '@/lib/api-client'
 
@@ -27,7 +28,7 @@ export const EMPTY_PRODUCT: ProductFormData = {
   sku: '',
   stock: '0',
   price: '0',
-  image: '/placeholder.png',
+  image: '',
   unitsPerCarton: '1',
   categoryId: '',
   active: true,
@@ -86,7 +87,7 @@ export function PartnerProductFields({ form, onChange }: Props) {
         <Input type="number" min={0} step="0.01" placeholder={t('price')} value={form.price} onChange={(e) => set('price', e.target.value)} dir="ltr" />
         <Input type="number" min={1} placeholder={t('cartons')} value={form.unitsPerCarton} onChange={(e) => set('unitsPerCarton', e.target.value)} dir="ltr" />
       </div>
-      <Input placeholder={t('imageUrl')} value={form.image} onChange={(e) => set('image', e.target.value)} dir="ltr" />
+      <ImageUpload value={form.image} onChange={(url) => set('image', url)} label="صورة المنتج" />
       <select
         value={form.categoryId}
         onChange={(e) => set('categoryId', e.target.value)}
