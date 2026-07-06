@@ -282,6 +282,7 @@ export default function AdminDashboard() {
           )}
         </AsyncContent>
       </div>
+      <p className="text-[10px] text-muted-foreground/40 text-center select-none pt-2">v2026-07-06.1</p>
     </div>
   )
 }
