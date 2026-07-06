@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import {
   BarChart3,
@@ -189,7 +189,7 @@ function SalesTab() {
     return json.data
   })
 
-  if (error) toastError('فشل تحميل تقرير المبيعات')
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير المبيعات') }, [error])
 
   function handleExport() {
     if (!data) return
@@ -272,7 +272,7 @@ function ProductsTab() {
     return json.data
   })
 
-  if (error) toastError('فشل تحميل تقرير المنتجات')
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير المنتجات') }, [error])
 
   const sorted = data ? [...data].sort((a, b) => b.totalRevenue - a.totalRevenue) : []
 
@@ -335,7 +335,7 @@ function EarningsTab() {
     return json.data
   })
 
-  if (error) toastError('فشل تحميل تقرير الأرباح')
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير الأرباح') }, [error])
 
   return (
     <div className="space-y-5">
@@ -377,7 +377,7 @@ function EarningsTab() {
                     {data.rows.map((r, i) => (
                       <tr key={`${r.orderId}-${i}`} className="border-b border-border/50 last:border-0">
                         <td className="px-5 py-3 text-xs text-muted-foreground">{r.date.slice(0, 10)}</td>
-                        <td className="px-5 py-3 font-mono text-xs">{r.orderId.slice(0, 8)}…</td>
+                        <td className="px-5 py-3 font-mono text-xs">{r.orderId ? `${r.orderId.slice(0, 8)}…` : '—'}</td>
                         <td className="px-5 py-3 text-end">{formatPrice(r.gross)}</td>
                         <td className="px-5 py-3 text-end text-muted-foreground">{r.commissionRate}%</td>
                         <td className="px-5 py-3 text-end text-destructive">-{formatPrice(r.commissionAmount)}</td>
@@ -407,7 +407,7 @@ function StockTab() {
     return json.data
   })
 
-  if (error) toastError('فشل تحميل تقرير المخزون')
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير المخزون') }, [error])
 
   if (isLoading) return <AdminPageSkeleton cards={0} rows={6} />
   if (error || !data) return <ErrorState message="تعذّر تحميل تقرير المخزون" />

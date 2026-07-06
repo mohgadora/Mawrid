@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BadgeCheck,
   Star,
@@ -64,17 +64,21 @@ export function ProductDetail({
   const sharedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedVariant, setSelectedVariant] = useState<PartnerVariant | null>(null)
 
+  useEffect(() => () => {
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current)
+    if (sharedTimerRef.current) clearTimeout(sharedTimerRef.current)
+  }, [])
+
   // Fetch variants for this product (public endpoint)
   const { data: variants } = useSWR(
     `products/${product.id}/variants`,
     () => fetchProductVariants(product.id) as Promise<PartnerVariant[]>,
   )
-  // Simulated stock — in a real app this would come from inventory API
-  const stock = Math.floor(((product.sold % 7) + 3))
+  // Use real stock from product data; fall back to 0 so UI shows out-of-stock correctly
+  const stock = (product as unknown as { stock?: number }).stock ?? 0
 
   // Track this product as recently viewed on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useState(() => { pushRecent(product.id) })
+  useEffect(() => { pushRecent(product.id) }, [product.id])
 
   const name = lang === 'ar' ? product.nameAr : product.nameEn
   const supplier = lang === 'ar' ? product.supplierAr : product.supplierEn
@@ -93,8 +97,9 @@ export function ProductDetail({
     () => (isMerchant ? nextTier(product, qty) : null),
     [product, qty, isMerchant],
   )
-  const upcomingSavingsPct = upcoming
-    ? Math.round((1 - upcoming.pricePerCarton / activeTier(product, qty).pricePerCarton) * 100)
+  const currentTier = activeTier(product, qty)
+  const upcomingSavingsPct = upcoming && currentTier
+    ? Math.round((1 - upcoming.pricePerCarton / currentTier.pricePerCarton) * 100)
     : 0
 
   const Chevron = ChevronLeft
@@ -257,7 +262,7 @@ export function ProductDetail({
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {product.tiers.map((tier) => {
-                    const active = activeTier(product, qty).minQty === tier.minQty
+                    const active = activeTier(product, qty)?.minQty === tier.minQty
                     return (
                       <div
                         key={tier.minQty}

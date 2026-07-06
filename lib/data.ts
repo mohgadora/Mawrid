@@ -576,6 +576,7 @@ export function productsByCategory(slug: string) {
 
 /** Returns the applicable per-carton wholesale price (USD) for a quantity of cartons. */
 export function priceForQty(product: Product, qty: number): number {
+  if (!product.tiers.length) return product.basePrice
   let price = product.tiers[0].pricePerCarton
   for (const tier of product.tiers) {
     if (qty >= tier.minQty) price = tier.pricePerCarton
@@ -593,8 +594,9 @@ export function priceForRole(product: Product, qty: number, role: Role): number 
   return role === 'merchant' ? priceForQty(product, qty) : retailPriceUsd(product)
 }
 
-/** The tier the given quantity currently qualifies for. */
-export function activeTier(product: Product, qty: number): PriceTier {
+/** The tier the given quantity currently qualifies for, or null if no tiers defined. */
+export function activeTier(product: Product, qty: number): PriceTier | null {
+  if (!product.tiers.length) return null
   let active = product.tiers[0]
   for (const tier of product.tiers) {
     if (qty >= tier.minQty) active = tier

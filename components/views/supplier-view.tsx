@@ -54,7 +54,8 @@ export function SupplierView({ id }: { id: string }) {
         }
       >
         {(d) => {
-          const s = d.supplier!
+          const s = d.supplier
+          if (!s) return null
           const name = lang === 'ar' ? s.nameAr : s.nameEn
           const city = lang === 'ar' ? s.cityAr : s.cityEn
           const description = lang === 'ar' ? s.descriptionAr : s.descriptionEn

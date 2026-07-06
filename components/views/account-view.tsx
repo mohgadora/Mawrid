@@ -146,7 +146,7 @@ export function AccountView() {
             <Stat value={branches.data?.length} label={t('branchesCount')} />
             <Stat value={favorites.data?.length} label={t('favoritesCount')} />
             {DEMO_FEATURES_ENABLED && (
-              <Stat value={1340} label={lang === 'ar' ? 'نقطة' : 'pts'} />
+              <Stat value={undefined} label={lang === 'ar' ? 'نقطة' : 'pts'} />
             )}
           </div>
         </section>

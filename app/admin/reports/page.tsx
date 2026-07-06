@@ -42,7 +42,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-primary' }: {
 
 function BarChart({ data }: { data: { date: string; revenue: number; orders: number }[] }) {
   if (!data.length) return null
-  const maxRevenue = Math.max(...data.map(d => d.revenue), 1)
+  const maxRevenue = data.reduce((m, d) => Math.max(m, d.revenue), 1)
   return (
     <div className="flex items-end gap-1 h-40 w-full overflow-x-auto">
       {data.map((d) => (

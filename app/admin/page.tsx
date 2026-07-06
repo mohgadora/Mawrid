@@ -20,25 +20,20 @@ function fmt(n: number) {
   return n.toLocaleString('ar-SA')
 }
 
-const ORDER_STATUS_DATA = [
-  { labelKey: 'statusDelivered', count: 5820, color: '#22c55e' },
-  { labelKey: 'statusShipped', count: 2140, color: '#a855f7' },
-  { labelKey: 'statusConfirmed', count: 1890, color: '#3b82f6' },
-  { labelKey: 'statusPending', count: 2190, color: '#eab308' },
-  { labelKey: 'statusCancelled', count: 500, color: '#ef4444' },
-] as const
+type OrderStatusSlice = { label: string; count: number; color: string }
 
-const ORDER_TOTAL = ORDER_STATUS_DATA.reduce((a, b) => a + b.count, 0)
-
-function DonutChart() {
+function DonutChart({ slices }: { slices: OrderStatusSlice[] }) {
+  const total = slices.reduce((a, b) => a + b.count, 0)
+  if (total === 0) return (
+    <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">لا توجد بيانات</div>
+  )
   const radius = 54
   const cx = 64; const cy = 64
   const circumference = 2 * Math.PI * radius
   let offset = 0
-  const segments = ORDER_STATUS_DATA.map((d) => {
-    const pct = d.count / ORDER_TOTAL
-    const dash = pct * circumference
-    const seg = { ...d, dash, offset, pct }
+  const segments = slices.map((d) => {
+    const dash = (d.count / total) * circumference
+    const seg = { ...d, dash, offset }
     offset += dash
     return seg
   })
@@ -47,7 +42,7 @@ function DonutChart() {
       <svg width="128" height="128" viewBox="0 0 128 128" aria-hidden="true">
         <circle cx={cx} cy={cy} r={radius} fill="none" stroke="hsl(var(--border))" strokeWidth="16" />
         {segments.map((s) => (
-          <circle key={s.labelKey} cx={cx} cy={cy} r={radius} fill="none" stroke={s.color}
+          <circle key={s.label} cx={cx} cy={cy} r={radius} fill="none" stroke={s.color}
             strokeWidth="16"
             strokeDasharray={`${s.dash} ${circumference - s.dash}`}
             strokeDashoffset={-s.offset}
@@ -55,7 +50,7 @@ function DonutChart() {
           />
         ))}
         <text x={cx} y={cy - 5} textAnchor="middle" fill="currentColor" style={{ fontSize: 18, fontWeight: 700 }}>
-          {fmt(ORDER_TOTAL)}
+          {fmt(total)}
         </text>
         <text x={cx} y={cy + 12} textAnchor="middle" fill="currentColor" style={{ fontSize: 9, opacity: 0.6 }}>
           طلب
@@ -63,10 +58,10 @@ function DonutChart() {
       </svg>
       <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 w-full">
         {segments.map((d) => (
-          <div key={d.labelKey} className="flex items-center gap-1.5">
+          <div key={d.label} className="flex items-center gap-1.5">
             <div className="size-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
-            <span className="text-[11px] text-muted-foreground">{d.labelKey}</span>
-            <span className="text-[11px] font-semibold text-foreground ms-auto">{((d.count / ORDER_TOTAL) * 100).toFixed(0)}%</span>
+            <span className="text-[11px] text-muted-foreground">{d.label}</span>
+            <span className="text-[11px] font-semibold text-foreground ms-auto">{((d.count / total) * 100).toFixed(0)}%</span>
           </div>
         ))}
       </div>
@@ -85,7 +80,29 @@ export default function AdminDashboard() {
 
   const kpi    = kpiSwr.data?.kpi
   const chart  = kpiSwr.data?.chart ?? []
-  const maxVal = chart.length ? Math.max(...chart.map((r) => r.value)) : 1
+  const maxVal = chart.length ? chart.reduce((m, r) => Math.max(m, r.value), 1) : 1
+
+  const orders = orderSwr.data ?? []
+  const STATUS_COLORS: Record<string, string> = {
+    delivered: '#22c55e', shipped: '#a855f7', confirmed: '#3b82f6',
+    pending: '#eab308', cancelled: '#ef4444', processing: '#f97316',
+    packed: '#06b6d4', out_for_delivery: '#8b5cf6',
+  }
+  const STATUS_LABELS: Record<string, string> = {
+    delivered: 'تم التسليم', shipped: 'تم الشحن', confirmed: 'مؤكد',
+    pending: 'معلّق', cancelled: 'ملغي', processing: 'قيد التجهيز',
+    packed: 'جاهز للشحن', out_for_delivery: 'خارج للتسليم',
+  }
+  const donutSlices: OrderStatusSlice[] = Object.entries(
+    orders.reduce((acc: Record<string, number>, o) => {
+      acc[o.status] = (acc[o.status] ?? 0) + 1
+      return acc
+    }, {})
+  ).map(([status, count]) => ({
+    label: STATUS_LABELS[status] ?? status,
+    count,
+    color: STATUS_COLORS[status] ?? '#94a3b8',
+  }))
 
   const pendingApprovals = (approvalSwr.data ?? []).filter((a) => a.status === 'pending')
   const topSuppliers     = (supplierSwr.data ?? []).filter((s) => s.status === 'active').sort((a, b) => b.orders - a.orders).slice(0, 4)
@@ -164,7 +181,7 @@ export default function AdminDashboard() {
         {/* Donut chart */}
         <div className="rounded-xl border border-border bg-card p-5">
           <p className="mb-4 text-sm font-semibold text-foreground">{t('adminOrders')}</p>
-          <DonutChart />
+          <DonutChart slices={donutSlices} />
         </div>
       </div>
 

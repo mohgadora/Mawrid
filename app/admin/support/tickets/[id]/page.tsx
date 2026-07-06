@@ -52,20 +52,20 @@ export default function TicketDetailPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  async function load() {
-    try {
-      const res = await fetch(`/api/v1/admin/tickets/${id}/detail`)
-      if (!res.ok) throw new Error()
-      setDetail(await res.json())
-    } catch {
-      toastError('فشل تحميل التذكرة')
-    } finally {
-      setLoading(false)
-    }
+  async function reload() {
+    const res = await fetch(`/api/v1/admin/tickets/${id}/detail`)
+    if (!res.ok) throw new Error()
+    setDetail(await res.json())
   }
 
-  useEffect(() => { load() }, [id])
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [detail?.messages.length])
+  useEffect(() => {
+    setLoading(true)
+    reload().catch(() => toastError('فشل تحميل التذكرة')).finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  const messageCount = detail?.messages.length ?? 0
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messageCount])
 
   async function sendReply() {
     if (!reply.trim()) return
@@ -78,7 +78,7 @@ export default function TicketDetailPage() {
       })
       if (!res.ok) throw new Error()
       setReply('')
-      await load()
+      await reload()
     } catch {
       toastError('فشل إرسال الرد')
     } finally {
@@ -96,7 +96,7 @@ export default function TicketDetailPage() {
       })
       if (!res.ok) throw new Error()
       toastSuccess('تم تحديث الحالة')
-      await load()
+      await reload()
     } catch {
       toastError('فشل تحديث الحالة')
     } finally {

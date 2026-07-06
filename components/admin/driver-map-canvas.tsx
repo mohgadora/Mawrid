@@ -46,8 +46,8 @@ function resolveStatusColor(status: DriverStatus): string {
   }
   const style = getComputedStyle(document.documentElement)
   switch (status) {
-    case 'available': return `oklch(${style.getPropertyValue('--success').trim()})`
-    case 'late':      return `oklch(${style.getPropertyValue('--destructive').trim()})`
+    case 'available': { const v = style.getPropertyValue('--success').trim(); return v ? `oklch(${v})` : '#22c55e' }
+    case 'late':      { const v = style.getPropertyValue('--destructive').trim(); return v ? `oklch(${v})` : '#ef4444' }
     case 'busy':      return '#f59e0b'  // amber-400 — same in light + dark
     case 'returning': return '#3b82f6'  // blue-500
     case 'offline':   return '#9ca3af'  // gray-400
