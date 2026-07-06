@@ -1228,6 +1228,17 @@ export function requestRestockApi(productId: string): Promise<{ requested: boole
   return apiFetch(`products/${productId}/restock-request`, { method: 'POST' })
 }
 
+// ── Recommendations (deterministic) ─────────────────────────────────────────
+
+export function fetchRecommendations(
+  type: 'similar' | 'fbt' | 'personalized',
+  productId?: string,
+): Promise<Product[]> {
+  const qs = new URLSearchParams({ type })
+  if (productId) qs.set('productId', productId)
+  return apiFetch<Product[]>(`recommendations?${qs.toString()}`)
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

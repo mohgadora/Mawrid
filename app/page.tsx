@@ -11,6 +11,7 @@ import { AiRecommendations } from '@/components/ai-recommendations'
 import { BundlesSection } from '@/components/bundles-section'
 import { RequestProductBanner } from '@/components/request-product-banner'
 import { AdBanner } from '@/components/ad-banner'
+import { ProductRecommendations } from '@/components/product-recommendations'
 
 export default function Page() {
   return (
@@ -22,6 +23,7 @@ export default function Page() {
           <AdBanner placement="home_top" className="pt-4" />
         </div>
         <RecentlyViewedStrip />
+        <ProductRecommendations type="personalized" />
         <AiRecommendations />
         <CategoryGrid />
         <RequestProductBanner />
