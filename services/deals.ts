@@ -8,7 +8,7 @@ import { dealOfDay, clearanceSale, clearanceSaleProduct, product } from '@/lib/d
 import { eq, and, lte, gte, desc, inArray } from 'drizzle-orm'
 import { ValidationError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
-import { toCents, fromCents } from '@/lib/money'
+import { salePriceUsd } from '@/lib/discounts'
 
 type DbDeal = typeof dealOfDay.$inferSelect
 
@@ -18,10 +18,7 @@ function todayStr(): string {
 
 /** يحسب السعر بعد الخصم بأمان (سنتات). */
 function applyDiscount(baseUsd: number, type: string, value: number): number {
-  const baseCents = toCents(baseUsd)
-  let cents = type === 'percent' ? baseCents - Math.round((baseCents * value) / 100) : baseCents - toCents(value)
-  cents = Math.max(0, cents)
-  return fromCents(cents)
+  return salePriceUsd(baseUsd, type === 'percent' ? 'percent' : 'fixed', value)
 }
 
 // ── Deal of the Day ───────────────────────────────────────────────────────

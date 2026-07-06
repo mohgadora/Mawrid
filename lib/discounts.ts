@@ -59,6 +59,21 @@ export function cashbackUsd(
   return fromCents(cents)
 }
 
+/** Sale price after a percent/fixed discount (never below zero). */
+export function salePriceUsd(
+  baseUsd: number,
+  type: ValueType,
+  value: number,
+  maxDiscountUsd?: number | null,
+): number {
+  const baseCents = toCents(baseUsd)
+  const discountCents = computeValueCents(type, value, baseCents, {
+    maxCents: maxDiscountUsd != null ? toCents(maxDiscountUsd) : null,
+    clampToBase: true,
+  })
+  return fromCents(baseCents - discountCents)
+}
+
 /** Wallet top-up bonus in USD (capped, but not clamped to the top-up amount). */
 export function topupBonusUsd(
   type: ValueType,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeValueCents, couponDiscountUsd, cashbackUsd, topupBonusUsd } from './discounts'
+import { computeValueCents, couponDiscountUsd, cashbackUsd, topupBonusUsd, salePriceUsd } from './discounts'
 
 describe('computeValueCents', () => {
   it('computes a percentage of the base', () => {
@@ -54,6 +54,20 @@ describe('cashbackUsd', () => {
   })
   it('never exceeds the order total', () => {
     expect(cashbackUsd('fixed', 500, 40)).toBe(40)
+  })
+})
+
+describe('salePriceUsd', () => {
+  it('applies a percentage off the base price', () => {
+    expect(salePriceUsd(100, 'percent', 25)).toBe(75)
+    expect(salePriceUsd(19.99, 'percent', 10)).toBe(17.99)
+  })
+  it('applies a fixed amount off', () => {
+    expect(salePriceUsd(50, 'fixed', 8)).toBe(42)
+  })
+  it('never goes below zero', () => {
+    expect(salePriceUsd(10, 'fixed', 40)).toBe(0)
+    expect(salePriceUsd(10, 'percent', 100)).toBe(0)
   })
 })
 
