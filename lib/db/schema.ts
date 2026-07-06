@@ -37,8 +37,19 @@ export const user = pgTable('user', {
   banned:        boolean('banned').default(false),
   banReason:     text('banReason'),
   banExpires:    timestamp('banExpires', { withTimezone: true }),
+  phoneVerified: boolean('phoneVerified').notNull().default(false),
   createdAt:     timestamp('createdAt', { withTimezone: true }).notNull(),
   updatedAt:     timestamp('updatedAt', { withTimezone: true }).notNull(),
+})
+
+export const phoneVerification = pgTable('phone_verification', {
+  id:        uuid(),
+  phone:     text('phone').notNull(),
+  codeHash:  text('codeHash').notNull(),
+  expiresAt: timestamp('expiresAt', { withTimezone: true }).notNull(),
+  attempts:  integer('attempts').notNull().default(0),
+  verified:  boolean('verified').notNull().default(false),
+  createdAt: now(),
 })
 
 export const session = pgTable('session', {
@@ -874,6 +885,8 @@ export type SubscriptionPlan   = typeof subscriptionPlan.$inferSelect
 export type NewSubscriptionPlan = typeof subscriptionPlan.$inferInsert
 export type StoreSubscription  = typeof storeSubscription.$inferSelect
 export type NewStoreSubscription = typeof storeSubscription.$inferInsert
+export type PhoneVerification  = typeof phoneVerification.$inferSelect
+export type NewPhoneVerification = typeof phoneVerification.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect

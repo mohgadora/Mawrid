@@ -1180,6 +1180,16 @@ export function fetchStoreSubscriptions(): Promise<(StoreSubscriptionRow & { pla
   return apiFetch('admin/store-subscriptions')
 }
 
+// ── SMS OTP ─────────────────────────────────────────────────────────────────
+
+export function sendOtpApi(phone: string): Promise<{ phone: string; devCode?: string }> {
+  return apiFetch('auth/otp/send', { method: 'POST', body: JSON.stringify({ phone }) })
+}
+
+export function verifyOtpApi(phone: string, code: string): Promise<{ verified: boolean }> {
+  return apiFetch('auth/otp/verify', { method: 'POST', body: JSON.stringify({ phone, code }) })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
