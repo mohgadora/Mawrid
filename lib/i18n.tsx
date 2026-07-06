@@ -814,7 +814,7 @@ const DICT = {
   supplierCategory: { ar: 'التصنيف', en: 'Category' },
   supplierOrders: { ar: 'الطلبات', en: 'Orders' },
   supplierRating: { ar: 'التقييم', en: 'Rating' },
-  supplierJoined: { ar: 'تاريخ الانضمام', en: 'Joined' },
+  supplierJoined: { ar: '✅ تاريخ الانضمام', en: 'Joined' },
   suspend: { ar: 'تعليق', en: 'Suspend' },
   activate: { ar: 'تفعيل', en: 'Activate' },
   viewProfile: { ar: 'عرض الملف', en: 'View Profile' },
