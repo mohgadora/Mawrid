@@ -10,22 +10,18 @@ import { cashbackRule, order, orderLine, product, walletTransaction, wallet } fr
 import { eq, and, desc, inArray, count } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
-import { toCents, fromCents } from '@/lib/money'
+import { cashbackUsd } from '@/lib/discounts'
 import { credit } from '@/services/wallet'
 
 type DbRule = typeof cashbackRule.$inferSelect
 
 function cashbackForRule(rule: DbRule, orderTotalUsd: number): number {
-  const totalCents = toCents(orderTotalUsd)
-  let cents: number
-  if (rule.type === 'percent') {
-    cents = Math.round((totalCents * Number(rule.value)) / 100)
-  } else {
-    cents = toCents(Number(rule.value))
-  }
-  if (rule.maxCashback != null) cents = Math.min(cents, toCents(Number(rule.maxCashback)))
-  cents = Math.max(0, Math.min(cents, totalCents))
-  return fromCents(cents)
+  return cashbackUsd(
+    rule.type === 'percent' ? 'percent' : 'fixed',
+    Number(rule.value),
+    orderTotalUsd,
+    rule.maxCashback != null ? Number(rule.maxCashback) : null,
+  )
 }
 
 async function isFirstOrder(userId: string, excludeOrderId?: string): Promise<boolean> {

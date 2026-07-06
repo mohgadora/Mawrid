@@ -14,7 +14,7 @@ import { coupon, couponUsage, order, product, supplier } from '@/lib/db/schema'
 import { eq, and, sql, desc, inArray, count } from 'drizzle-orm'
 import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
-import { toCents, fromCents } from '@/lib/money'
+import { couponDiscountUsd } from '@/lib/discounts'
 
 type DbCoupon = typeof coupon.$inferSelect
 
@@ -52,31 +52,13 @@ function invalid(message: string): ValidateCouponResult {
 function computeDiscount(
   c: DbCoupon,
   subtotalUsd: number,
-  shippingUsd: number,
 ): { discountUsd: number; freeShipping: boolean } {
-  const type = normalizeType(c.type)
-  const value = Number(c.value)
-  const subtotalCents = toCents(subtotalUsd)
-
-  if (type === 'free_shipping') {
-    return { discountUsd: 0, freeShipping: true }
-  }
-
-  let discountCents: number
-  if (type === 'percent') {
-    discountCents = Math.round((subtotalCents * value) / 100)
-    const maxDiscount = c.maxDiscountAmount != null ? Number(c.maxDiscountAmount) : null
-    if (maxDiscount != null && maxDiscount > 0) {
-      discountCents = Math.min(discountCents, toCents(maxDiscount))
-    }
-  } else {
-    // fixed
-    discountCents = toCents(value)
-  }
-
-  // لا يتجاوز الخصم المجموع الفرعي أبداً
-  discountCents = Math.max(0, Math.min(discountCents, subtotalCents))
-  return { discountUsd: fromCents(discountCents), freeShipping: false }
+  return couponDiscountUsd(
+    normalizeType(c.type),
+    Number(c.value),
+    subtotalUsd,
+    c.maxDiscountAmount != null ? Number(c.maxDiscountAmount) : null,
+  )
 }
 
 /** يتحقق أن أصناف السلة تستوفي نطاق الكوبون (supplier/category/product). */
@@ -164,7 +146,7 @@ export async function validateCoupon(
     return invalid('هذا الكوبون لا ينطبق على منتجات سلتك')
   }
 
-  const { discountUsd, freeShipping } = computeDiscount(c, input.subtotalUsd, input.shippingUsd ?? 0)
+  const { discountUsd, freeShipping } = computeDiscount(c, input.subtotalUsd)
   if (!freeShipping && discountUsd <= 0) return invalid('لا ينطبق خصم على هذا الطلب')
 
   return {

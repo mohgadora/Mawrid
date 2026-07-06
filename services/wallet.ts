@@ -12,6 +12,7 @@ import { eq, desc, count } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
 import { toCents, fromCents } from '@/lib/money'
+import { topupBonusUsd } from '@/lib/discounts'
 
 type DbWallet = typeof wallet.$inferSelect
 type DbWalletTx = typeof walletTransaction.$inferSelect
@@ -123,14 +124,13 @@ export async function calculateBonus(amountUsd: number): Promise<number> {
     if (r.startsAt && r.startsAt.getTime() > now.getTime()) continue
     if (r.expiresAt && r.expiresAt.getTime() < now.getTime()) continue
     if (amountUsd < Number(r.minTopup)) continue
-    let bonusCents: number
-    if (r.bonusType === 'percent') {
-      bonusCents = Math.round((toCents(amountUsd) * Number(r.bonusValue)) / 100)
-    } else {
-      bonusCents = toCents(Number(r.bonusValue))
-    }
-    if (r.maxBonus != null) bonusCents = Math.min(bonusCents, toCents(Number(r.maxBonus)))
-    best = Math.max(best, fromCents(bonusCents))
+    const bonus = topupBonusUsd(
+      r.bonusType === 'percent' ? 'percent' : 'fixed',
+      Number(r.bonusValue),
+      amountUsd,
+      r.maxBonus != null ? Number(r.maxBonus) : null,
+    )
+    best = Math.max(best, bonus)
   }
   return best
 }
