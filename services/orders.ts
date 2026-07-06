@@ -71,6 +71,7 @@ function mapOrder(row: DbOrder, lines: DbLine[], events: DbEvent[]): Order {
     deliverySlotAr: 'غداً، الصباح',
     deliverySlotEn: 'Tomorrow, Morning',
     paymentMethod: (row.paymentMethod as 'cod' | 'card' | 'bank' | 'wallet') ?? 'cod',
+    paymentStatus: (row.paymentStatus as 'unpaid' | 'paid' | 'refunded') ?? 'unpaid',
   }
 }
 

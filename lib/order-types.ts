@@ -61,4 +61,5 @@ export type Order = {
   deliverySlotAr: string
   deliverySlotEn: string
   paymentMethod: 'cod' | 'card' | 'bank' | 'wallet'
+  paymentStatus: 'unpaid' | 'paid' | 'refunded'
 }

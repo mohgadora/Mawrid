@@ -1325,6 +1325,12 @@ export function testEmailTemplateApi(id: string, to: string): Promise<{ sent: bo
 export function fetchPopularSearches(): Promise<string[]> { return apiFetch('search/popular') }
 export function fetchRecentSearches(): Promise<string[]> { return apiFetch('search/recent') }
 
+// ── Payments (Moyasar) ──────────────────────────────────────────────────────
+
+export function createPaymentApi(orderId: string): Promise<{ url: string; invoiceId: string | null; dev: boolean }> {
+  return apiFetch('payments/create', { method: 'POST', body: JSON.stringify({ orderId }) })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

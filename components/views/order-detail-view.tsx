@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import useSWR from 'swr'
 import { useState } from 'react'
-import { MapPin, Truck, RefreshCw, XCircle, Package, MessageSquare } from 'lucide-react'
+import { MapPin, Truck, RefreshCw, XCircle, Package, MessageSquare, CreditCard } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/page-shell'
 import { AsyncContent } from '@/components/async-content'
@@ -17,7 +17,7 @@ import { useI18n } from '@/lib/i18n'
 import { useCart, toCartSnapshot } from '@/lib/cart'
 import { useToast } from '@/lib/toast'
 import { useProducts } from '@/lib/use-products'
-import { fetchOrder, cancelOrderApi, startOrderConversationApi } from '@/lib/api-client'
+import { fetchOrder, cancelOrderApi, startOrderConversationApi, createPaymentApi } from '@/lib/api-client'
 
 export function OrderDetailView({ id }: { id: string }) {
   const { t, lang, formatPrice } = useI18n()
@@ -27,6 +27,19 @@ export function OrderDetailView({ id }: { id: string }) {
   const router = useRouter()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [chatBusy, setChatBusy] = useState(false)
+  const [payBusy, setPayBusy] = useState(false)
+
+  async function payNow() {
+    if (payBusy) return
+    setPayBusy(true)
+    try {
+      const res = await createPaymentApi(id)
+      window.location.href = res.url
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : t('errorTitle'))
+      setPayBusy(false)
+    }
+  }
 
   async function messageSupplier() {
     if (chatBusy) return
@@ -118,6 +131,12 @@ export function OrderDetailView({ id }: { id: string }) {
                   <MessageSquare className="size-4" />
                   {lang === 'ar' ? 'محادثة المورد' : 'Message supplier'}
                 </Button>
+                {data.paymentMethod === 'card' && data.paymentStatus === 'unpaid' && data.status !== 'cancelled' && (
+                  <Button size="sm" onClick={payNow} disabled={payBusy}>
+                    <CreditCard className="size-4" />
+                    {lang === 'ar' ? 'ادفع الآن' : 'Pay now'}
+                  </Button>
+                )}
                 {canCancel && (
                   <Button
                     variant="outline"

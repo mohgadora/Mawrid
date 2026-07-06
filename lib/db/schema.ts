@@ -250,6 +250,7 @@ export const order = pgTable('order', {
   total:            numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
   couponId:         text('couponId'),
   couponCode:       text('couponCode'),
+  paymentRef:       text('paymentRef'),
   notes:            text('notes'),
   estimatedDelivery: date('estimatedDelivery'),
   deliveredAt:      timestamp('deliveredAt', { withTimezone: true }),
