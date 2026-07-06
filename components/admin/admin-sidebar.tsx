@@ -98,6 +98,7 @@ const NAV: Section[] = [
     items: [
       { labelKey: 'adminReports', href: '/admin/reports', icon: BarChart2 },
       { labelKey: 'adminSeo', href: '/admin/seo', icon: Globe },
+      { labelKey: 'adminBlog', href: '/admin/blog', icon: BookOpen },
     ],
   },
   {

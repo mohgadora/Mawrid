@@ -748,6 +748,7 @@ const DICT = {
   adminWalletBonuses: { ar: 'بونص الشحن', en: 'Top-up Bonuses' },
   adminCashback: { ar: 'الاسترجاع النقدي', en: 'CashBack' },
   adminSeo: { ar: 'تحسين محركات البحث', en: 'SEO' },
+  adminBlog: { ar: 'المدونة', en: 'Blog' },
   adminAds: { ar: 'الإعلانات', en: 'Advertisements' },
   adminSubscriptions: { ar: 'باقات الاشتراك', en: 'Subscription Plans' },
   adminDeals: { ar: 'عرض اليوم', en: 'Deal of the Day' },

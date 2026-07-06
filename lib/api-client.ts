@@ -1281,6 +1281,27 @@ export function fetchAdminClearances(): Promise<ClearanceRow[]> { return apiFetc
 export function createClearanceApi(data: Record<string, unknown>): Promise<{ id: string }> { return apiFetch('admin/clearance', { method: 'POST', body: JSON.stringify(data) }) }
 export function deleteClearanceApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/clearance/${id}`, { method: 'DELETE' }) }
 
+// ── Blog (admin) ────────────────────────────────────────────────────────────
+
+export type BlogPostRow = {
+  id: string
+  slug: string
+  titleAr: string
+  titleEn: string | null
+  bodyAr: string
+  excerptAr: string | null
+  coverImage: string | null
+  status: string
+  viewCount: number
+  publishedAt: string | null
+  createdAt: string
+}
+
+export function fetchAdminBlogPosts(): Promise<BlogPostRow[]> { return apiFetch('admin/blog') }
+export function createBlogPostApi(data: Record<string, unknown>): Promise<BlogPostRow> { return apiFetch('admin/blog', { method: 'POST', body: JSON.stringify(data) }) }
+export function updateBlogPostApi(id: string, data: Record<string, unknown>): Promise<BlogPostRow> { return apiFetch(`admin/blog/${id}`, { method: 'PATCH', body: JSON.stringify(data) }) }
+export function deleteBlogPostApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/blog/${id}`, { method: 'DELETE' }) }
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number

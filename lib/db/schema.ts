@@ -599,6 +599,39 @@ export const advertisement = pgTable('advertisement', {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BLOG
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const blogCategory = pgTable('blog_category', {
+  id:        uuid(),
+  slug:      text('slug').notNull().unique(),
+  nameAr:    text('nameAr').notNull(),
+  nameEn:    text('nameEn'),
+  sortOrder: integer('sortOrder').notNull().default(0),
+  createdAt: now(),
+})
+
+export const blogPost = pgTable('blog_post', {
+  id:          uuid(),
+  slug:        text('slug').notNull().unique(),
+  titleAr:     text('titleAr').notNull(),
+  titleEn:     text('titleEn'),
+  bodyAr:      text('bodyAr').notNull(),
+  bodyEn:      text('bodyEn'),
+  excerptAr:   text('excerptAr'),
+  excerptEn:   text('excerptEn'),
+  coverImage:  text('coverImage'),
+  categoryId:  text('categoryId').references(() => blogCategory.id, { onDelete: 'set null' }),
+  authorId:    text('authorId'),
+  status:      text('status').notNull().default('draft'), // draft | published
+  tags:        jsonb('tags').notNull().default('[]'),
+  publishedAt: timestamp('publishedAt', { withTimezone: true }),
+  viewCount:   integer('viewCount').notNull().default(0),
+  createdAt:   now(),
+  updatedAt:   timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SEO
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -924,6 +957,10 @@ export type ChatMessage        = typeof chatMessage.$inferSelect
 export type NewChatMessage     = typeof chatMessage.$inferInsert
 export type SeoMeta            = typeof seoMeta.$inferSelect
 export type NewSeoMeta         = typeof seoMeta.$inferInsert
+export type BlogCategory       = typeof blogCategory.$inferSelect
+export type NewBlogCategory    = typeof blogCategory.$inferInsert
+export type BlogPost           = typeof blogPost.$inferSelect
+export type NewBlogPost        = typeof blogPost.$inferInsert
 export type Advertisement      = typeof advertisement.$inferSelect
 export type NewAdvertisement   = typeof advertisement.$inferInsert
 export type SubscriptionPlan   = typeof subscriptionPlan.$inferSelect
