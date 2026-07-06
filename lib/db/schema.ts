@@ -184,6 +184,8 @@ export const order = pgTable('order', {
   shippingFee:      numeric('shippingFee', { precision: 12, scale: 2 }).notNull().default('0'),
   discount:         numeric('discount', { precision: 12, scale: 2 }).notNull().default('0'),
   total:            numeric('total', { precision: 12, scale: 2 }).notNull().default('0'),
+  couponId:         text('couponId'),
+  couponCode:       text('couponCode'),
   notes:            text('notes'),
   estimatedDelivery: date('estimatedDelivery'),
   deliveredAt:      timestamp('deliveredAt', { withTimezone: true }),
@@ -446,6 +448,13 @@ export const coupon = pgTable('coupon', {
   firstOrderOnly:       boolean('firstOrderOnly').notNull().default(false),
   applicableProductIds: jsonb('applicableProductIds').notNull().default('[]'),
   applicableCategoryIds:jsonb('applicableCategoryIds').notNull().default('[]'),
+  scope:                text('scope').notNull().default('global'), // global | supplier | category | product | first_order
+  scopeIds:             jsonb('scopeIds').notNull().default('[]'),
+  supplierId:           text('supplierId').references(() => supplier.id, { onDelete: 'cascade' }),
+  titleAr:              text('titleAr'),
+  titleEn:              text('titleEn'),
+  descriptionAr:        text('descriptionAr'),
+  descriptionEn:        text('descriptionEn'),
   startsAt:             timestamp('startsAt', { withTimezone: true }),
   expiresAt:            timestamp('expiresAt', { withTimezone: true }),
   active:               boolean('active').notNull().default(true),
@@ -454,11 +463,12 @@ export const coupon = pgTable('coupon', {
 })
 
 export const couponUsage = pgTable('coupon_usage', {
-  id:        uuid(),
-  couponId:  text('couponId').notNull().references(() => coupon.id, { onDelete: 'cascade' }),
-  userId:    text('userId').notNull(),
-  orderId:   text('orderId').references(() => order.id),
-  createdAt: now(),
+  id:             uuid(),
+  couponId:       text('couponId').notNull().references(() => coupon.id, { onDelete: 'cascade' }),
+  userId:         text('userId').notNull(),
+  orderId:        text('orderId').references(() => order.id),
+  discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  createdAt:      now(),
 })
 
 // ═══════════════════════════════════════════════════════════════════════════

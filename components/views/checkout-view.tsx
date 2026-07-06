@@ -18,6 +18,8 @@ import {
   Plus,
   AlertCircle,
   RefreshCw,
+  Ticket,
+  X,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import {
@@ -30,7 +32,7 @@ import { useRole } from '@/lib/role'
 import { useToast } from '@/lib/toast'
 import { SHIPPING } from '@/lib/config'
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money'
-import { fetchAddresses, createOrderApi, type Address } from '@/lib/api-client'
+import { fetchAddresses, createOrderApi, validateCouponApi, type Address, type CouponValidation } from '@/lib/api-client'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
@@ -59,6 +61,10 @@ export function CheckoutView() {
   const [slot, setSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [payment, setPayment] = useState<PaymentMethod>('cod')
   const [placing, setPlacing] = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [coupon, setCoupon] = useState<CouponValidation | null>(null)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [applyingCoupon, setApplyingCoupon] = useState(false)
 
   const lines = useMemo(
     () =>
@@ -97,6 +103,14 @@ export function CheckoutView() {
       savingsUsd: fromCents(savingsCents),
     }
   }, [lines, role])
+
+  const couponDiscountUsd = coupon?.valid ? coupon.discountUsd : 0
+  const couponFreeShipping = coupon?.valid ? coupon.freeShipping : false
+  const effectiveShippingUsd = couponFreeShipping ? 0 : totals.shippingUsd
+  const grandTotalUsd = Math.max(
+    0,
+    fromCents(toCents(totals.subtotalUsd) + toCents(effectiveShippingUsd) - toCents(couponDiscountUsd)),
+  )
 
   const selectedAddress = useMemo(() => {
     if (!addresses?.length) return null
@@ -141,6 +155,39 @@ export function CheckoutView() {
     )
   }
 
+  async function applyCouponCode() {
+    const code = couponInput.trim()
+    if (!code || applyingCoupon) return
+    setApplyingCoupon(true)
+    setCouponError(null)
+    try {
+      const items = lines.map(({ item }) => ({
+        productId: item.productId,
+        qty: item.qty,
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+      }))
+      const res = await validateCouponApi({ code, items })
+      if (res.valid) {
+        setCoupon(res)
+        setCouponError(null)
+      } else {
+        setCoupon(null)
+        setCouponError(res.message)
+      }
+    } catch (err) {
+      setCoupon(null)
+      setCouponError(err instanceof Error ? err.message : t('errorTitle'))
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
+  function removeCoupon() {
+    setCoupon(null)
+    setCouponInput('')
+    setCouponError(null)
+  }
+
   async function placeOrder() {
     if (!selectedAddress) return
     setPlacing(true)
@@ -159,6 +206,7 @@ export function CheckoutView() {
           phone: selectedAddress.phone ?? '',
         },
         paymentMethod: payment,
+        ...(coupon?.valid ? { couponCode: coupon.code } : {}),
       })
       clear()
       toast.success(t('toastOrderPlaced'))
@@ -458,25 +506,86 @@ export function CheckoutView() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="mb-3 text-base font-bold text-foreground">{t('orderSummary')}</h2>
+
+            {/* Coupon */}
+            <div className="mb-3">
+              {coupon?.valid ? (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-success/40 bg-success/10 px-3 py-2">
+                  <span className="flex items-center gap-2 text-sm font-bold text-success">
+                    <Ticket className="size-4 shrink-0" />
+                    <span dir="ltr">{coupon.code}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="grid size-6 place-items-center rounded-full text-success/70 transition-colors hover:bg-success/20 hover:text-success"
+                    aria-label={lang === 'ar' ? 'إزالة الكوبون' : 'Remove coupon'}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        applyCouponCode()
+                      }
+                    }}
+                    placeholder={lang === 'ar' ? 'كود الكوبون' : 'Coupon code'}
+                    className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium uppercase text-foreground placeholder:normal-case placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    dir="ltr"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCouponCode}
+                    disabled={!couponInput.trim() || applyingCoupon}
+                    className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {applyingCoupon ? t('loading') : lang === 'ar' ? 'تطبيق' : 'Apply'}
+                  </button>
+                </div>
+              )}
+              {couponError && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  {couponError}
+                </p>
+              )}
+            </div>
+
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t('subtotal')}</dt>
                 <dd className="font-semibold text-foreground">{formatPrice(totals.subtotalUsd)}</dd>
               </div>
+              {couponDiscountUsd > 0 && (
+                <div className="flex justify-between">
+                  <dt className="flex items-center gap-1.5 text-success">
+                    <Ticket className="size-3.5" />
+                    {lang === 'ar' ? 'خصم الكوبون' : 'Coupon discount'}
+                  </dt>
+                  <dd className="font-semibold text-success">− {formatPrice(couponDiscountUsd)}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t('shipping')}</dt>
                 <dd className="font-semibold text-foreground">
-                  {totals.shippingUsd === 0 ? (
+                  {effectiveShippingUsd === 0 ? (
                     <span className="text-success">{t('freeShipping')}</span>
                   ) : (
-                    formatPrice(totals.shippingUsd)
+                    formatPrice(effectiveShippingUsd)
                   )}
                 </dd>
               </div>
               <div className="my-1 border-t border-border" />
               <div className="flex items-center justify-between">
                 <dt className="font-bold text-foreground">{t('total')}</dt>
-                <dd className="text-xl font-black text-primary">{formatPrice(totals.totalUsd)}</dd>
+                <dd className="text-xl font-black text-primary">{formatPrice(grandTotalUsd)}</dd>
               </div>
             </dl>
             <p className="mt-3 text-xs text-muted-foreground">

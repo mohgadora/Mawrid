@@ -14,10 +14,12 @@ import {
 } from '@/lib/db/schema'
 import { eq, desc, and, inArray, asc, gte, sql, notInArray } from 'drizzle-orm'
 import { priceLinesUsd } from '@/lib/pricing'
+import { fromCents, toCents, sumCents, lineTotalCents } from '@/lib/money'
 import { SHIPPING } from '@/lib/config'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { resolveActor, type Actor } from '@/lib/actor'
 import { writeAuditLog } from '@/lib/audit'
+import { validateCoupon, applyCoupon } from '@/services/coupon'
 
 import type { OrderStatus, OrderEvent, OrderLine, OrderAddress, Order } from '@/lib/order-types'
 export type { OrderStatus, OrderEvent, OrderLine, OrderAddress, Order } from '@/lib/order-types'
@@ -137,6 +139,7 @@ export async function createOrder(
     lines: { productId: string; qty: number; variantId?: string }[]
     address: { label: string; line1?: string; city?: string; phone?: string }
     paymentMethod: string
+    couponCode?: string
   },
   actor?: Actor,
 ): Promise<Order> {
@@ -218,6 +221,28 @@ export async function createOrder(
 
   const productIds = [...new Set(pricedLines.map((l) => l.productId).filter(Boolean))]
 
+  // ── Totals + coupon (computed before the tx; validateCoupon is read-only) ──
+  const subtotalUsd = fromCents(sumCents(pricedLines.map((l) => lineTotalCents(l.unitPrice, l.qty))))
+  const shippingBaseUsd = await resolveShippingFee(subtotalUsd)
+
+  let discountUsd = 0
+  let shippingUsd = shippingBaseUsd
+  let appliedCoupon: { id: string; code: string } | null = null
+  const couponCode = String(params.couponCode ?? '').trim()
+  if (couponCode) {
+    const res = await validateCoupon(couponCode, userId, {
+      subtotalUsd,
+      shippingUsd: shippingBaseUsd,
+      productIds,
+    })
+    if (!res.valid || !res.coupon) throw new ValidationError(res.message)
+    discountUsd = res.discountUsd
+    if (res.freeShipping) shippingUsd = 0
+    appliedCoupon = { id: res.coupon.id, code: res.coupon.code }
+  }
+  const totalCents = Math.max(0, toCents(subtotalUsd) + toCents(shippingUsd) - toCents(discountUsd))
+  const totalUsd = fromCents(totalCents)
+
   const orderId = crypto.randomUUID()
   const ref = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
 
@@ -261,10 +286,6 @@ export async function createOrder(
       }
     }
 
-    const subtotal = pricedLines.reduce((s, l) => s + l.qty * l.unitPrice, 0)
-    const shipping = await resolveShippingFee(subtotal)
-    const total = subtotal + shipping
-
     await tx.insert(order).values({
       id: orderId,
       ref,
@@ -272,10 +293,12 @@ export async function createOrder(
       status: 'pending',
       paymentMethod,
       shippingAddress: address,
-      subtotal: subtotal.toFixed(2),
-      shippingFee: shipping.toFixed(2),
-      discount: '0',
-      total: total.toFixed(2),
+      subtotal: subtotalUsd.toFixed(2),
+      shippingFee: shippingUsd.toFixed(2),
+      discount: discountUsd.toFixed(2),
+      total: totalUsd.toFixed(2),
+      couponId: appliedCoupon?.id ?? null,
+      couponCode: appliedCoupon?.code ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -311,6 +334,10 @@ export async function createOrder(
       createdBy: userId,
       createdAt: new Date(),
     })
+
+    if (appliedCoupon) {
+      await applyCoupon(tx, { couponId: appliedCoupon.id, userId, orderId, discountUsd })
+    }
   })
 
   await writeAuditLog({
