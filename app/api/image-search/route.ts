@@ -28,8 +28,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const formData = await req.formData()
-    const file = formData.get('image') as File | null
-    const lang = (formData.get('lang') as string) ?? 'en'
+    const fd = formData as unknown as { get(name: string): FormDataEntryValue | null }
+    const file = fd.get('image') as File | null
+    const lang = (fd.get('lang') as string | null) ?? 'en'
 
     if (!file) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })

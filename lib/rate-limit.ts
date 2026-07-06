@@ -10,10 +10,11 @@ type Bucket = { count: number; resetAt: number }
 const buckets = new Map<string, Bucket>()
 
 // تنظيف دوري للمفاتيح المنتهية حتى لا تكبر الذاكرة
-setInterval(() => {
+const _cleanupTimer = setInterval(() => {
   const now = Date.now()
   for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k)
-}, 60_000).unref?.()
+}, 60_000)
+if (typeof _cleanupTimer === 'object') (_cleanupTimer as NodeJS.Timeout).unref()
 
 /**
  * يستخرج معرّف العميل للحدّ.
