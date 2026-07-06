@@ -16,11 +16,19 @@ import {
   payout as payoutTable,
   category,
   sellerEarning,
+  stockMovement,
+  productVariant,
+  productReview,
+  reviewReply,
+  supportTicket,
+  ticketMessage,
+  notification,
+  auditLog,
 } from '@/lib/db/schema'
 import { eq, desc, and, inArray, asc, sum, count, max } from 'drizzle-orm'
 import { getSystemSettings } from '@/lib/settings'
 import { resolveActor, type Actor } from '@/lib/actor'
-import { ValidationError, NotFoundError } from '@/lib/errors'
+import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors'
 
 const clip = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n)
 
@@ -697,4 +705,662 @@ export async function recordSellerEarning(orderId: string) {
     .returning()
 
   return earning
+}
+
+// ── updatePartnerStore (extended) ─────────────────────────────────────────
+// Replace the existing updatePartnerStore to support new fields
+export async function updatePartnerStoreExtended(
+  data: Partial<{
+    name: string; nameEn: string; city: string; country: string
+    logo: string; bannerUrl: string; phone: string; email: string
+    address: string; shippingPolicy: string; returnPolicy: string
+    socialLinks: Record<string, string>; minOrder: number; responseTime: string
+  }>,
+  actor?: Actor,
+) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+
+  const [row] = await db
+    .update(supplier)
+    .set({
+      ...(data.name !== undefined ? { nameAr: clip(data.name, 120) } : {}),
+      ...(data.nameEn !== undefined ? { name: clip(data.nameEn, 120) } : {}),
+      ...(data.city !== undefined ? { city: clip(data.city, 80) } : {}),
+      ...(data.country !== undefined ? { country: clip(data.country, 4) || 'SA' } : {}),
+      ...(data.logo !== undefined ? { logo: clip(data.logo, 500) } : {}),
+      ...(data.bannerUrl !== undefined ? { bannerUrl: clip(data.bannerUrl, 500) } : {}),
+      ...(data.phone !== undefined ? { phone: clip(data.phone, 30) } : {}),
+      ...(data.email !== undefined ? { email: clip(data.email, 120) } : {}),
+      ...(data.address !== undefined ? { address: clip(data.address, 300) } : {}),
+      ...(data.shippingPolicy !== undefined ? { shippingPolicy: clip(data.shippingPolicy, 2000) } : {}),
+      ...(data.returnPolicy !== undefined ? { returnPolicy: clip(data.returnPolicy, 2000) } : {}),
+      ...(data.socialLinks !== undefined ? { socialLinks: data.socialLinks } : {}),
+      ...(data.minOrder !== undefined ? { minOrder: Math.max(1, Math.trunc(Number(data.minOrder) || 1)) } : {}),
+      ...(data.responseTime !== undefined ? { responseTime: clip(data.responseTime, 40) } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(supplier.id, sup.id))
+    .returning()
+
+  return row
+}
+
+// ── Inventory ─────────────────────────────────────────────────────────────
+
+export async function getPartnerInventory(actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return []
+
+  const products = await db
+    .select()
+    .from(productTable)
+    .where(eq(productTable.supplierId, sup.id))
+    .orderBy(asc(productTable.nameAr))
+
+  const productIds = products.map((p) => p.id)
+  if (!productIds.length) return []
+
+  const variants = await db
+    .select()
+    .from(productVariant)
+    .where(inArray(productVariant.productId, productIds))
+
+  const variantMap = new Map<string, typeof variants>()
+  for (const v of variants) {
+    const list = variantMap.get(v.productId) ?? []
+    list.push(v)
+    variantMap.set(v.productId, list)
+  }
+
+  const [lastMovements] = await db
+    .select({ productId: stockMovement.productId, maxAt: max(stockMovement.createdAt) })
+    .from(stockMovement)
+    .where(inArray(stockMovement.productId, productIds))
+
+  void lastMovements
+
+  return products.map((p) => ({
+    id: p.id,
+    sku: p.sku ?? '',
+    name: p.nameAr ?? p.name,
+    nameEn: p.name,
+    stock: p.stock,
+    active: p.active,
+    status: p.status,
+    categoryId: p.categoryId ?? '',
+    imageUrl: p.imageUrl ?? '',
+    variants: (variantMap.get(p.id) ?? []).map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      stock: v.stock,
+      options: v.options as Record<string, string> | null,
+      lowStockThreshold: v.lowStockThreshold,
+      active: v.active,
+    })),
+  }))
+}
+
+export async function adjustPartnerStock(
+  data: { productId: string; variantId?: string; delta: number; reason: string },
+  actor?: Actor,
+) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+  if (!data.reason?.trim()) throw new ValidationError('السبب مطلوب')
+
+  // Verify ownership
+  const [prod] = await db
+    .select({ id: productTable.id, stock: productTable.stock })
+    .from(productTable)
+    .where(and(eq(productTable.id, data.productId), eq(productTable.supplierId, sup.id)))
+    .limit(1)
+  if (!prod) throw new NotFoundError('المنتج غير موجود')
+
+  const actorId = (await resolveActor(actor)).id
+
+  if (data.variantId) {
+    const [variant] = await db
+      .select()
+      .from(productVariant)
+      .where(and(eq(productVariant.id, data.variantId), eq(productVariant.productId, data.productId)))
+      .limit(1)
+    if (!variant) throw new NotFoundError('المتغير غير موجود')
+
+    const newStock = Math.max(0, variant.stock + data.delta)
+    await db.update(productVariant).set({ stock: newStock, updatedAt: new Date() }).where(eq(productVariant.id, data.variantId))
+    await db.insert(stockMovement).values({
+      id: crypto.randomUUID(), productId: data.productId, variantId: data.variantId,
+      type: 'manual', delta: data.delta, stockAfter: newStock,
+      reason: clip(data.reason, 200), createdBy: actorId, createdAt: new Date(),
+    })
+    return { stock: newStock }
+  }
+
+  const newStock = Math.max(0, prod.stock + data.delta)
+  await db.update(productTable).set({ stock: newStock, updatedAt: new Date() }).where(eq(productTable.id, data.productId))
+  await db.insert(stockMovement).values({
+    id: crypto.randomUUID(), productId: data.productId,
+    type: 'manual', delta: data.delta, stockAfter: newStock,
+    reason: clip(data.reason, 200), createdBy: actorId, createdAt: new Date(),
+  })
+  return { stock: newStock }
+}
+
+export async function getPartnerStockMovements(productId: string, actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return []
+
+  const [prod] = await db
+    .select({ id: productTable.id })
+    .from(productTable)
+    .where(and(eq(productTable.id, productId), eq(productTable.supplierId, sup.id)))
+    .limit(1)
+  if (!prod) throw new NotFoundError('المنتج غير موجود')
+
+  const rows = await db
+    .select()
+    .from(stockMovement)
+    .where(eq(stockMovement.productId, productId))
+    .orderBy(desc(stockMovement.createdAt))
+    .limit(100)
+
+  return rows.map((m) => ({
+    id: m.id, type: m.type, delta: m.delta, stockAfter: m.stockAfter,
+    reason: m.reason ?? '', reference: m.reference ?? '',
+    createdAt: m.createdAt.toISOString(),
+  }))
+}
+
+// ── Withdrawals ───────────────────────────────────────────────────────────
+
+export async function getPartnerWithdrawals(actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return []
+
+  const rows = await db
+    .select()
+    .from(payoutTable)
+    .where(eq(payoutTable.supplierId, sup.id))
+    .orderBy(desc(payoutTable.createdAt))
+    .limit(100)
+
+  return rows.map((p) => ({
+    id: p.id, amount: Number(p.amount), currency: p.currency,
+    status: p.status, reference: p.reference ?? '',
+    bankAccount: p.bankAccount as Record<string, string> | null,
+    rejectionReason: p.rejectionReason ?? null,
+    createdAt: p.createdAt.toISOString(),
+    processedAt: p.processedAt?.toISOString() ?? null,
+  }))
+}
+
+export async function cancelPartnerWithdrawal(payoutId: string, actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+
+  const [row] = await db
+    .select()
+    .from(payoutTable)
+    .where(and(eq(payoutTable.id, payoutId), eq(payoutTable.supplierId, sup.id)))
+    .limit(1)
+  if (!row) throw new NotFoundError('طلب السحب غير موجود')
+  if (row.status !== 'pending') throw new ValidationError('لا يمكن إلغاء طلب سحب غير معلق')
+
+  const [updated] = await db
+    .update(payoutTable)
+    .set({ status: 'rejected', rejectionReason: 'ألغاه المورد', processedAt: new Date() })
+    .where(eq(payoutTable.id, payoutId))
+    .returning()
+  return updated
+}
+
+// ── Order status management ───────────────────────────────────────────────
+
+const PARTNER_ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  pending:    ['confirmed'],
+  confirmed:  ['processing'],
+  processing: ['ready_to_ship'],
+  ready_to_ship: ['shipped'],
+}
+
+export async function updatePartnerOrderStatus(
+  orderId: string,
+  newStatus: string,
+  opts: { note?: string; trackingNumber?: string } = {},
+  actor?: Actor,
+) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+
+  // verify this order has products belonging to this supplier
+  const productIds = (
+    await db.select({ id: productTable.id }).from(productTable).where(eq(productTable.supplierId, sup.id))
+  ).map((p) => p.id)
+
+  const lines = await db
+    .select({ orderId: orderLine.orderId })
+    .from(orderLine)
+    .where(and(eq(orderLine.orderId, orderId), inArray(orderLine.productId, productIds)))
+    .limit(1)
+  if (!lines.length) throw new ForbiddenError('لا يمكنك إدارة هذا الطلب')
+
+  const [orderRow] = await db.select().from(order).where(eq(order.id, orderId)).limit(1)
+  if (!orderRow) throw new NotFoundError('الطلب غير موجود')
+
+  const allowed = PARTNER_ALLOWED_TRANSITIONS[orderRow.status] ?? []
+  if (!allowed.includes(newStatus)) {
+    throw new ValidationError(`لا يمكن الانتقال من ${orderRow.status} إلى ${newStatus}`)
+  }
+
+  const actorId = (await resolveActor(actor)).id
+
+  const [updated] = await db
+    .update(order)
+    .set({ status: newStatus, updatedAt: new Date() })
+    .where(eq(order.id, orderId))
+    .returning()
+
+  await db.insert(orderEvent).values({
+    id: crypto.randomUUID(), orderId, status: newStatus,
+    note: opts.note ?? null, createdBy: actorId, createdAt: new Date(),
+  })
+
+  return updated
+}
+
+export async function addPartnerOrderNote(orderId: string, note: string, actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+  if (!note.trim()) throw new ValidationError('الملاحظة مطلوبة')
+
+  const productIds = (
+    await db.select({ id: productTable.id }).from(productTable).where(eq(productTable.supplierId, sup.id))
+  ).map((p) => p.id)
+
+  const lines = await db
+    .select({ orderId: orderLine.orderId })
+    .from(orderLine)
+    .where(and(eq(orderLine.orderId, orderId), inArray(orderLine.productId, productIds)))
+    .limit(1)
+  if (!lines.length) throw new ForbiddenError('لا يمكنك إضافة ملاحظة لهذا الطلب')
+
+  const actorId = (await resolveActor(actor)).id
+  await db.insert(orderEvent).values({
+    id: crypto.randomUUID(), orderId,
+    status: 'note', note: clip(note, 500),
+    createdBy: actorId, createdAt: new Date(),
+  })
+  return { ok: true }
+}
+
+// ── Reviews ───────────────────────────────────────────────────────────────
+
+export async function getPartnerReviews(actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return []
+
+  const productIds = (
+    await db.select({ id: productTable.id }).from(productTable).where(eq(productTable.supplierId, sup.id))
+  ).map((p) => p.id)
+
+  if (!productIds.length) return []
+
+  const reviews = await db
+    .select()
+    .from(productReview)
+    .where(inArray(productReview.productId, productIds))
+    .orderBy(desc(productReview.createdAt))
+    .limit(100)
+
+  const reviewIds = reviews.map((r) => r.id)
+
+  const replies = reviewIds.length
+    ? await db.select().from(reviewReply).where(inArray(reviewReply.reviewId, reviewIds))
+    : []
+
+  const replyMap = new Map(replies.map((r) => [r.reviewId, r]))
+
+  const products = await db
+    .select({ id: productTable.id, nameAr: productTable.nameAr, name: productTable.name })
+    .from(productTable)
+    .where(inArray(productTable.id, productIds))
+
+  const productNameMap = new Map(products.map((p) => [p.id, p.nameAr ?? p.name]))
+
+  return reviews.map((r) => ({
+    id: r.id, productId: r.productId,
+    productName: productNameMap.get(r.productId) ?? '',
+    userId: r.userId, rating: r.rating,
+    title: r.title ?? '', body: r.body ?? '',
+    verified: r.verified, helpful: r.helpfulCount,
+    createdAt: r.createdAt.toISOString(),
+    reply: replyMap.has(r.id)
+      ? { id: replyMap.get(r.id)!.id, body: replyMap.get(r.id)!.body, createdAt: replyMap.get(r.id)!.createdAt.toISOString() }
+      : null,
+  }))
+}
+
+export async function replyToPartnerReview(reviewId: string, body: string, actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+  if (!body.trim()) throw new ValidationError('الرد مطلوب')
+
+  const productIds = (
+    await db.select({ id: productTable.id }).from(productTable).where(eq(productTable.supplierId, sup.id))
+  ).map((p) => p.id)
+
+  const [review] = await db
+    .select()
+    .from(productReview)
+    .where(and(eq(productReview.id, reviewId), inArray(productReview.productId, productIds)))
+    .limit(1)
+  if (!review) throw new NotFoundError('التقييم غير موجود')
+
+  const actorId = (await resolveActor(actor)).id
+
+  // upsert: delete old reply if exists, then insert
+  await db.delete(reviewReply).where(eq(reviewReply.reviewId, reviewId))
+  const [inserted] = await db.insert(reviewReply).values({
+    id: crypto.randomUUID(), reviewId, userId: actorId,
+    body: clip(body, 1000), createdAt: new Date(),
+  }).returning()
+  return inserted
+}
+
+export async function reportPartnerReview(reviewId: string, reason: string, actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) throw new NotFoundError('المورد غير موجود')
+  if (!reason.trim()) throw new ValidationError('السبب مطلوب')
+
+  const productIds = (
+    await db.select({ id: productTable.id }).from(productTable).where(eq(productTable.supplierId, sup.id))
+  ).map((p) => p.id)
+
+  const [review] = await db
+    .select()
+    .from(productReview)
+    .where(and(eq(productReview.id, reviewId), inArray(productReview.productId, productIds)))
+    .limit(1)
+  if (!review) throw new NotFoundError('التقييم غير موجود')
+
+  // Log as audit entry for admin review
+  const actorId = (await resolveActor(actor)).id
+  await db.insert(auditLog).values({
+    id: crypto.randomUUID(),
+    userId: actorId,
+    action: 'review.report',
+    entity: 'review',
+    entityId: reviewId,
+    diff: { reason: clip(reason, 500) },
+    createdAt: new Date(),
+  })
+  return { ok: true }
+}
+
+// ── Support Tickets ───────────────────────────────────────────────────────
+
+export async function getPartnerSupportTickets(actor?: Actor) {
+  const actorData = await resolveActor(actor)
+  const rows = await db
+    .select()
+    .from(supportTicket)
+    .where(eq(supportTicket.userId, actorData.id))
+    .orderBy(desc(supportTicket.createdAt))
+    .limit(100)
+
+  return rows.map((t) => ({
+    id: t.id, ref: t.ref, subject: t.subject,
+    status: t.status, priority: t.priority,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+  }))
+}
+
+export async function createPartnerSupportTicket(
+  data: { subject: string; body: string; priority?: string },
+  actor?: Actor,
+) {
+  const actorData = await resolveActor(actor)
+  if (!data.subject.trim() || !data.body.trim()) throw new ValidationError('الموضوع والرسالة مطلوبان')
+
+  const id = crypto.randomUUID()
+  const ref = `TKT-${id.slice(0, 8).toUpperCase()}`
+
+  return db.transaction(async (tx) => {
+    const [ticket] = await tx.insert(supportTicket).values({
+      id, ref, userId: actorData.id,
+      subject: clip(data.subject, 200),
+      body: clip(data.body, 5000),
+      status: 'open',
+      priority: (data.priority as 'low'|'medium'|'high'|'urgent') ?? 'medium',
+      createdAt: new Date(), updatedAt: new Date(),
+    }).returning()
+
+    await tx.insert(ticketMessage).values({
+      id: crypto.randomUUID(), ticketId: id,
+      userId: actorData.id, body: clip(data.body, 5000),
+      isStaff: false, createdAt: new Date(),
+    })
+
+    return ticket
+  })
+}
+
+export async function getPartnerSupportTicketDetail(ticketId: string, actor?: Actor) {
+  const actorData = await resolveActor(actor)
+
+  const [ticket] = await db
+    .select()
+    .from(supportTicket)
+    .where(and(eq(supportTicket.id, ticketId), eq(supportTicket.userId, actorData.id)))
+    .limit(1)
+  if (!ticket) throw new NotFoundError('التذكرة غير موجودة')
+
+  const messages = await db
+    .select()
+    .from(ticketMessage)
+    .where(eq(ticketMessage.ticketId, ticketId))
+    .orderBy(asc(ticketMessage.createdAt))
+
+  return {
+    id: ticket.id, ref: ticket.ref, subject: ticket.subject,
+    body: ticket.body, status: ticket.status, priority: ticket.priority,
+    createdAt: ticket.createdAt.toISOString(),
+    messages: messages.map((m) => ({
+      id: m.id, body: m.body, isStaff: m.isStaff,
+      createdAt: m.createdAt.toISOString(),
+    })),
+  }
+}
+
+export async function addPartnerTicketMessage(ticketId: string, body: string, actor?: Actor) {
+  const actorData = await resolveActor(actor)
+  if (!body.trim()) throw new ValidationError('الرسالة مطلوبة')
+
+  const [ticket] = await db
+    .select()
+    .from(supportTicket)
+    .where(and(eq(supportTicket.id, ticketId), eq(supportTicket.userId, actorData.id)))
+    .limit(1)
+  if (!ticket) throw new NotFoundError('التذكرة غير موجودة')
+  if (ticket.status === 'closed') throw new ValidationError('التذكرة مغلقة')
+
+  const [msg] = await db.insert(ticketMessage).values({
+    id: crypto.randomUUID(), ticketId,
+    userId: actorData.id, body: clip(body, 5000),
+    isStaff: false, createdAt: new Date(),
+  }).returning()
+
+  await db.update(supportTicket).set({ status: 'open', updatedAt: new Date() }).where(eq(supportTicket.id, ticketId))
+  return msg
+}
+
+export async function closePartnerTicket(ticketId: string, actor?: Actor) {
+  const actorData = await resolveActor(actor)
+
+  const [ticket] = await db
+    .select()
+    .from(supportTicket)
+    .where(and(eq(supportTicket.id, ticketId), eq(supportTicket.userId, actorData.id)))
+    .limit(1)
+  if (!ticket) throw new NotFoundError('التذكرة غير موجودة')
+
+  const [updated] = await db
+    .update(supportTicket)
+    .set({ status: 'closed', resolvedAt: new Date(), updatedAt: new Date() })
+    .where(eq(supportTicket.id, ticketId))
+    .returning()
+  return updated
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────
+
+export async function getPartnerNotifications(actor?: Actor) {
+  const actorData = await resolveActor(actor)
+
+  const rows = await db
+    .select()
+    .from(notification)
+    .where(eq(notification.userId, actorData.id))
+    .orderBy(desc(notification.createdAt))
+    .limit(50)
+
+  const unread = rows.filter((n) => !n.read).length
+
+  return {
+    items: rows.map((n) => ({
+      id: n.id, type: n.type, title: n.title,
+      body: n.body, link: n.link ?? null,
+      read: n.read, createdAt: n.createdAt.toISOString(),
+    })),
+    unread,
+  }
+}
+
+export async function markPartnerNotificationRead(notifId: string, actor?: Actor) {
+  const actorData = await resolveActor(actor)
+  await db.update(notification)
+    .set({ read: true })
+    .where(and(eq(notification.id, notifId), eq(notification.userId, actorData.id)))
+  return { ok: true }
+}
+
+export async function markAllPartnerNotificationsRead(actor?: Actor) {
+  const actorData = await resolveActor(actor)
+  await db.update(notification)
+    .set({ read: true })
+    .where(and(eq(notification.userId, actorData.id), eq(notification.read, false)))
+  return { ok: true }
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────
+
+export async function getPartnerReportSales(actor?: Actor, from?: string, to?: string) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return { rows: [], totals: { revenue: 0, orders: 0, items: 0 } }
+
+  const productIds = (
+    await db.select({ id: productTable.id }).from(productTable).where(eq(productTable.supplierId, sup.id))
+  ).map((p) => p.id)
+
+  if (!productIds.length) return { rows: [], totals: { revenue: 0, orders: 0, items: 0 } }
+
+  const allLines = await db
+    .select()
+    .from(orderLine)
+    .where(inArray(orderLine.productId, productIds))
+
+  const orderIds = [...new Set(allLines.map((l) => l.orderId))]
+  if (!orderIds.length) return { rows: [], totals: { revenue: 0, orders: 0, items: 0 } }
+
+  const orders = await db.select().from(order).where(inArray(order.id, orderIds))
+    .orderBy(desc(order.createdAt)).limit(500)
+
+  const filteredOrders = orders.filter((o) => {
+    if (from && o.createdAt < new Date(from)) return false
+    if (to && o.createdAt > new Date(to)) return false
+    return true
+  })
+
+  const rows = filteredOrders.map((o) => {
+    const lines = allLines.filter((l) => l.orderId === o.id)
+    const revenue = lines.reduce((s, l) => s + Number(l.subtotal), 0)
+    return {
+      orderId: o.id, ref: o.ref, status: o.status,
+      date: o.createdAt.toISOString().split('T')[0],
+      items: lines.reduce((s, l) => s + l.qty, 0), revenue,
+    }
+  })
+
+  return {
+    rows,
+    totals: {
+      revenue: rows.reduce((s, r) => s + r.revenue, 0),
+      orders: rows.length,
+      items: rows.reduce((s, r) => s + r.items, 0),
+    },
+  }
+}
+
+export async function getPartnerReportProducts(actor?: Actor) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return []
+
+  const products = await db
+    .select()
+    .from(productTable)
+    .where(eq(productTable.supplierId, sup.id))
+    .orderBy(desc(productTable.createdAt))
+
+  if (!products.length) return []
+
+  const productIds = products.map((p) => p.id)
+  const allLines = await db.select().from(orderLine).where(inArray(orderLine.productId, productIds))
+
+  return products.map((p) => {
+    const lines = allLines.filter((l) => l.productId === p.id)
+    return {
+      id: p.id, name: p.nameAr ?? p.name, sku: p.sku ?? '',
+      stock: p.stock, active: p.active, status: p.status,
+      totalOrders: lines.length,
+      totalQty: lines.reduce((s, l) => s + l.qty, 0),
+      totalRevenue: lines.reduce((s, l) => s + Number(l.subtotal), 0),
+    }
+  })
+}
+
+export async function getPartnerReportEarnings(actor?: Actor, from?: string, to?: string) {
+  const sup = await getPartnerSupplier(actor)
+  if (!sup) return { rows: [], totals: { gross: 0, commission: 0, net: 0 } }
+
+  const rows = await db
+    .select()
+    .from(sellerEarning)
+    .where(eq(sellerEarning.supplierId, sup.id))
+    .orderBy(desc(sellerEarning.createdAt))
+    .limit(500)
+
+  const filtered = rows.filter((r) => {
+    if (from && r.createdAt < new Date(from)) return false
+    if (to && r.createdAt > new Date(to)) return false
+    return true
+  })
+
+  return {
+    rows: filtered.map((r) => ({
+      id: r.id, orderId: r.orderId,
+      gross: Number(r.grossAmount),
+      commission: Number(r.commissionAmount),
+      net: Number(r.netEarning),
+      rate: Number(r.commissionRate),
+      status: r.status,
+      date: r.createdAt.toISOString().split('T')[0],
+    })),
+    totals: {
+      gross: filtered.reduce((s, r) => s + Number(r.grossAmount), 0),
+      commission: filtered.reduce((s, r) => s + Number(r.commissionAmount), 0),
+      net: filtered.reduce((s, r) => s + Number(r.netEarning), 0),
+    },
+  }
 }

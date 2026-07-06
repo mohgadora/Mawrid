@@ -25,6 +25,14 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  readonly isForbiddenError = true as const
+  constructor(message = 'Forbidden') {
+    super(message)
+    this.name = 'ForbiddenError'
+  }
+}
+
 export function isValidationError(err: unknown): err is ValidationError {
   return (
     err instanceof ValidationError ||
