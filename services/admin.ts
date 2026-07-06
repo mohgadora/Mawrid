@@ -12,6 +12,8 @@ import {
   supplier,
   product as productTable,
   supportTicket,
+  ticketMessage,
+  coupon as couponTable,
   kycApproval,
   payout as payoutTable,
   transaction as transactionTable,
@@ -808,5 +810,140 @@ export async function updateDriverStatus(id: string, status: string, adminUserId
     entity: 'driver',
     entityId: id,
   })
+  return row
+}
+
+// ── Coupons ───────────────────────────────────────────────────────────────
+
+export async function getAdminCoupons() {
+  return db.select().from(couponTable).orderBy(desc(couponTable.createdAt)).limit(200)
+}
+
+export async function createCoupon(data: {
+  code: string; type: string; value: number; minOrderAmount?: number | null
+  maxDiscountAmount?: number | null; usageLimitTotal?: number | null
+  usageLimitPerCustomer?: number; firstOrderOnly?: boolean
+  startsAt?: string | null; expiresAt?: string | null; active?: boolean
+}, adminUserId: string) {
+  
+  const [row] = await db.insert(couponTable).values({
+    id: crypto.randomUUID(),
+    code: data.code.toUpperCase().trim(),
+    type: data.type,
+    value: String(data.value),
+    minOrderAmount: data.minOrderAmount ? String(data.minOrderAmount) : null,
+    maxDiscountAmount: data.maxDiscountAmount ? String(data.maxDiscountAmount) : null,
+    usageLimitTotal: data.usageLimitTotal ?? null,
+    usageLimitPerCustomer: data.usageLimitPerCustomer ?? 1,
+    firstOrderOnly: data.firstOrderOnly ?? false,
+    startsAt: data.startsAt ? new Date(data.startsAt) : null,
+    expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+    active: data.active ?? true,
+    createdBy: adminUserId,
+  }).returning()
+  await writeAuditLog({ userId: adminUserId, action: 'coupon.create', entity: 'coupon', entityId: row.id })
+  return row
+}
+
+export async function updateCoupon(id: string, data: Partial<{
+  code: string; type: string; value: number; minOrderAmount: number | null
+  maxDiscountAmount: number | null; usageLimitTotal: number | null
+  usageLimitPerCustomer: number; firstOrderOnly: boolean
+  startsAt: string | null; expiresAt: string | null; active: boolean
+}>, adminUserId: string) {
+  const set: Record<string, unknown> = {}
+  if (data.code !== undefined) set.code = data.code.toUpperCase().trim()
+  if (data.type !== undefined) set.type = data.type
+  if (data.value !== undefined) set.value = String(data.value)
+  if ('minOrderAmount' in data) set.minOrderAmount = data.minOrderAmount ? String(data.minOrderAmount) : null
+  if ('maxDiscountAmount' in data) set.maxDiscountAmount = data.maxDiscountAmount ? String(data.maxDiscountAmount) : null
+  if ('usageLimitTotal' in data) set.usageLimitTotal = data.usageLimitTotal
+  if (data.usageLimitPerCustomer !== undefined) set.usageLimitPerCustomer = data.usageLimitPerCustomer
+  if (data.firstOrderOnly !== undefined) set.firstOrderOnly = data.firstOrderOnly
+  if ('startsAt' in data) set.startsAt = data.startsAt ? new Date(data.startsAt) : null
+  if ('expiresAt' in data) set.expiresAt = data.expiresAt ? new Date(data.expiresAt) : null
+  if (data.active !== undefined) set.active = data.active
+
+  const [row] = await db.update(couponTable).set(set).where(eq(couponTable.id, id)).returning()
+  if (!row) throw new NotFoundError('Coupon not found')
+  await writeAuditLog({ userId: adminUserId, action: 'coupon.update', entity: 'coupon', entityId: id })
+  return row
+}
+
+export async function deleteCoupon(id: string, adminUserId: string) {
+  await db.delete(couponTable).where(eq(couponTable.id, id))
+  await writeAuditLog({ userId: adminUserId, action: 'coupon.delete', entity: 'coupon', entityId: id })
+}
+
+// ── Ticket management ─────────────────────────────────────────────────────
+
+export async function getTicketDetail(id: string) {
+  const [ticket] = await db.select().from(supportTicket).where(eq(supportTicket.id, id)).limit(1)
+  if (!ticket) throw new NotFoundError('Ticket not found')
+  const messages = await db.select().from(ticketMessage).where(eq(ticketMessage.ticketId, id)).orderBy(asc(ticketMessage.createdAt))
+  const userIds = [...new Set([ticket.userId, ...messages.map((m) => m.userId)])]
+  const users = await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, userIds))
+  const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]))
+  return { ticket, messages, userMap }
+}
+
+export async function replyToTicket(ticketId: string, body: string, adminUserId: string) {
+  
+  const [msg] = await db.insert(ticketMessage).values({
+    id: crypto.randomUUID(), ticketId, userId: adminUserId, body, isStaff: true,
+  }).returning()
+  await db.update(supportTicket).set({ status: 'in_progress', updatedAt: new Date() }).where(eq(supportTicket.id, ticketId))
+  return msg
+}
+
+export async function updateTicketStatus(ticketId: string, status: string, adminUserId: string) {
+  const set: Record<string, unknown> = { status, updatedAt: new Date() }
+  if (status === 'resolved') set.resolvedAt = new Date()
+  const [row] = await db.update(supportTicket).set(set).where(eq(supportTicket.id, ticketId)).returning()
+  if (!row) throw new NotFoundError('Ticket not found')
+  await writeAuditLog({ userId: adminUserId, action: `ticket.${status}`, entity: 'ticket', entityId: ticketId })
+  return row
+}
+
+export async function createAdminTicket(data: { subject: string; body: string; priority: string; userId: string }, adminUserId: string) {
+  
+  const ref = 'TKT-' + Date.now().toString(36).toUpperCase()
+  const [ticket] = await db.insert(supportTicket).values({
+    id: crypto.randomUUID(), ref, userId: data.userId, subject: data.subject,
+    body: data.body, priority: data.priority, status: 'open',
+  }).returning()
+  await db.insert(ticketMessage).values({
+    id: crypto.randomUUID(), ticketId: ticket.id, userId: adminUserId, body: data.body, isStaff: true,
+  })
+  return ticket
+}
+
+// ── Product management ────────────────────────────────────────────────────
+
+export async function createAdminProduct(data: {
+  name: string; nameAr?: string | null; description?: string | null
+  descriptionAr?: string | null; categoryId?: string | null; supplierId?: string | null
+  sku?: string | null; imageUrl?: string | null; stock?: number
+  active?: boolean; status?: string; unitsPerCarton?: number
+}, adminUserId: string) {
+  
+  const [row] = await db.insert(productTable).values({
+    id: crypto.randomUUID(),
+    name: data.name,
+    nameAr: data.nameAr ?? null,
+    description: data.description ?? null,
+    descriptionAr: data.descriptionAr ?? null,
+    categoryId: data.categoryId ?? null,
+    supplierId: data.supplierId ?? null,
+    sku: data.sku ?? null,
+    imageUrl: data.imageUrl ?? null,
+    stock: data.stock ?? 0,
+    active: data.active ?? true,
+    status: data.status ?? 'approved',
+    unitsPerCarton: data.unitsPerCarton ?? 1,
+    images: [],
+    tags: [],
+  }).returning()
+  await writeAuditLog({ userId: adminUserId, action: 'product.create', entity: 'product', entityId: row.id })
   return row
 }

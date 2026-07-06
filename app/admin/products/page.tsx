@@ -2,15 +2,21 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { Search, Package, ToggleLeft, ToggleRight, CheckCircle, XCircle } from 'lucide-react'
+import { Search, Package, ToggleLeft, ToggleRight, CheckCircle, XCircle, Plus } from 'lucide-react'
 import { getAdminProducts, toggleAdminProduct, approveProductApi, rejectProductApi } from '@/lib/api-client'
 import { AsyncContent } from '@/components/async-content'
 import { AdminPageSkeleton } from '@/components/skeletons'
 import { EmptyState } from '@/components/empty-state'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useI18n } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
 import Image from 'next/image'
+
+const EMPTY_PRODUCT = { name: '', nameAr: '', sku: '', stock: '0', active: true, supplierId: '', categoryId: '', imageUrl: '' }
 
 type Product = Awaited<ReturnType<typeof getAdminProducts>>[number]
 
@@ -38,6 +44,9 @@ export default function AdminProductsPage() {
   const [toggling, setToggling] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [createDialog, setCreateDialog] = useState(false)
+  const [createForm, setCreateForm] = useState({ ...EMPTY_PRODUCT })
+  const [creating, setCreating] = useState(false)
 
   async function toggle(p: Product) {
     setToggling(p.id)
@@ -81,6 +90,36 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function handleCreate() {
+    if (!createForm.name.trim()) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/v1/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: createForm.name,
+          nameAr: createForm.nameAr || null,
+          sku: createForm.sku || null,
+          stock: Number(createForm.stock || 0),
+          active: createForm.active,
+          supplierId: createForm.supplierId || null,
+          categoryId: createForm.categoryId || null,
+          imageUrl: createForm.imageUrl || null,
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setCreateDialog(false)
+      setCreateForm({ ...EMPTY_PRODUCT })
+      await mutate()
+      success('تم إضافة المنتج بنجاح')
+    } catch (e: unknown) {
+      toastError(e instanceof Error ? e.message : t('toastSaveFailed'))
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const TAB_LABEL: Record<Tab, string> = {
     all:             t('filterAll'),
     active:          t('enabledLabel'),
@@ -102,6 +141,10 @@ export default function AdminProductsPage() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
+        <Button size="sm" className="gap-1.5 shrink-0" onClick={() => { setCreateForm({ ...EMPTY_PRODUCT }); setCreateDialog(true) }}>
+          <Plus className="size-4" />
+          إضافة منتج
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -294,6 +337,51 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+
+      {/* Create Product Dialog */}
+      <Dialog open={createDialog} onOpenChange={(o) => !o && setCreateDialog(false)}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>إضافة منتج جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label>الاسم (عربي) *</Label>
+              <Input value={createForm.nameAr} onChange={(e) => setCreateForm((f) => ({ ...f, nameAr: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>الاسم (إنجليزي) *</Label>
+              <Input value={createForm.name} onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))} dir="ltr" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>SKU</Label>
+                <Input value={createForm.sku} onChange={(e) => setCreateForm((f) => ({ ...f, sku: e.target.value }))} dir="ltr" />
+              </div>
+              <div className="space-y-1">
+                <Label>المخزون</Label>
+                <Input type="number" value={createForm.stock} onChange={(e) => setCreateForm((f) => ({ ...f, stock: e.target.value }))} dir="ltr" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>معرّف المورد (Supplier ID)</Label>
+              <Input value={createForm.supplierId} onChange={(e) => setCreateForm((f) => ({ ...f, supplierId: e.target.value }))} dir="ltr" placeholder="اختياري" />
+            </div>
+            <div className="space-y-1">
+              <Label>رابط الصورة</Label>
+              <Input value={createForm.imageUrl} onChange={(e) => setCreateForm((f) => ({ ...f, imageUrl: e.target.value }))} dir="ltr" placeholder="https://…" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={createForm.active} onCheckedChange={(v) => setCreateForm((f) => ({ ...f, active: v }))} />
+              <Label>نشط</Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCreateDialog(false)}>إلغاء</Button>
+            <Button onClick={handleCreate} disabled={creating || !createForm.name.trim()}>{creating ? 'جاري الحفظ…' : 'إضافة'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -141,5 +141,3 @@ export default function AdminSuppliersPage() {
     </div>
   )
 }
-// 1783294781
-// deploy-check-1783295210
