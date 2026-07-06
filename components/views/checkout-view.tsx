@@ -36,6 +36,8 @@ import { fetchAddresses, createOrderApi, validateCouponApi, fetchWallet, preview
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
+import { authClient } from '@/lib/auth-client'
+import { GuestCheckout } from '@/components/views/guest-checkout'
 
 type PaymentMethod = 'cod' | 'card' | 'bank' | 'wallet'
 
@@ -56,6 +58,7 @@ export function CheckoutView() {
   } = useSWR<Address[]>('addresses', fetchAddresses)
 
   const { data: wallet } = useSWR<WalletSummary>('wallet', fetchWallet)
+  const { data: session, isPending: sessionPending } = authClient.useSession()
 
   const [step, setStep] = useState(0)
   const [addressId, setAddressId] = useState<string | null>(null)
@@ -130,6 +133,11 @@ export function CheckoutView() {
     morning: t('morning'),
     afternoon: t('afternoon'),
     evening: t('evening'),
+  }
+
+  // زوّار بلا حساب → مسار الشراء كضيف (لا يمسّ تدفّق المسجّلين)
+  if (!sessionPending && !session?.user) {
+    return <GuestCheckout />
   }
 
   if (items.length > 0 && lines.length === 0 && !placing) {

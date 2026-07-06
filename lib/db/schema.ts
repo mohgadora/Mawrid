@@ -234,10 +234,19 @@ export const address = pgTable('address', {
   createdAt:  now(),
 })
 
+export const guestUser = pgTable('guest_user', {
+  id:        uuid(),
+  email:     text('email'),
+  phone:     text('phone'),
+  fullName:  text('fullName'),
+  createdAt: now(),
+})
+
 export const order = pgTable('order', {
   id:               uuid(),
   ref:              text('ref').notNull().unique(),
-  userId:           text('userId').notNull(),
+  userId:           text('userId'),
+  guestId:          text('guestId').references(() => guestUser.id),
   supplierId:       text('supplierId').references(() => supplier.id),
   status:           text('status').notNull().default('pending'),
   addressId:        text('addressId').references(() => address.id),
@@ -998,6 +1007,8 @@ export type RestockRequest     = typeof restockRequest.$inferSelect
 export type NewRestockRequest  = typeof restockRequest.$inferInsert
 export type RecentSearch       = typeof recentSearch.$inferSelect
 export type NewRecentSearch    = typeof recentSearch.$inferInsert
+export type GuestUser          = typeof guestUser.$inferSelect
+export type NewGuestUser       = typeof guestUser.$inferInsert
 export type DealOfDay          = typeof dealOfDay.$inferSelect
 export type NewDealOfDay       = typeof dealOfDay.$inferInsert
 export type ClearanceSale      = typeof clearanceSale.$inferSelect

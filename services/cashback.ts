@@ -82,6 +82,7 @@ export async function awardCashbackForOrder(orderId: string): Promise<number> {
   const [row] = await db.select().from(order).where(eq(order.id, orderId)).limit(1)
   if (!row) throw new NotFoundError('الطلب غير موجود')
   if (row.status !== 'delivered') return 0
+  if (!row.userId) return 0 // طلبات الضيوف لا تملك محفظة/استرجاع
 
   // idempotency: تحقّق من عدم منح استرجاع لهذا الطلب سابقاً
   const [w] = await db.select({ id: wallet.id }).from(wallet).where(eq(wallet.userId, row.userId)).limit(1)

@@ -1331,6 +1331,17 @@ export function createPaymentApi(orderId: string): Promise<{ url: string; invoic
   return apiFetch('payments/create', { method: 'POST', body: JSON.stringify({ orderId }) })
 }
 
+// ── Guest checkout ──────────────────────────────────────────────────────────
+
+export function createGuestOrderApi(body: {
+  lines: { productId: string; qty: number }[]
+  contact: { fullName: string; email?: string; phone: string }
+  address: { label?: string; line1?: string; city?: string; phone?: string }
+  paymentMethod: 'cod' | 'card' | 'bank'
+}): Promise<Order> {
+  return apiFetch<Order>('orders/guest', { method: 'POST', body: JSON.stringify(body) })
+}
+
 export function calculateShippingApi(params: {
   zoneId: string
   amount: number
