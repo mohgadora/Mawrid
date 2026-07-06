@@ -177,9 +177,9 @@ function SupplierDrawer({ supplierId, onClose, onMutate }: { supplierId: string;
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
-                <StatCard icon={Package} label="المنتجات" value={sup.stats.products} color="text-primary" />
-                <StatCard icon={ShoppingCart} label="الطلبات" value={sup.stats.orders} color="text-blue-500" />
-                <StatCard icon={TrendingUp} label="الإيرادات" value={formatPrice(sup.stats.totalRevenue)} color="text-emerald-500" />
+                <StatCard icon={Package} label="المنتجات" value={sup.stats?.products ?? 0} color="text-primary" />
+                <StatCard icon={ShoppingCart} label="الطلبات" value={sup.stats?.orders ?? 0} color="text-blue-500" />
+                <StatCard icon={TrendingUp} label="الإيرادات" value={formatPrice(sup.stats?.totalRevenue ?? 0)} color="text-emerald-500" />
               </div>
 
               {/* Contact Info */}
@@ -290,7 +290,7 @@ function SupplierDrawer({ supplierId, onClose, onMutate }: { supplierId: string;
                 <div className="flex items-center gap-3 px-4 py-3">
                   <Star className="size-4 text-yellow-500 shrink-0" />
                   <span className="text-sm text-foreground">
-                    تقييم {sup.rating.toFixed(1)} ★ ({sup.reviewCount} تقييم)
+                    تقييم {(sup.rating ?? 0).toFixed(1)} ★ ({sup.reviewCount ?? 0} تقييم)
                   </span>
                 </div>
               </div>

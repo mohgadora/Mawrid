@@ -38,7 +38,7 @@ const NAV: Section[] = [
     titleKey: 'adminOverview',
     items: [
       { labelKey: 'adminOverview', href: '/admin', icon: LayoutDashboard },
-      { labelKey: 'adminApprovals', href: '/admin/approvals', icon: ClipboardCheck, badge: 47 },
+      { labelKey: 'adminApprovals', href: '/admin/approvals', icon: ClipboardCheck },
     ],
   },
   {
@@ -67,7 +67,7 @@ const NAV: Section[] = [
   {
     titleKey: 'adminSupport',
     items: [
-      { labelKey: 'adminTickets', href: '/admin/support/tickets', icon: Headphones, badge: 83 },
+      { labelKey: 'adminTickets', href: '/admin/support/tickets', icon: Headphones },
       { labelKey: 'adminChats', href: '/admin/support/chats', icon: MessageSquare },
     ],
   },

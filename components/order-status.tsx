@@ -143,7 +143,7 @@ export function OrderTimeline({
       {/* Horizontal stepper — desktop */}
       <ol className="hidden sm:flex items-start" aria-label="Order progress">
         {steps.map((s, i) => {
-          const meta = STATUS_META[s]
+          const meta = STATUS_META[s] ?? STATUS_META.pending
           const Icon = meta.icon
           const done = completed.has(s)
           const isCurrent = s === status
@@ -217,7 +217,7 @@ export function OrderTimeline({
       {/* Vertical timeline — mobile */}
       <ol className="flex sm:hidden flex-col gap-0">
         {steps.map((s, i) => {
-          const meta = STATUS_META[s]
+          const meta = STATUS_META[s] ?? STATUS_META.pending
           const Icon = meta.icon
           const done = completed.has(s)
           const isCurrent = s === status
