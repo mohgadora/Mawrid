@@ -32,7 +32,7 @@ import { useRole } from '@/lib/role'
 import { useToast } from '@/lib/toast'
 import { SHIPPING } from '@/lib/config'
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money'
-import { fetchAddresses, createOrderApi, validateCouponApi, fetchWallet, type Address, type CouponValidation, type WalletSummary } from '@/lib/api-client'
+import { fetchAddresses, createOrderApi, validateCouponApi, fetchWallet, previewCashbackApi, type Address, type CouponValidation, type WalletSummary } from '@/lib/api-client'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
@@ -114,6 +114,12 @@ export function CheckoutView() {
     fromCents(toCents(totals.subtotalUsd) + toCents(effectiveShippingUsd) - toCents(couponDiscountUsd)),
   )
   const walletInsufficient = payment === 'wallet' && (wallet?.balance ?? 0) < grandTotalUsd
+
+  const cartKey = lines.map(({ item }) => `${item.productId}:${item.qty}`).join(',')
+  const { data: cashback } = useSWR(
+    cartKey ? `cashback:${cartKey}` : null,
+    () => previewCashbackApi(lines.map(({ item }) => ({ productId: item.productId, qty: item.qty }))),
+  )
 
   const selectedAddress = useMemo(() => {
     if (!addresses?.length) return null
@@ -624,6 +630,14 @@ export function CheckoutView() {
                 <dd className="text-xl font-black text-primary">{formatPrice(grandTotalUsd)}</dd>
               </div>
             </dl>
+            {cashback && cashback.cashbackUsd > 0 && (
+              <p className="mt-3 flex items-center gap-2 rounded-lg bg-chart-3/10 px-3 py-2 text-sm font-semibold text-chart-3">
+                <Wallet className="size-4 shrink-0" />
+                {lang === 'ar'
+                  ? `ستربح استرجاعاً ${formatPrice(cashback.cashbackUsd)} في محفظتك`
+                  : `You'll earn ${formatPrice(cashback.cashbackUsd)} cashback to your wallet`}
+              </p>
+            )}
             <p className="mt-3 text-xs text-muted-foreground">
               {lang === 'ar'
                 ? 'السعر النهائي يُحسب من الخادم عند تأكيد الطلب.'

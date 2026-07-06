@@ -177,6 +177,43 @@ export function deleteWalletBonusRuleApi(id: string): Promise<{ success: boolean
   return apiFetch(`admin/wallet-bonuses/${id}`, { method: 'DELETE' })
 }
 
+// ── Cashback ──────────────────────────────────────────────────────────────
+
+export type CashbackRule = {
+  id: string
+  type: string
+  value: string
+  maxCashback: string | null
+  minOrderAmount: string
+  scope: string
+  titleAr: string | null
+  titleEn: string | null
+  active: boolean
+  startsAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function previewCashbackApi(items: { productId: string; qty: number }[]): Promise<{ cashbackUsd: number }> {
+  return apiFetch('cashback/preview', { method: 'POST', body: JSON.stringify({ items }) })
+}
+
+export function fetchCashbackRules(): Promise<CashbackRule[]> {
+  return apiFetch('admin/cashback-rules')
+}
+
+export function createCashbackRuleApi(data: Record<string, unknown>): Promise<CashbackRule> {
+  return apiFetch('admin/cashback-rules', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateCashbackRuleApi(id: string, data: Record<string, unknown>): Promise<CashbackRule> {
+  return apiFetch(`admin/cashback-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteCashbackRuleApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/cashback-rules/${id}`, { method: 'DELETE' })
+}
+
 // ── Account ─────────────────────────────────────────────────────────────────
 
 import type { Address, Profile } from '@/lib/account-types'

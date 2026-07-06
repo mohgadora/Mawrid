@@ -527,6 +527,22 @@ export const walletBonusRule = pgTable('wallet_bonus_rule', {
   createdAt:  now(),
 })
 
+export const cashbackRule = pgTable('cashback_rule', {
+  id:             uuid(),
+  type:           text('type').notNull(), // percent | fixed
+  value:          numeric('value', { precision: 12, scale: 2 }).notNull(),
+  maxCashback:    numeric('maxCashback', { precision: 12, scale: 2 }),
+  minOrderAmount: numeric('minOrderAmount', { precision: 12, scale: 2 }).notNull().default('0'),
+  scope:          text('scope').notNull().default('global'), // global | supplier | category | first_order
+  scopeIds:       jsonb('scopeIds').notNull().default('[]'),
+  titleAr:        text('titleAr'),
+  titleEn:        text('titleEn'),
+  active:         boolean('active').notNull().default(true),
+  startsAt:       timestamp('startsAt', { withTimezone: true }),
+  expiresAt:      timestamp('expiresAt', { withTimezone: true }),
+  createdAt:      now(),
+})
+
 // ═══════════════════════════════════════════════════════════════════════════
 // REFUND REQUESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -747,6 +763,8 @@ export type WalletTransaction  = typeof walletTransaction.$inferSelect
 export type NewWalletTransaction = typeof walletTransaction.$inferInsert
 export type WalletBonusRule    = typeof walletBonusRule.$inferSelect
 export type NewWalletBonusRule = typeof walletBonusRule.$inferInsert
+export type CashbackRule       = typeof cashbackRule.$inferSelect
+export type NewCashbackRule    = typeof cashbackRule.$inferInsert
 export type SellerEarning   = typeof sellerEarning.$inferSelect
 export type RefundRequest   = typeof refundRequest.$inferSelect
 export type StockMovement   = typeof stockMovement.$inferSelect
