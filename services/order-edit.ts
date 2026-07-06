@@ -11,7 +11,7 @@ import { order, orderLine, orderEvent, orderEdit, orderEditPayment, product as p
 import { eq, and, gte, sql, inArray } from 'drizzle-orm'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { writeAuditLog } from '@/lib/audit'
-import { toCents, fromCents, sumCents } from '@/lib/money'
+import { toCents, fromCents, sumCents, lineTotalUsd } from '@/lib/money'
 import { walletDeltaTx } from '@/services/wallet'
 import { SHIPPING } from '@/lib/config'
 import { deliveryZone } from '@/lib/db/schema'
@@ -79,7 +79,7 @@ export async function editOrderQuantities(
         removed = true
       } else {
         const unit = Number(line.unitPrice)
-        await tx.update(orderLine).set({ qty: newQty, subtotal: (unit * newQty).toFixed(2), cartonQty: Math.ceil(newQty / (line.unitsPerCarton || 1)) }).where(eq(orderLine.id, line.id))
+        await tx.update(orderLine).set({ qty: newQty, subtotal: lineTotalUsd(unit, newQty).toFixed(2), cartonQty: Math.ceil(newQty / (line.unitsPerCarton || 1)) }).where(eq(orderLine.id, line.id))
       }
       changeLog.push({ orderLineId: line.id, productName: line.productName, fromQty: line.qty, toQty: newQty })
     }
