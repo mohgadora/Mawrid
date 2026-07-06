@@ -11,17 +11,11 @@ import { db } from '@/lib/db'
 import { phoneVerification } from '@/lib/db/schema'
 import { eq, desc, gt, and } from 'drizzle-orm'
 import { ValidationError } from '@/lib/errors'
+import { normalizePhone, isValidOtpCode } from '@/lib/phone'
 
 const CODE_TTL_MS = 5 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
 const MAX_ATTEMPTS = 5
-
-/** يطبّع رقم الجوال إلى صيغة دولية بسيطة (+ ثم أرقام). */
-function normalizePhone(raw: string): string {
-  const trimmed = String(raw ?? '').trim().replace(/[\s-]/g, '')
-  if (!/^\+?[0-9]{8,15}$/.test(trimmed)) throw new ValidationError('رقم جوال غير صالح')
-  return trimmed.startsWith('+') ? trimmed : `+${trimmed}`
-}
 
 function hashCode(code: string, phone: string): string {
   return createHash('sha256').update(`${code}:${phone}`).digest('hex')
@@ -95,7 +89,7 @@ export async function sendOtp(rawPhone: string): Promise<{ phone: string; devCod
 export async function verifyOtp(rawPhone: string, code: string): Promise<boolean> {
   const phone = normalizePhone(rawPhone)
   const clean = String(code ?? '').trim()
-  if (!/^[0-9]{6}$/.test(clean)) throw new ValidationError('الرمز يجب أن يكون 6 أرقام')
+  if (!isValidOtpCode(clean)) throw new ValidationError('الرمز يجب أن يكون 6 أرقام')
 
   const [row] = await db
     .select()
