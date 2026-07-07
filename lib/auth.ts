@@ -95,6 +95,12 @@ export const auth = betterAuth({
     updateAge:  60 * 60 * 24,     // rotate daily
   },
 
+  // اختبار فقط: تعطيل حد المعدل لتمكين تشغيل حزمة اختبارات آلية من IP واحد.
+  // آمن للإنتاج لأنه معطّل ما لم تُضبط البيئة صراحةً على "true".
+  ...(process.env.DISABLE_AUTH_RATE_LIMIT === 'true'
+    ? { rateLimit: { enabled: false as const } }
+    : {}),
+
   ...(process.env.NODE_ENV === 'development'
     ? {
         advanced: {
