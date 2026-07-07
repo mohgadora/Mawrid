@@ -1,0 +1,19 @@
+import { NextRequest } from 'next/server'
+import { requireAdmin, ok, apiError } from '@/lib/api-helpers'
+import { NextResponse } from 'next/server'
+import { processRefund } from '@/services/refunds'
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const guard = await requireAdmin(req)
+    if (guard instanceof NextResponse) return guard
+    const { id } = await params
+    const body = await req.json().catch(() => ({})) as { adminNote?: string }
+    await processRefund(id, guard.id, body.adminNote)
+    return ok({ ok: true })
+  } catch (err) {
+    return apiError(err)
+  }
+}
+
+export function OPTIONS() { return new Response(null, { status: 204 }) }

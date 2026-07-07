@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# ──────────────────────────────────────────────────────────────────────────────
+# Mawrid — Auto-Deploy Script
+#
+# Pulls latest code from GitHub, installs dependencies, runs DB patch,
+# rebuilds the app, and restarts the systemd service (mawrid-dev.service).
+#
+# Setup (one-time on server):
+#   chmod +x /var/www/mawrid-dev/scripts/deploy.sh
+#   # Add to cron or GitHub webhook (see below)
+#
+# Usage:
+#   ./scripts/deploy.sh [--branch main]
+#
+# Environment variables (defaults to .env.local values):
+#   APP_DIR   Project root (default: /var/www/mawrid-dev)
+#   PM2_NAME  PM2 process name (default: mawrid-dev)
+#   BRANCH    Git branch to pull (default: main)
+# ──────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+APP_DIR="${APP_DIR:-/var/www/mawrid-dev}"
+PM2_NAME="${PM2_NAME:-mawrid-dev}"
+BRANCH="${BRANCH:-main}"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Starting deploy for branch: $BRANCH"
+cd "$APP_DIR"
+
+# ── 1. Pull latest code ──────────────────────────────────────────────────────
+log "Fetching latest code from origin/$BRANCH ..."
+git fetch origin "$BRANCH"
+git reset --hard "origin/$BRANCH"
+log "Code updated to: $(git rev-parse --short HEAD)"
+
+# ── 2. Install dependencies ──────────────────────────────────────────────────
+log "Installing dependencies ..."
+pnpm install --no-frozen-lockfile
+
+# ── 3. Patch database (idempotent — safe to run every time) ─────────────────
+log "Running database patch ..."
+
+# Load DATABASE_URL from .env.local or .env.production
+ENV_FILE="$APP_DIR/.env.local"
+[ ! -f "$ENV_FILE" ] && ENV_FILE="$APP_DIR/.env.production"
+
+if [ -f "$ENV_FILE" ]; then
+  export $(grep -E "^DATABASE_URL=" "$ENV_FILE" | xargs) 2>/dev/null || true
+fi
+
+if [ -z "${DATABASE_URL:-}" ]; then
+  log "WARNING: DATABASE_URL not set, skipping DB patch"
+else
+  # Use psql with the connection string
+  # Strip sslmode from URL for psql compatibility if needed
+  DB_URL="$DATABASE_URL"
+  psql "$DB_URL" -v ON_ERROR_STOP=0 -f "$APP_DIR/scripts/patch-db.sql" \
+    && log "DB patch applied successfully" \
+    || log "WARNING: Some DB patch statements failed (may already exist)"
+fi
+
+# ── 4. Build the app ─────────────────────────────────────────────────────────
+log "Building Next.js app ..."
+pnpm build
+
+# ── 5. Restart the app ───────────────────────────────────────────────────────
+# The dev app on :3600 is managed by systemd (mawrid-dev.service, Restart=always,
+# ExecStart=pnpm start). It is the single owner of the port — do NOT also start a
+# PM2 process here, or the two managers fight over :3600 (EADDRINUSE crash loop).
+PORT="${PORT:-3600}"
+SERVICE_NAME="${SERVICE_NAME:-mawrid-dev.service}"
+log "Restarting systemd service: $SERVICE_NAME ..."
+systemctl restart "$SERVICE_NAME"
+sleep 5
+if curl -sf "http://127.0.0.1:${PORT}/" > /dev/null 2>&1; then
+  log "Deploy complete! App running via systemd ($SERVICE_NAME)"
+else
+  log "WARNING: app did not respond on :${PORT} after restart — check 'journalctl -u $SERVICE_NAME'"
+fi
+
+# ── 6. Run TestSprite E2E tests ──────────────────────────────────────────────
+log "Running TestSprite E2E tests ..."
+bash /opt/mawrid-cicd/scripts/run-testsprite.sh || log "WARNING: Some E2E tests failed — check /opt/mawrid-cicd/reports/"
