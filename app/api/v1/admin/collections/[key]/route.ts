@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
+import { ok, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getAdminCollectionItems, saveAdminCollectionItems } from '@/services/admin-collections'
 import { isAllowedCollectionKey } from '@/lib/admin-collection-keys'
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, ctx: RouteCtx) {
     const items = await getAdminCollectionItems(key)
     return ok(items)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

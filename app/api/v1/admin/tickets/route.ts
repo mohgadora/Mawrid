@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, badRequest, serverError, requireAdmin } from '@/lib/api-helpers'
+import { ok, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getSupportTickets, createAdminTicket } from '@/services/admin'
 
 export async function GET(req: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     return ok(await getSupportTickets())
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       userId: body.userId ?? guard.id,
     }, guard.id), 201)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

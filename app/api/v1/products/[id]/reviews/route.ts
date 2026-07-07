@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, badRequest, getApiUser, unauthorized } from '@/lib/api-helpers'
+import { ok, badRequest, getApiUser, unauthorized, apiError } from '@/lib/api-helpers'
 import { getProductReviews, createReview } from '@/services/reviews'
 
 type Params = { params: Promise<{ id: string }> }
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const user = await getApiUser(req)
     return ok(await getProductReviews(id, user?.id ?? null))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (err instanceof Error && err.message === 'ALREADY_REVIEWED') {
       return NextResponse.json({ error: 'لقد قيّمت هذا المنتج سابقاً' }, { status: 409 })
     }
-    return serverError(err)
+    return apiError(err)
   }
 }
 

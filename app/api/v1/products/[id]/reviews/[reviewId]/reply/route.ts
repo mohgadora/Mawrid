@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, badRequest, requirePartner } from '@/lib/api-helpers'
+import { ok, badRequest, requirePartner, apiError } from '@/lib/api-helpers'
 import { createReviewReply } from '@/services/reviews'
 import { getPartnerSupplier } from '@/services/partner'
 import { db } from '@/lib/db'
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     return ok(await createReviewReply({ reviewId, userId: guard.id, body: replyBody }), 201)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

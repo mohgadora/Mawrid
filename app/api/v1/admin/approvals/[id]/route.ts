@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
+import { ok, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
 import { updateApprovalStatus } from '@/services/admin'
 import type { ApprovalStatus } from '@/services/admin'
 

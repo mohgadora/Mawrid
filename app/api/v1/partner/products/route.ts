@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requirePartner, apiError } from '@/lib/api-helpers'
+import { ok, requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerProducts, createPartnerProduct } from '@/services/partner'
 
 export async function GET(req: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     return ok(await getPartnerProducts(guard))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

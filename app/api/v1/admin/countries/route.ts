@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
+import { ok, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getAdminCountries, createCountry } from '@/services/admin'
 
 export async function GET(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     return ok(await getAdminCountries())
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

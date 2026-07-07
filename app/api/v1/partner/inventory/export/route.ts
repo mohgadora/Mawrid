@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePartner, serverError } from '@/lib/api-helpers'
+import { requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerInventory } from '@/services/partner'
 
 /** Escape a value for RFC 4180 CSV: wrap in quotes, double internal quotes. */
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': 'attachment; filename=inventory.csv',
       },
     })
-  } catch (err) { return serverError(err) }
+  } catch (err) { return apiError(err) }
 }
 
 export function OPTIONS() { return new Response(null, { status: 204 }) }

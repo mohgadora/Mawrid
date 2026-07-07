@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin, badRequest } from '@/lib/api-helpers'
+import { ok, requireAdmin, badRequest, apiError } from '@/lib/api-helpers'
 import { getSystemSettings, upsertSettings } from '@/lib/settings'
 import { writeAuditLog } from '@/lib/audit'
 import type { SystemSettings } from '@/lib/settings'
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     const settings = await getSystemSettings()
     return ok(settings)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
@@ -128,7 +128,7 @@ export async function PATCH(req: NextRequest) {
     const settings = await getSystemSettings()
     return ok(settings)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

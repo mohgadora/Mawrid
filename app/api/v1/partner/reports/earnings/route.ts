@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePartner, ok, serverError } from '@/lib/api-helpers'
+import { requirePartner, ok, apiError } from '@/lib/api-helpers'
 import { getPartnerReportEarnings } from '@/services/partner'
 
 export async function GET(req: NextRequest) {
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         status: r.status,
       })),
     })
-  } catch (err) { return serverError(err) }
+  } catch (err) { return apiError(err) }
 }
 
 export function OPTIONS() { return new Response(null, { status: 204 }) }

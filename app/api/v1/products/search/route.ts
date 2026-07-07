@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { ok, serverError, getApiUser } from '@/lib/api-helpers'
+import { ok, getApiUser, apiError } from '@/lib/api-helpers'
 import { rateLimit, clientKey } from '@/lib/rate-limit'
 import { searchProductsAdvanced, type SearchFilters } from '@/services/catalog'
 import { recordSearch } from '@/services/search-history'
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     return ok(result)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

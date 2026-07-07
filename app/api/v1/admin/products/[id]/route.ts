@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin, badRequest } from '@/lib/api-helpers'
+import { ok, requireAdmin, badRequest, apiError } from '@/lib/api-helpers'
 import { updateProductStatus } from '@/services/admin'
 import { writeAuditLog } from '@/lib/audit'
 
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     return ok(updated)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
