@@ -382,7 +382,7 @@ export async function getAdminBuyers() {
     orders: 0,
     spend:  0,
     status: 'active',
-    joined: u.createdAt.toISOString().slice(0, 10),
+    joined: u.createdAt ? new Date(u.createdAt).toISOString().slice(0, 10) : '—',
   }))
 }
 
