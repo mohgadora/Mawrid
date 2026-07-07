@@ -56,6 +56,16 @@ import { StatCard } from '@/components/admin/stat-card'
 import { DriverPanel } from '@/components/admin/driver-panel'
 import { STATUS_TAILWIND } from '@/components/admin/driver-map-canvas'
 
+// ── Status label fallback (Arabic) ────────────────────────────────────────────
+const STATUS_LABEL_AR: Record<DriverStatus, string> = {
+  available: 'متاح',
+  busy:      'مشغول',
+  late:      'متأخر',
+  returning: 'عائد',
+  offline:   'غير متصل',
+  break:     'استراحة',
+}
+
 // ── Dynamic import — SSR disabled so Leaflet never runs on the server ─────────
 const MapCanvas = dynamic(
   () => import('@/components/admin/driver-map-canvas'),
@@ -192,7 +202,7 @@ export default function DriverMapPage() {
               aria-hidden
             />
             <span className="text-[10px] text-muted-foreground">
-              {t(STATUS_LABEL_KEY[status])}
+              {STATUS_LABEL_AR[status]}
             </span>
           </div>
         ))}
@@ -255,12 +265,3 @@ export default function DriverMapPage() {
   )
 }
 
-// ── Status → i18n key lookup (type-safe) ──────────────────────────────────────
-const STATUS_LABEL_KEY: Record<DriverStatus, Parameters<ReturnType<typeof useI18n>['t']>[0]> = {
-  available: 'driverStatusAvailable',
-  busy:      'driverStatusBusy',
-  late:      'driverStatusLate',
-  returning: 'driverStatusReturning',
-  offline:   'driverStatusOffline',
-  break:     'driverStatusBreak',
-}
