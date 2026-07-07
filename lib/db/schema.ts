@@ -170,10 +170,24 @@ export const address = pgTable('address', {
   createdAt:  now(),
 })
 
+// Lightweight identity for guest (unauthenticated) checkout — an order links
+// to one of these via `order.guestId` instead of a full user account.
+export const guestUser = pgTable('guest_user', {
+  id:        uuid(),
+  email:     text('email'),
+  phone:     text('phone'),
+  fullName:  text('fullName'),
+  createdAt: now(),
+})
+
 export const order = pgTable('order', {
   id:               uuid(),
   ref:              text('ref').notNull().unique(),
-  userId:           text('userId').notNull(),
+  // Nullable to support guest checkout — guest orders carry `guestId` instead.
+  userId:           text('userId'),
+  guestId:          text('guestId'),
+  couponId:         text('couponId'),
+  couponCode:       text('couponCode'),
   supplierId:       text('supplierId').references(() => supplier.id),
   status:           text('status').notNull().default('pending'),
   addressId:        text('addressId').references(() => address.id),
@@ -458,6 +472,7 @@ export const couponUsage = pgTable('coupon_usage', {
   couponId:  text('couponId').notNull().references(() => coupon.id, { onDelete: 'cascade' }),
   userId:    text('userId').notNull(),
   orderId:   text('orderId').references(() => order.id),
+  discountAmount: numeric('discountAmount', { precision: 12, scale: 2 }).notNull().default('0'),
   createdAt: now(),
 })
 

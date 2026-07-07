@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Minus,
   Plus,
@@ -18,12 +18,16 @@ import {
   BookmarkCheck,
   ChevronDown,
   ChevronUp,
+  TicketPercent,
+  X,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useCart, toCartSnapshot, priceForRoleSnapshot, marketSavingsSnapshot, type CartProductSnapshot } from '@/lib/cart'
 import { useRole } from '@/lib/role'
 import { SHIPPING } from '@/lib/config'
 import { useSaveForLater } from '@/lib/save-for-later'
+import { useCoupon } from '@/lib/coupon'
+import { validateCouponApi } from '@/lib/api-client'
 
 export function CartView() {
   const { t, lang, formatPrice } = useI18n()
@@ -67,7 +71,55 @@ export function CartView() {
 
   const shippingUsd =
     subtotalUsd > 0 && subtotalUsd < SHIPPING.freeOverUsd ? SHIPPING.flatUsd : 0
-  const totalUsd = subtotalUsd + shippingUsd
+
+  // Coupon
+  const { coupon, applyCoupon, clearCoupon } = useCoupon()
+  const [couponInput, setCouponInput] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+
+  const discountUsd = coupon
+    ? coupon.freeShipping
+      ? shippingUsd
+      : Math.min(coupon.discountUsd, subtotalUsd)
+    : 0
+  const totalUsd = Math.max(0, subtotalUsd + shippingUsd - discountUsd)
+
+  async function handleApplyCoupon() {
+    const code = couponInput.trim()
+    if (!code || couponLoading) return
+    setCouponLoading(true)
+    setCouponError(null)
+    try {
+      const res = await validateCouponApi({ code, subtotal: subtotalUsd, shipping: shippingUsd })
+      applyCoupon({ code: res.code, discountUsd: res.discountUsd, freeShipping: res.freeShipping })
+      setCouponInput('')
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : t('errorTitle'))
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  // Keep the applied coupon's discount in sync as the cart total changes.
+  useEffect(() => {
+    if (!coupon || subtotalUsd <= 0) return
+    let cancelled = false
+    validateCouponApi({ code: coupon.code, subtotal: subtotalUsd, shipping: shippingUsd })
+      .then((res) => {
+        if (cancelled) return
+        if (res.discountUsd !== coupon.discountUsd || res.freeShipping !== coupon.freeShipping) {
+          applyCoupon({ code: res.code, discountUsd: res.discountUsd, freeShipping: res.freeShipping })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) clearCoupon()
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotalUsd, shippingUsd])
 
   if (placed) {
     return (
@@ -384,12 +436,78 @@ export function CartView() {
                     )}
                   </dd>
                 </div>
+                {discountUsd > 0 && (
+                  <div className="flex justify-between">
+                    <dt className="text-success">
+                      {t('discount')}
+                      {coupon ? <span className="text-muted-foreground"> ({coupon.code})</span> : null}
+                    </dt>
+                    <dd className="font-semibold text-success">−{formatPrice(discountUsd)}</dd>
+                  </div>
+                )}
                 <div className="my-1 border-t border-border" />
                 <div className="flex items-center justify-between">
                   <dt className="font-bold text-foreground">{t('total')}</dt>
                   <dd className="text-xl font-black text-primary">{formatPrice(totalUsd)}</dd>
                 </div>
               </dl>
+
+              {/* Coupon */}
+              <div className="mt-3 border-t border-border pt-3">
+                {coupon ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg bg-success/10 px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
+                      <TicketPercent className="size-4" />
+                      {coupon.code}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearCoupon}
+                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <X className="size-3.5" />
+                      {t('couponRemove')}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <label
+                      htmlFor="coupon-code"
+                      className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                    >
+                      <TicketPercent className="size-3.5" />
+                      {t('couponTitle')}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="coupon-code"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleApplyCoupon()
+                          }
+                        }}
+                        placeholder={t('couponPlaceholder')}
+                        autoComplete="off"
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={couponLoading || !couponInput.trim()}
+                        className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {couponLoading ? '…' : t('couponApply')}
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="mt-1.5 text-xs text-destructive">{couponError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {savingsUsd > 0 && (
                 <p className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm font-semibold text-success">

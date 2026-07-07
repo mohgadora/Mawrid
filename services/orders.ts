@@ -11,7 +11,11 @@ import {
   productVariant,
   priceTier,
   deliveryZone,
+  coupon,
+  couponUsage,
+  guestUser,
 } from '@/lib/db/schema'
+import { validateCoupon } from '@/services/coupons'
 import { eq, desc, and, inArray, asc, gte, sql, notInArray } from 'drizzle-orm'
 import { priceLinesUsd } from '@/lib/pricing'
 import { SHIPPING } from '@/lib/config'
@@ -56,6 +60,7 @@ function mapOrder(row: DbOrder, lines: DbLine[], events: DbEvent[]): Order {
     subtotalUsd: subtotal,
     shippingUsd: shipping,
     savingsUsd: discount,
+    discountUsd: discount,
     totalUsd: total,
     totalCents: Math.round(total * 100),
     address: {
@@ -101,6 +106,17 @@ async function loadOrderForUser(id: string, userId: string): Promise<Order | nul
   return mapOrder(rows[0], lines, events)
 }
 
+/** Load an order by id without a user filter (used for freshly-placed guest orders). */
+async function loadOrderById(id: string): Promise<Order | null> {
+  const rows = await db.select().from(order).where(eq(order.id, id)).limit(1)
+  if (!rows.length) return null
+  const [lines, events] = await Promise.all([
+    db.select().from(orderLine).where(eq(orderLine.orderId, id)),
+    db.select().from(orderEvent).where(eq(orderEvent.orderId, id)).orderBy(desc(orderEvent.createdAt)),
+  ])
+  return mapOrder(rows[0], lines, events)
+}
+
 export async function getOrders(actor?: Actor): Promise<Order[]> {
   const userId = (await resolveActor(actor)).id
 
@@ -137,10 +153,34 @@ export async function createOrder(
     lines: { productId: string; qty: number; variantId?: string }[]
     address: { label: string; line1?: string; city?: string; phone?: string }
     paymentMethod: string
+    couponCode?: string
+    guest?: { name?: string; email?: string; phone?: string }
   },
   actor?: Actor,
 ): Promise<Order> {
-  const { id: userId, role } = await resolveActor(actor)
+  // Authenticated path resolves a real user; guest path carries no userId.
+  let userId: string | null = null
+  let role = 'consumer'
+  let guestId: string | null = null
+  let guestContact: { name: string; email: string } | null = null
+
+  if (actor) {
+    const resolved = await resolveActor(actor)
+    userId = resolved.id
+    role = resolved.role
+  } else if (params.guest) {
+    const gName = String(params.guest.name ?? '').trim().slice(0, 80)
+    const gEmail = String(params.guest.email ?? '').trim().slice(0, 160)
+    if (!gName) throw new ValidationError('الاسم مطلوب')
+    if (!gEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(gEmail)) {
+      throw new ValidationError('بريد إلكتروني غير صالح')
+    }
+    guestId = crypto.randomUUID()
+    guestContact = { name: gName, email: gEmail }
+  } else {
+    // No session and no guest details → force the standard 401.
+    await resolveActor(actor)
+  }
 
   const MAX_LINES = 100
   const MAX_QTY = 100_000
@@ -182,6 +222,14 @@ export async function createOrder(
     line1: clip(params.address?.line1, 200),
     city: clip(params.address?.city, 80),
     phone: phoneRaw,
+    ...(guestContact ? { name: guestContact.name, email: guestContact.email } : {}),
+  }
+
+  // Guests have no saved address to fall back on — require the full form.
+  if (guestId) {
+    if (!address.line1) throw new ValidationError('عنوان الشحن مطلوب')
+    if (!address.city) throw new ValidationError('المدينة مطلوبة')
+    if (!address.phone) throw new ValidationError('رقم الهاتف مطلوب')
   }
 
   // Separate lines that use a variant from those that use tier-based pricing
@@ -220,6 +268,30 @@ export async function createOrder(
 
   const orderId = crypto.randomUUID()
   const ref = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
+
+  // Server-authoritative totals — never trust client-sent prices.
+  const subtotal = pricedLines.reduce((s, l) => s + l.qty * l.unitPrice, 0)
+  const shipping = await resolveShippingFee(subtotal)
+
+  // Coupon (optional): re-validate against the real subtotal, never the client's.
+  const couponCode = String(params.couponCode ?? '').trim()
+  let discount = 0
+  let appliedCoupon: { id: string; code: string; usageLimitTotal: number | null } | null = null
+  if (couponCode) {
+    const validated = await validateCoupon({
+      code: couponCode,
+      subtotalUsd: subtotal,
+      shippingUsd: shipping,
+      userId,
+    })
+    discount = validated.freeShipping ? shipping : validated.discountUsd
+    appliedCoupon = {
+      id: validated.coupon.id,
+      code: validated.coupon.code,
+      usageLimitTotal: validated.coupon.usageLimitTotal,
+    }
+  }
+  const total = Math.max(0, subtotal + shipping - discount)
 
   await db.transaction(async (tx) => {
     const dbProducts = productIds.length
@@ -261,24 +333,60 @@ export async function createOrder(
       }
     }
 
-    const subtotal = pricedLines.reduce((s, l) => s + l.qty * l.unitPrice, 0)
-    const shipping = await resolveShippingFee(subtotal)
-    const total = subtotal + shipping
+    // Atomically claim one coupon use — guards the total-usage cap under races.
+    if (appliedCoupon) {
+      const claimed = await tx
+        .update(coupon)
+        .set({ usedCount: sql`${coupon.usedCount} + 1` })
+        .where(
+          appliedCoupon.usageLimitTotal != null
+            ? and(eq(coupon.id, appliedCoupon.id), sql`${coupon.usedCount} < ${appliedCoupon.usageLimitTotal}`)
+            : eq(coupon.id, appliedCoupon.id),
+        )
+        .returning({ id: coupon.id })
+      if (!claimed.length) throw new ValidationError('تم استنفاد هذا الكوبون')
+    }
+
+    // Persist the guest identity the order will reference (FK: order.guestId).
+    if (guestId) {
+      await tx.insert(guestUser).values({
+        id: guestId,
+        email: guestContact?.email ?? null,
+        phone: address.phone || null,
+        fullName: guestContact?.name ?? null,
+        createdAt: new Date(),
+      })
+    }
 
     await tx.insert(order).values({
       id: orderId,
       ref,
       userId,
+      guestId,
+      couponId: appliedCoupon?.id ?? null,
+      couponCode: appliedCoupon?.code ?? null,
       status: 'pending',
       paymentMethod,
       shippingAddress: address,
       subtotal: subtotal.toFixed(2),
       shippingFee: shipping.toFixed(2),
-      discount: '0',
+      discount: discount.toFixed(2),
       total: total.toFixed(2),
       createdAt: new Date(),
       updatedAt: new Date(),
     })
+
+    // Record per-customer usage (schema requires a userId — guests are tracked
+    // only via the aggregate usedCount claimed above).
+    if (appliedCoupon && userId) {
+      await tx.insert(couponUsage).values({
+        id: crypto.randomUUID(),
+        couponId: appliedCoupon.id,
+        userId,
+        orderId,
+        discountAmount: discount.toFixed(2),
+      })
+    }
 
     if (pricedLines.length > 0) {
       await tx.insert(orderLine).values(
@@ -320,7 +428,9 @@ export async function createOrder(
     entityId: orderId,
   })
 
-  const result = await loadOrderForUser(orderId, userId)
+  const result = userId
+    ? await loadOrderForUser(orderId, userId)
+    : await loadOrderById(orderId)
   return result!
 }
 

@@ -68,6 +68,11 @@ export async function proxy(request: NextRequest) {
 
   // ── REST API: buyer account ──────────────────────────────────────────────
   if (pathname.startsWith('/api/v1/account') || pathname.startsWith('/api/v1/orders')) {
+    // Guest checkout: placing an order (POST /api/v1/orders exactly) is public.
+    // The route handler itself enforces that guests supply contact details.
+    const isGuestOrderCreate = pathname === '/api/v1/orders' && request.method === 'POST'
+    if (isGuestOrderCreate) return NextResponse.next()
+
     const session = await fetchSession(request)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     return NextResponse.next()

@@ -3,7 +3,7 @@
 # Mawrid — Auto-Deploy Script
 #
 # Pulls latest code from GitHub, installs dependencies, runs DB patch,
-# rebuilds the app, and restarts PM2.
+# rebuilds the app, and restarts the systemd service (mawrid-dev.service).
 #
 # Setup (one-time on server):
 #   chmod +x /var/www/mawrid-dev/scripts/deploy.sh
@@ -64,22 +64,20 @@ fi
 log "Building Next.js app ..."
 pnpm build
 
-# ── 5. Restart PM2 ───────────────────────────────────────────────────────────
-log "Restarting PM2 process: $PM2_NAME ..."
+# ── 5. Restart the app ───────────────────────────────────────────────────────
+# The dev app on :3600 is managed by systemd (mawrid-dev.service, Restart=always,
+# ExecStart=pnpm start). It is the single owner of the port — do NOT also start a
+# PM2 process here, or the two managers fight over :3600 (EADDRINUSE crash loop).
 PORT="${PORT:-3600}"
-if pm2 list | grep -q "$PM2_NAME"; then
-  pm2 stop "$PM2_NAME" || true
-  # Release the port before starting a new process
-  fuser -k "${PORT}/tcp" 2>/dev/null || true
-  sleep 1
-  pm2 start "$PM2_NAME"
+SERVICE_NAME="${SERVICE_NAME:-mawrid-dev.service}"
+log "Restarting systemd service: $SERVICE_NAME ..."
+systemctl restart "$SERVICE_NAME"
+sleep 5
+if curl -sf "http://127.0.0.1:${PORT}/" > /dev/null 2>&1; then
+  log "Deploy complete! App running via systemd ($SERVICE_NAME)"
 else
-  pm2 start node --name "$PM2_NAME" --cwd "$APP_DIR" \
-    -- node_modules/next/dist/bin/next start -p "$PORT"
+  log "WARNING: app did not respond on :${PORT} after restart — check 'journalctl -u $SERVICE_NAME'"
 fi
-
-pm2 save
-log "Deploy complete! App running as: $PM2_NAME"
 
 # ── 6. Run TestSprite E2E tests ──────────────────────────────────────────────
 log "Running TestSprite E2E tests ..."

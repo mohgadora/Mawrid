@@ -18,6 +18,11 @@ import {
   Plus,
   AlertCircle,
   RefreshCw,
+  User,
+  Mail,
+  Phone,
+  Home,
+  TicketPercent,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import {
@@ -31,6 +36,8 @@ import { useToast } from '@/lib/toast'
 import { SHIPPING } from '@/lib/config'
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money'
 import { fetchAddresses, createOrderApi, type Address } from '@/lib/api-client'
+import { authClient } from '@/lib/auth-client'
+import { useCoupon } from '@/lib/coupon'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
@@ -46,12 +53,17 @@ export function CheckoutView() {
   const toast = useToast()
   const router = useRouter()
 
+  const { data: session, isPending: sessionLoading } = authClient.useSession()
+  const isGuest = !sessionLoading && !session?.user
+
   const {
     data: addresses,
     error: addressError,
     isLoading: addressesLoading,
     mutate: reloadAddresses,
-  } = useSWR<Address[]>('addresses', fetchAddresses)
+  } = useSWR<Address[]>(isGuest ? null : 'addresses', fetchAddresses)
+
+  const { coupon, clearCoupon } = useCoupon()
 
   const [step, setStep] = useState(0)
   const [addressId, setAddressId] = useState<string | null>(null)
@@ -59,6 +71,15 @@ export function CheckoutView() {
   const [slot, setSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [payment, setPayment] = useState<PaymentMethod>('cod')
   const [placing, setPlacing] = useState(false)
+  const [guestOrderRef, setGuestOrderRef] = useState<string | null>(null)
+  const [guest, setGuest] = useState({ name: '', email: '', phone: '', line1: '', city: '' })
+
+  const guestValid =
+    guest.name.trim().length > 0 &&
+    /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim()) &&
+    /^\+?[0-9]{7,20}$/.test(guest.phone.trim()) &&
+    guest.line1.trim().length > 0 &&
+    guest.city.trim().length > 0
 
   const lines = useMemo(
     () =>
@@ -103,10 +124,55 @@ export function CheckoutView() {
     return addresses.find((a) => a.id === addressId) ?? addresses.find((a) => a.isDefault) ?? addresses[0]
   }, [addresses, addressId])
 
+  const discountUsd = coupon
+    ? coupon.freeShipping
+      ? totals.shippingUsd
+      : Math.min(coupon.discountUsd, totals.subtotalUsd)
+    : 0
+  const grandTotalUsd = Math.max(0, totals.subtotalUsd + totals.shippingUsd - discountUsd)
+
+  // Unified address for the review step + order payload (guest form or saved).
+  const displayAddress = isGuest
+    ? {
+        label: guest.name.trim() || t('guestName'),
+        line1: guest.line1.trim(),
+        city: guest.city.trim(),
+        phone: guest.phone.trim(),
+      }
+    : selectedAddress
+      ? {
+          label: selectedAddress.label,
+          line1: selectedAddress.line1,
+          city: selectedAddress.city,
+          phone: selectedAddress.phone ?? '',
+        }
+      : null
+
   const slotLabels = {
     morning: t('morning'),
     afternoon: t('afternoon'),
     evening: t('evening'),
+  }
+
+  if (guestOrderRef) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-20 text-center">
+        <span className="grid size-16 place-items-center rounded-full bg-success/15 text-success">
+          <Check className="size-8" />
+        </span>
+        <h1 className="text-2xl font-bold text-foreground">{t('guestOrderPlacedTitle')}</h1>
+        <p className="text-sm text-muted-foreground text-pretty">{t('guestOrderPlacedDesc')}</p>
+        <p className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-foreground">
+          {t('guestOrderRef')}: <span dir="ltr" className="font-mono">{guestOrderRef}</span>
+        </p>
+        <Link
+          href="/"
+          className="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground"
+        >
+          {t('continueShopping')}
+        </Link>
+      </div>
+    )
   }
 
   if (items.length > 0 && lines.length === 0 && !placing) {
@@ -142,7 +208,7 @@ export function CheckoutView() {
   }
 
   async function placeOrder() {
-    if (!selectedAddress) return
+    if (isGuest ? !guestValid : !displayAddress) return
     setPlacing(true)
     const orderLines = lines.map(({ item }) => ({
       productId: item.productId,
@@ -153,14 +219,23 @@ export function CheckoutView() {
       const order = await createOrderApi({
         lines: orderLines,
         address: {
-          label: selectedAddress.label,
-          line1: selectedAddress.line1,
-          city: selectedAddress.city,
-          phone: selectedAddress.phone ?? '',
+          label: displayAddress!.label,
+          line1: displayAddress!.line1,
+          city: displayAddress!.city,
+          phone: displayAddress!.phone,
         },
         paymentMethod: payment,
+        ...(coupon ? { couponCode: coupon.code } : {}),
+        ...(isGuest
+          ? { guest: { name: guest.name.trim(), email: guest.email.trim(), phone: guest.phone.trim() } }
+          : {}),
       })
       clear()
+      clearCoupon()
+      if (isGuest) {
+        setGuestOrderRef(order.ref)
+        return
+      }
       toast.success(t('toastOrderPlaced'))
       router.push(`/orders/${order.id}`)
     } catch (err) {
@@ -170,7 +245,8 @@ export function CheckoutView() {
     }
   }
 
-  const canContinue = step === 0 ? Boolean(selectedAddress) && !addressesLoading : true
+  const canContinue =
+    step === 0 ? (isGuest ? guestValid : Boolean(selectedAddress) && !addressesLoading) : true
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -214,7 +290,92 @@ export function CheckoutView() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          {step === 0 && (
+          {step === 0 && (sessionLoading ? (
+            <section className="rounded-2xl border border-border bg-card p-4">
+              <ListSkeleton count={3} />
+            </section>
+          ) : isGuest ? (
+            <section className="rounded-2xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <MapPin className="size-5 text-primary" />
+                  {t('guestInfoTitle')}
+                </h2>
+                <Link href="/sign-in" className="text-xs font-medium text-primary hover:underline">
+                  {t('signInToContinue')}
+                </Link>
+              </div>
+              <div className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <User className="size-3.5" />
+                    {t('guestName')}
+                  </span>
+                  <input
+                    value={guest.name}
+                    onChange={(e) => setGuest((g) => ({ ...g, name: e.target.value }))}
+                    autoComplete="name"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Mail className="size-3.5" />
+                      {t('guestEmail')}
+                    </span>
+                    <input
+                      type="email"
+                      dir="ltr"
+                      value={guest.email}
+                      onChange={(e) => setGuest((g) => ({ ...g, email: e.target.value }))}
+                      autoComplete="email"
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Phone className="size-3.5" />
+                      {t('guestPhone')}
+                    </span>
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={guest.phone}
+                      onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))}
+                      autoComplete="tel"
+                      placeholder="+9665XXXXXXXX"
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </label>
+                </div>
+                <label className="flex flex-col gap-1">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Home className="size-3.5" />
+                    {t('guestAddressLine')}
+                  </span>
+                  <input
+                    value={guest.line1}
+                    onChange={(e) => setGuest((g) => ({ ...g, line1: e.target.value }))}
+                    autoComplete="street-address"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <MapPin className="size-3.5" />
+                    {t('guestCity')}
+                  </span>
+                  <input
+                    value={guest.city}
+                    onChange={(e) => setGuest((g) => ({ ...g, city: e.target.value }))}
+                    autoComplete="address-level2"
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+              </div>
+            </section>
+          ) : (
             <section className="rounded-2xl border border-border bg-card p-4">
               <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
                 <MapPin className="size-5 text-primary" />
@@ -290,7 +451,7 @@ export function CheckoutView() {
                 {t('addNewAddress')}
               </Link>
             </section>
-          )}
+          ))}
 
           {step === 1 && (
             <section className="rounded-2xl border border-border bg-card p-4">
@@ -388,9 +549,12 @@ export function CheckoutView() {
                 <div className="mb-3 flex flex-col gap-1 rounded-xl bg-accent/40 p-3 text-sm">
                   <span className="flex items-center gap-1.5 font-semibold text-foreground">
                     <MapPin className="size-4 text-primary" />
-                    {selectedAddress?.label}
+                    {displayAddress?.label}
                   </span>
-                  <span className="text-muted-foreground">{selectedAddress?.line1}</span>
+                  <span className="text-muted-foreground">
+                    {displayAddress?.line1}
+                    {displayAddress?.city ? `، ${displayAddress.city}` : ''}
+                  </span>
                   <span className="flex items-center gap-1.5 pt-1 font-semibold text-foreground">
                     <Truck className="size-4 text-primary" />
                     {t(day)}، {slotLabels[slot]}
@@ -444,7 +608,7 @@ export function CheckoutView() {
             ) : (
               <button
                 type="button"
-                disabled={placing || !selectedAddress}
+                disabled={placing || (isGuest ? !guestValid : !selectedAddress)}
                 onClick={placeOrder}
                 className="ms-auto flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.01] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
@@ -473,10 +637,20 @@ export function CheckoutView() {
                   )}
                 </dd>
               </div>
+              {discountUsd > 0 && (
+                <div className="flex justify-between">
+                  <dt className="flex items-center gap-1 text-success">
+                    <TicketPercent className="size-3.5" />
+                    {t('discount')}
+                    {coupon ? <span className="text-muted-foreground"> ({coupon.code})</span> : null}
+                  </dt>
+                  <dd className="font-semibold text-success">−{formatPrice(discountUsd)}</dd>
+                </div>
+              )}
               <div className="my-1 border-t border-border" />
               <div className="flex items-center justify-between">
                 <dt className="font-bold text-foreground">{t('total')}</dt>
-                <dd className="text-xl font-black text-primary">{formatPrice(totals.totalUsd)}</dd>
+                <dd className="text-xl font-black text-primary">{formatPrice(grandTotalUsd)}</dd>
               </div>
             </dl>
             <p className="mt-3 text-xs text-muted-foreground">
