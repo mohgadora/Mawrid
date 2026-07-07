@@ -80,3 +80,7 @@ fi
 
 pm2 save
 log "Deploy complete! App running as: $PM2_NAME"
+
+# ── 6. Run TestSprite E2E tests ──────────────────────────────────────────────
+log "Running TestSprite E2E tests ..."
+bash /opt/mawrid-cicd/scripts/run-testsprite.sh || log "WARNING: Some E2E tests failed — check /opt/mawrid-cicd/reports/"
