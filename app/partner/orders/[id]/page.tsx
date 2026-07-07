@@ -2,17 +2,68 @@
 
 import useSWR from 'swr'
 import Link from 'next/link'
-import { use } from 'react'
-import { ArrowRight } from 'lucide-react'
-import { fetchPartnerOrder } from '@/lib/api-client'
+import { use, useState } from 'react'
+import {
+  ArrowRight,
+  CheckCircle2,
+  Loader,
+  Package,
+  Truck,
+  Bike,
+  Home,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react'
+import { fetchPartnerOrder, updatePartnerOrderStatusApi } from '@/lib/api-client'
 import { AsyncContent } from '@/components/async-content'
 import { StatusChip } from '@/components/order-status'
-import { useI18n } from '@/lib/i18n'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/lib/toast'
+import { useI18n, type DictKey } from '@/lib/i18n'
+
+// Mirrors the server workflow in app/api/v1/partner/orders/[id]/route.ts.
+// The server re-validates every transition, so this map only drives which
+// action buttons to offer — an out-of-date entry fails safe with a toast.
+type ActionMeta = { labelKey: DictKey; icon: LucideIcon; variant: 'default' | 'destructive' }
+
+const ACTION_META: Record<string, ActionMeta> = {
+  confirmed:        { labelKey: 'orderActionConfirm',        icon: CheckCircle2, variant: 'default' },
+  processing:       { labelKey: 'orderActionProcess',        icon: Loader,       variant: 'default' },
+  packed:           { labelKey: 'orderActionPack',           icon: Package,      variant: 'default' },
+  shipped:          { labelKey: 'orderActionShip',           icon: Truck,        variant: 'default' },
+  out_for_delivery: { labelKey: 'orderActionOutForDelivery', icon: Bike,         variant: 'default' },
+  delivered:        { labelKey: 'orderActionDeliver',        icon: Home,         variant: 'default' },
+  cancelled:        { labelKey: 'orderActionCancel',         icon: XCircle,      variant: 'destructive' },
+}
+
+const NEXT_TRANSITIONS: Record<string, string[]> = {
+  pending:          ['confirmed', 'cancelled'],
+  confirmed:        ['processing', 'cancelled'],
+  processing:       ['packed'],
+  packed:           ['shipped'],
+  shipped:          ['out_for_delivery'],
+  out_for_delivery: ['delivered'],
+}
 
 export default function PartnerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { t, formatPrice } = useI18n()
+  const { success, error: toastError } = useToast()
   const { data, error, isLoading, mutate } = useSWR(`partner/order/${id}`, () => fetchPartnerOrder(id))
+  const [pending, setPending] = useState<string | null>(null)
+
+  async function advance(next: string) {
+    setPending(next)
+    try {
+      await updatePartnerOrderStatusApi(id, next)
+      await mutate()
+      success(t('toastOrderStatusUpdated'))
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : t('toastSaveFailed'))
+    } finally {
+      setPending(null)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -20,7 +71,9 @@ export default function PartnerOrderDetailPage({ params }: { params: Promise<{ i
         <ArrowRight className="size-4 rtl:rotate-180" /> {t('back')}
       </Link>
       <AsyncContent data={data} error={error} isLoading={isLoading} onRetry={() => mutate()}>
-        {(order) => (
+        {(order) => {
+          const nexts = NEXT_TRANSITIONS[order.status] ?? []
+          return (
           <div className="space-y-4">
             <div className="rounded-xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -33,6 +86,32 @@ export default function PartnerOrderDetailPage({ params }: { params: Promise<{ i
               <p className="mt-3 text-sm text-muted-foreground">
                 {order.address.label} — {order.address.line1}, {order.address.city} · <span dir="ltr">{order.address.phone}</span>
               </p>
+              {/* Fulfilment actions — advance the order along the workflow */}
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                {nexts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t('orderNoActions')}</p>
+                ) : (
+                  nexts.map((next) => {
+                    const meta = ACTION_META[next]
+                    if (!meta) return null
+                    const Icon = meta.icon
+                    const busy = pending === next
+                    return (
+                      <Button
+                        key={next}
+                        variant={meta.variant}
+                        size="sm"
+                        className="gap-1.5"
+                        disabled={pending !== null}
+                        onClick={() => advance(next)}
+                      >
+                        <Icon className={busy ? 'size-3.5 animate-spin' : 'size-3.5'} />
+                        {t(meta.labelKey)}
+                      </Button>
+                    )
+                  })
+                )}
+              </div>
             </div>
             <div className="rounded-xl border border-border bg-card">
               <table className="w-full text-sm">
@@ -60,7 +139,8 @@ export default function PartnerOrderDetailPage({ params }: { params: Promise<{ i
               </div>
             </div>
           </div>
-        )}
+          )
+        }}
       </AsyncContent>
     </div>
   )
