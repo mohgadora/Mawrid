@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from 'react'
 import {
   LayoutDashboard, ClipboardCheck, ShoppingCart, Users,
   Store, Tag, Ruler, Headphones, MessageSquare, AlertTriangle,
@@ -164,10 +164,27 @@ const NAV: Section[] = [
 ]
 
 /* ─── NavContent ─────────────────────────────────────────────── */
+// Remembered scroll offset of the sidebar's nav list. Client-side navigation
+// remounts this subtree (the App Router re-renders the tree on each route
+// change), which would otherwise snap the list back to the top — forcing the
+// user to scroll down again to reach lower items like "العمولات". Persisting the
+// offset in module scope lets us restore it on remount so the list stays put.
+let savedNavScroll = 0
+
+// useLayoutEffect on the client (restore before paint → no flash), useEffect on
+// the server (avoids the SSR "useLayoutEffect does nothing" warning).
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 function NavContent({ onNavigate }: { onNavigate: () => void }) {
   const pathname = usePathname()
   const { t } = useI18n()
   const { data: session } = authClient.useSession()
+  const navRef = useRef<HTMLElement>(null)
+
+  useIsoLayoutEffect(() => {
+    const el = navRef.current
+    if (el) el.scrollTop = savedNavScroll
+  }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -183,7 +200,12 @@ function NavContent({ onNavigate }: { onNavigate: () => void }) {
       </div>
 
       {/* Scrollable nav */}
-      <nav className="flex-1 overflow-y-auto py-2 text-sm" aria-label={t('adminPanel')}>
+      <nav
+        ref={navRef}
+        onScroll={(e) => { savedNavScroll = e.currentTarget.scrollTop }}
+        className="flex-1 overflow-y-auto py-2 text-sm"
+        aria-label={t('adminPanel')}
+      >
         {NAV.map(({ titleKey, items }) => (
           <div key={titleKey} className="mb-0.5">
             <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">

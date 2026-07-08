@@ -58,7 +58,9 @@ export default function AdminCouponsPage() {
     try {
       const res = await fetch('/api/v1/admin/coupons')
       if (!res.ok) throw new Error()
-      setCoupons(await res.json())
+      // API responses are wrapped in a { data } envelope (see lib/api-helpers ok()).
+      const json = await res.json()
+      setCoupons(Array.isArray(json) ? json : (json?.data ?? []))
     } catch {
       setLoadError(true)
     } finally {
