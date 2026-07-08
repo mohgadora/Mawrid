@@ -82,7 +82,7 @@ function WithdrawDialog({ available, onSuccess }: { available: number; onSuccess
       const res = await fetch('/api/v1/partner/withdrawals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, amount: Number(form.amount) }),
       })
       const json = await res.json() as { error?: string }
       if (!res.ok) throw new Error(json.error ?? 'خطأ في الإرسال')

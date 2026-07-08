@@ -43,7 +43,8 @@ export default function ApprovalsPage() {
   async function productAction(id: string, action: 'approve' | 'reject') {
     setActing(id)
     try {
-      await fetch(`/api/v1/admin/products/${id}/${action}`, { method: 'POST' })
+      const res = await fetch(`/api/v1/admin/products/${id}/${action}`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text())
       await mutatePending()
       success(t('toastApprovalUpdated'))
     } catch {

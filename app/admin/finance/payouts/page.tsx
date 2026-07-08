@@ -90,8 +90,8 @@ export default function PayoutsPage() {
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">{t('dateLabel')}</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">6 {lang === 'ar' ? 'يوليو' : 'July'}</p>
-          <p className="text-[11px] text-muted-foreground">2026</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{new Date().toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-SA', { day: 'numeric', month: 'long' })}</p>
+          <p className="text-[11px] text-muted-foreground">{new Date().getFullYear()}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">{t('adminPayouts')}</p>

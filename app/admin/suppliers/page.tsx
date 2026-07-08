@@ -348,11 +348,12 @@ function SupplierDrawer({ supplierId, onClose, onMutate }: { supplierId: string;
               size="sm"
               className="gap-1.5 text-xs"
               onClick={async () => {
-                await fetch('/api/v1/admin/impersonate', {
+                const res = await fetch('/api/v1/admin/impersonate', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ supplierId: sup.id }),
                 })
+                if (!res.ok) { alert('فشل تسجيل الدخول كمتجر'); return }
                 window.location.href = '/partner'
               }}
             >

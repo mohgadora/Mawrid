@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useToast } from '@/lib/toast'
 import {
   getAdminFlashSales,
   createFlashSaleApi,
@@ -103,6 +104,7 @@ function toLocalDatetime(iso: string) {
 }
 
 export default function CampaignsPage() {
+  const { error: toastError } = useToast()
   const [sales, setSales] = useState<FlashSale[]>([])
   const [loading, setLoading] = useState(true)
   const [saleDialog, setSaleDialog] = useState<{ open: boolean; editing?: FlashSale }>({ open: false })
@@ -171,7 +173,7 @@ export default function CampaignsPage() {
       setSaleDialog({ open: false })
       await load()
     } catch (e: any) {
-      alert(e?.message ?? 'حدث خطأ')
+      toastError(e?.message ?? 'حدث خطأ')
     } finally {
       setSaving(false)
     }
@@ -185,7 +187,7 @@ export default function CampaignsPage() {
       setDeleteTarget(null)
       await load()
     } catch (e: any) {
-      alert(e?.message ?? 'حدث خطأ')
+      toastError(e?.message ?? 'حدث خطأ')
     } finally {
       setDeleting(false)
     }
@@ -221,7 +223,7 @@ export default function CampaignsPage() {
       setNewOverridePrice('')
       setNewStockLimit('')
     } catch (e: any) {
-      alert(e?.message ?? 'حدث خطأ')
+      toastError(e?.message ?? 'حدث خطأ')
     } finally {
       setAddingProduct(false)
     }
@@ -234,7 +236,7 @@ export default function CampaignsPage() {
       const full = await getFlashSaleApi(productsDialog.sale.id)
       setProductsDialog({ open: true, sale: full })
     } catch (e: any) {
-      alert(e?.message ?? 'حدث خطأ')
+      toastError(e?.message ?? 'حدث خطأ')
     }
   }
 
@@ -324,7 +326,7 @@ export default function CampaignsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>نوع الخصم</Label>
-                <Select value={form.discountType} onValueChange={(v: string | null) => setForm((f) => ({ ...f, discountType: v ?? 'percentage' }))}>
+                <Select value={form.discountType} onValueChange={(v) => setForm((f) => ({ ...f, discountType: v || 'percentage' }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="percentage">نسبة مئوية (%)</SelectItem>

@@ -30,9 +30,11 @@ export default function PartnerOrderDetailPage({ params }: { params: Promise<{ i
                 </div>
                 <StatusChip status={order.status as Parameters<typeof StatusChip>[0]['status']} />
               </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {order.address.label} — {order.address.line1}, {order.address.city} · <span dir="ltr">{order.address.phone}</span>
-              </p>
+              {order.address && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {order.address.label} — {order.address.line1}, {order.address.city} · <span dir="ltr">{order.address.phone}</span>
+                </p>
+              )}
             </div>
             <div className="rounded-xl border border-border bg-card">
               <table className="w-full text-sm">
