@@ -99,6 +99,13 @@
       "when": 1751846400000,
       "tag": "0013_partner_center",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783500000000,
+      "tag": "0016_guest_checkout_coupons",
+      "breakpoints": true
     }
   ]
 }

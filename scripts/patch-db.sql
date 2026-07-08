@@ -23,6 +23,16 @@ ALTER TABLE "order_line" ADD COLUMN IF NOT EXISTS "unitsPerCarton" integer NOT N
 -- driver
 ALTER TABLE "driver" ADD COLUMN IF NOT EXISTS "city" text;
 
+-- order — guest checkout + cart coupons (PR #13)
+-- Guest orders carry a guestId instead of a userId, so userId becomes nullable.
+ALTER TABLE "order" ALTER COLUMN "userId" DROP NOT NULL;
+ALTER TABLE "order" ADD COLUMN IF NOT EXISTS "guestId"    text;
+ALTER TABLE "order" ADD COLUMN IF NOT EXISTS "couponId"   text;
+ALTER TABLE "order" ADD COLUMN IF NOT EXISTS "couponCode" text;
+
+-- coupon_usage — record the discount that was applied
+ALTER TABLE "coupon_usage" ADD COLUMN IF NOT EXISTS "discountAmount" numeric(12,2) NOT NULL DEFAULT '0';
+
 -- payout
 ALTER TABLE "payout" ADD COLUMN IF NOT EXISTS "rejectionReason" text;
 ALTER TABLE "payout" ADD COLUMN IF NOT EXISTS "adminNote"        text;
@@ -37,6 +47,15 @@ ALTER TABLE "refund_request" ADD COLUMN IF NOT EXISTS "images" jsonb NOT NULL DE
 -- ═══════════════════════════════════════════════════════════════════
 -- 2. New tables (all IF NOT EXISTS)
 -- ═══════════════════════════════════════════════════════════════════
+
+-- guest_user (guest checkout — stores buyer contact details for guest orders)
+CREATE TABLE IF NOT EXISTS "guest_user" (
+  "id"        text PRIMARY KEY,
+  "email"     text,
+  "phone"     text,
+  "fullName"  text,
+  "createdAt" timestamp with time zone NOT NULL DEFAULT now()
+);
 
 -- admin_collection
 CREATE TABLE IF NOT EXISTS "admin_collection" (
