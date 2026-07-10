@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "odoo": {
+      "type": "http",
+      "url": "https://bn-group-app-muk-mcp-34730987.dev.odoo.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ODOO_MCP_TOKEN}"
+      }
+    }
+  }
+}
