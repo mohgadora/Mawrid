@@ -26,6 +26,22 @@ const envTrustedOrigins = (process.env.TRUSTED_ORIGINS ?? '')
   .map((s) => s.trim())
   .filter(Boolean)
 
+const staticTrustedOrigins = [
+  ...envTrustedOrigins,
+  ...(productionUrl ? [productionUrl] : []),
+  ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
+  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
+  ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
+    : []),
+]
+
+// في بيئات الاختبار/المعاينة المعزولة قد يصل المتصفح إلى التطبيق عبر أصل نفق
+// ديناميكي (مثل نفق TestSprite) مختلف عن BETTER_AUTH_URL، فيرفضه فحص الأصل.
+// نعكس أصل الطلب الوارد فقط عندما تُضبط هذه الراية صراحةً — الإنتاج يبقى صارمًا
+// لأن المتغيّر غير موجود في بيئته. (يُضعف حماية CSRF على الأصل، لذا للاختبار فقط.)
+const trustRequestOrigin = process.env.TRUST_REQUEST_ORIGIN === 'true'
+
 export const auth = betterAuth({
   database: pool,
   baseURL: productionUrl,
@@ -60,20 +76,21 @@ export const auth = betterAuth({
     },
   },
 
-  trustedOrigins: [
-    ...envTrustedOrigins,
-    ...(productionUrl ? [productionUrl] : []),
-    ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
-    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-    ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
-      : []),
-  ],
+  trustedOrigins: (request?: Request) => {
+    if (!trustRequestOrigin || !request) return staticTrustedOrigins
+    const origin = request.headers.get('origin')
+    return origin ? [...staticTrustedOrigins, origin] : staticTrustedOrigins
+  },
 
   session: {
     expiresIn:  60 * 60 * 24 * 7, // 7 days
     updateAge:  60 * 60 * 24,     // rotate daily
   },
+
+  // في بيئة الاختبار المعزولة يعيد وكيل الاختبار محاولة تسجيل الدخول عدة مرات،
+  // فيصطدم بحدّ المعدّل الافتراضي (3 محاولات) الذي يُرجع "Too many requests".
+  // نعطّله للاختبار فقط عبر نفس راية بيئة الاختبار؛ الإنتاج يحتفظ بالحماية.
+  ...(trustRequestOrigin ? { rateLimit: { enabled: false } } : {}),
 
   ...(process.env.NODE_ENV === 'development'
     ? {
