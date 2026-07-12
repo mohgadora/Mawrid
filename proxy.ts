@@ -67,6 +67,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── REST API: buyer account ──────────────────────────────────────────────
+  // الشراء كضيف عام (بلا حساب) — يتحقق المسار نفسه من المدخلات ويحدّ المعدّل.
+  if (pathname === '/api/v1/orders/guest') {
+    return NextResponse.next()
+  }
   if (pathname.startsWith('/api/v1/account') || pathname.startsWith('/api/v1/orders')) {
     const session = await fetchSession(request)
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

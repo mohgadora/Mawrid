@@ -34,6 +34,8 @@ import { fetchAddresses, createOrderApi, type Address } from '@/lib/api-client'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
+import { authClient } from '@/lib/auth-client'
+import { GuestCheckout } from '@/components/views/guest-checkout'
 
 type PaymentMethod = 'cod' | 'card' | 'bank'
 
@@ -45,6 +47,8 @@ export function CheckoutView() {
   const { role } = useRole()
   const toast = useToast()
   const router = useRouter()
+
+  const { data: session, isPending: sessionPending } = authClient.useSession()
 
   const {
     data: addresses,
@@ -107,6 +111,11 @@ export function CheckoutView() {
     morning: t('morning'),
     afternoon: t('afternoon'),
     evening: t('evening'),
+  }
+
+  // زوّار بلا حساب → مسار الشراء كضيف (لا يمسّ تدفّق المسجّلين)
+  if (!sessionPending && !session?.user) {
+    return <GuestCheckout />
   }
 
   if (items.length > 0 && lines.length === 0 && !placing) {
