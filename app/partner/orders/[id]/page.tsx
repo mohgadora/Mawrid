@@ -83,11 +83,9 @@ export default function PartnerOrderDetailPage({ params }: { params: Promise<{ i
                 </div>
                 <StatusChip status={order.status as Parameters<typeof StatusChip>[0]['status']} />
               </div>
-              {order.address && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {order.address.label} — {order.address.line1}, {order.address.city} · <span dir="ltr">{order.address.phone}</span>
-                </p>
-              )}
+              <p className="mt-3 text-sm text-muted-foreground">
+                {order.address.label} — {order.address.line1}, {order.address.city} · <span dir="ltr">{order.address.phone}</span>
+              </p>
               {/* Fulfilment actions — advance the order along the workflow */}
               <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
                 {nexts.length === 0 ? (

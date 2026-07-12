@@ -11,6 +11,10 @@ import {
   supplier as supplierTable,
   user,
   payout as payoutTable,
+  coupon,
+  couponUsage,
+  wallet,
+  walletTransaction,
 } from '@/lib/db/schema'
 import { and, count, desc, eq, gte, inArray, lt, sql, sum } from 'drizzle-orm'
 
@@ -86,16 +90,19 @@ export async function getRevenueSummary(period: Period) {
 export async function getRevenueByDay(days: number) {
   const cutoffDate = daysAgo(days)
 
+  // SELECT/GROUP BY/ORDER BY must use the *same* expression or Postgres throws
+  // 42803 ("must appear in the GROUP BY clause").
+  const dayExpr = sql`to_char(${order.createdAt}, 'YYYY-MM-DD')`
   const rows = await db
     .select({
-      date: sql<string>`to_char(DATE(${order.createdAt}), 'YYYY-MM-DD')`.as('date'),
+      date: sql<string>`to_char(${order.createdAt}, 'YYYY-MM-DD')`.as('date'),
       revenue: sql<string>`COALESCE(SUM(${order.total}), '0')`.as('revenue'),
       orders: sql<number>`COUNT(${order.id})`.as('orders'),
     })
     .from(order)
     .where(and(inArray(order.status, [...COMPLETED]), gte(order.createdAt, cutoffDate)))
-    .groupBy(sql`DATE(${order.createdAt})`)
-    .orderBy(sql`DATE(${order.createdAt}) ASC`)
+    .groupBy(dayExpr)
+    .orderBy(dayExpr)
 
   return rows.map((r) => ({
     date: r.date,
@@ -154,6 +161,71 @@ export async function getTopSuppliers(limit = 10) {
     totalRevenue: Number(r.totalRevenue),
     orderCount: Number(r.orderCount),
   }))
+}
+
+// ── getCouponReport ───────────────────────────────────────────────────────
+
+/** أداء الكوبونات: عدد الاستخدامات وإجمالي الخصم لكل كوبون. */
+export async function getCouponReport(limit = 50) {
+  const rows = await db
+    .select({
+      couponId: coupon.id,
+      code: coupon.code,
+      type: coupon.type,
+      usedCount: coupon.usedCount,
+      totalDiscount: sql<string>`COALESCE(SUM(${couponUsage.discountAmount}), '0')`.as('totalDiscount'),
+      redemptions: sql<number>`COUNT(${couponUsage.id})`.as('redemptions'),
+    })
+    .from(coupon)
+    .leftJoin(couponUsage, eq(couponUsage.couponId, coupon.id))
+    .groupBy(coupon.id, coupon.code, coupon.type, coupon.usedCount)
+    .orderBy(desc(sql`COUNT(${couponUsage.id})`))
+    .limit(limit)
+
+  const totalDiscount = rows.reduce((s, r) => s + Number(r.totalDiscount), 0)
+  const totalRedemptions = rows.reduce((s, r) => s + Number(r.redemptions), 0)
+  return {
+    totalDiscount,
+    totalRedemptions,
+    coupons: rows.map((r) => ({
+      couponId: r.couponId,
+      code: r.code,
+      type: r.type,
+      redemptions: Number(r.redemptions),
+      totalDiscount: Number(r.totalDiscount),
+    })),
+  }
+}
+
+// ── getWalletReport ───────────────────────────────────────────────────────
+
+/** ملخّص المحافظ: إجمالي الأرصدة، الشحنات، والمصروفات. */
+export async function getWalletReport() {
+  const [balances] = await db
+    .select({
+      totalBalance: sql<string>`COALESCE(SUM(${wallet.balance}), '0')`,
+      totalCredit: sql<string>`COALESCE(SUM(${wallet.lifetimeCredit}), '0')`,
+      totalDebit: sql<string>`COALESCE(SUM(${wallet.lifetimeDebit}), '0')`,
+      walletCount: count(),
+    })
+    .from(wallet)
+
+  const byType = await db
+    .select({
+      type: walletTransaction.type,
+      total: sql<string>`COALESCE(SUM(ABS(${walletTransaction.amount})), '0')`.as('total'),
+      n: count(),
+    })
+    .from(walletTransaction)
+    .groupBy(walletTransaction.type)
+
+  return {
+    totalBalance: Number(balances?.totalBalance ?? 0),
+    totalCredit: Number(balances?.totalCredit ?? 0),
+    totalDebit: Number(balances?.totalDebit ?? 0),
+    walletCount: Number(balances?.walletCount ?? 0),
+    byType: byType.map((r) => ({ type: r.type, total: Number(r.total), count: Number(r.n) })),
+  }
 }
 
 // ── getOrderStatusBreakdown ───────────────────────────────────────────────

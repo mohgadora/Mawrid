@@ -52,12 +52,21 @@ fi
 if [ -z "${DATABASE_URL:-}" ]; then
   log "WARNING: DATABASE_URL not set, skipping DB patch"
 else
-  # Use psql with the connection string
-  # Strip sslmode from URL for psql compatibility if needed
   DB_URL="$DATABASE_URL"
+  # 3a. Curated baseline patch (idempotent).
   psql "$DB_URL" -v ON_ERROR_STOP=0 -f "$APP_DIR/scripts/patch-db.sql" \
-    && log "DB patch applied successfully" \
-    || log "WARNING: Some DB patch statements failed (may already exist)"
+    && log "DB patch applied" \
+    || log "WARNING: some patch-db statements failed (may already exist)"
+
+  # 3b. Apply every Drizzle migration in order — the migrations are the single
+  #     source of truth, so any NEW migration is picked up automatically on the
+  #     next deploy (no more schema drift). All are IF NOT EXISTS / ADD COLUMN
+  #     IF NOT EXISTS, so re-running them is a safe no-op.
+  for f in $(ls "$APP_DIR"/drizzle/*.sql 2>/dev/null | sort); do
+    psql "$DB_URL" -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 \
+      && log "migration applied: $(basename "$f")" \
+      || log "WARNING: $(basename "$f") had statements that failed (may already exist)"
+  done
 fi
 
 # ── 4. Build the app ─────────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
-import { requirePartner, apiError, ok } from '@/lib/api-helpers'
+import { requirePartner, apiError } from '@/lib/api-helpers'
 import { NextResponse } from 'next/server'
 import { getPartnerInventory } from '@/services/partner'
+import { ok } from '@/lib/api-helpers'
 
 export async function GET(req: NextRequest) {
   const guard = await requirePartner(req)

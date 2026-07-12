@@ -8,27 +8,8 @@ import 'server-only'
 import { db } from '@/lib/db'
 import { priceTier, product } from '@/lib/db/schema'
 import { inArray, eq } from 'drizzle-orm'
-import { RETAIL_MARKUP } from '@/lib/config'
 import { ValidationError } from '@/lib/errors'
-
-type Tier = { minQty: number; maxQty: number | null; price: string }
-
-/** يختار سعر الشريحة المطابقة لكمية معيّنة (USD، سعر الجملة قبل الهامش). */
-function pickTierPriceUsd(tiers: Tier[], qty: number): number {
-  if (!tiers.length) throw new ValidationError('لا يوجد سعر متاح لهذا المنتج')
-  const minMoq = tiers.reduce((m, t) => Math.min(m, t.minQty), tiers[0].minQty)
-  if (qty < minMoq) {
-    throw new ValidationError(`الحد الأدنى للطلب ${minMoq} وحدة`)
-  }
-  const match =
-    tiers
-      .filter((t) => qty >= t.minQty && (t.maxQty == null || qty <= t.maxQty))
-      .sort((a, b) => b.minQty - a.minQty)[0] ??
-    [...tiers].sort((a, b) => a.minQty - b.minQty)[0]
-  return Number(match.price)
-}
-
-const isWholesaleRole = (role: string) => role === 'merchant'
+import { pickTierPriceUsd, applyRoleMarkup, type Tier } from '@/lib/tier-pricing'
 
 /** سعر الوحدة (USD) لمنتج واحد وكمية واحدة، حسب الدور. */
 export async function resolveUnitPriceUsd(
@@ -37,8 +18,7 @@ export async function resolveUnitPriceUsd(
   role: string,
 ): Promise<number> {
   const tiers = await db.select().from(priceTier).where(inArray(priceTier.productId, [productId]))
-  const wholesale = pickTierPriceUsd(tiers as Tier[], qty)
-  return isWholesaleRole(role) ? wholesale : wholesale * RETAIL_MARKUP
+  return applyRoleMarkup(pickTierPriceUsd(tiers as Tier[], qty), role)
 }
 
 /**
@@ -76,11 +56,10 @@ export async function priceLinesUsd(
   return lines.map((l) => {
     const tiers = byProduct.get(l.productId)
     if (!tiers?.length) throw new ValidationError('لا يوجد سعر متاح لأحد المنتجات')
-    const wholesale = pickTierPriceUsd(tiers, l.qty)
     return {
       productId: l.productId,
       qty: l.qty,
-      unitPrice: isWholesaleRole(role) ? wholesale : wholesale * RETAIL_MARKUP,
+      unitPrice: applyRoleMarkup(pickTierPriceUsd(tiers, l.qty), role),
     }
   })
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { ok, apiError, requirePartner } from '@/lib/api-helpers'
+import { ok, requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerDashboard } from '@/services/partner'
 
 export async function GET() {

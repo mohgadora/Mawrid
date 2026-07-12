@@ -48,20 +48,216 @@ export async function cancelOrderApi(id: string): Promise<void> {
 export function createOrderApi(body: {
   lines: { productId: string; qty: number; variantId?: string }[]
   address: { label: string; line1?: string; city?: string; phone?: string }
-  paymentMethod: 'cod' | 'card' | 'bank'
+  paymentMethod: 'cod' | 'card' | 'bank' | 'wallet'
+  couponCode?: string
 }): Promise<Order> {
   return apiFetch<Order>('orders', { method: 'POST', body: JSON.stringify(body) })
 }
 
-// ── Guest checkout ──────────────────────────────────────────────────────────
+// ── Coupons ───────────────────────────────────────────────────────────────
 
-export function createGuestOrderApi(body: {
-  lines: { productId: string; qty: number }[]
-  contact: { fullName: string; email?: string; phone: string }
-  address: { label?: string; line1?: string; city?: string; phone?: string }
-  paymentMethod: 'cod' | 'card' | 'bank'
-}): Promise<Order> {
-  return apiFetch<Order>('orders/guest', { method: 'POST', body: JSON.stringify(body) })
+export type CouponValidation = {
+  valid: boolean
+  message: string
+  discountUsd: number
+  freeShipping: boolean
+  code: string
+  type: string | null
+}
+
+export function validateCouponApi(body: {
+  code: string
+  items: { productId: string; qty: number; variantId?: string }[]
+}): Promise<CouponValidation> {
+  return apiFetch<CouponValidation>('coupons/validate', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export type AvailableCoupon = {
+  id: string
+  code: string
+  type: string
+  value: string
+  minOrderAmount: string | null
+  maxDiscountAmount: string | null
+  scope: string
+  titleAr: string | null
+  titleEn: string | null
+  descriptionAr: string | null
+  descriptionEn: string | null
+  expiresAt: string | null
+}
+
+export function fetchAvailableCoupons(): Promise<AvailableCoupon[]> {
+  return apiFetch<AvailableCoupon[]>('coupons')
+}
+
+// ── Wallet ────────────────────────────────────────────────────────────────
+
+export type WalletSummary = {
+  balance: number
+  lifetimeCredit: number
+  lifetimeDebit: number
+  currency: string
+}
+
+export type WalletTx = {
+  id: string
+  type: string
+  amount: string
+  balanceAfter: string
+  reference: string | null
+  note: string | null
+  createdAt: string
+}
+
+export function fetchWallet(): Promise<WalletSummary> {
+  return apiFetch<WalletSummary>('wallet')
+}
+
+export function fetchWalletTransactions(page = 1): Promise<{
+  items: WalletTx[]
+  total: number
+  page: number
+  pageSize: number
+}> {
+  return apiFetch(`wallet/transactions?page=${page}`)
+}
+
+export function topupWalletApi(amount: number, method = 'manual'): Promise<{ balance: number; bonus: number }> {
+  return apiFetch('wallet/topup', { method: 'POST', body: JSON.stringify({ amount, method }) })
+}
+
+// ── Admin: wallets + bonus rules ──────────────────────────────────────────
+
+export type AdminWalletData = {
+  wallet: {
+    id: string
+    userId: string
+    balance: string
+    lifetimeCredit: string
+    lifetimeDebit: string
+    currency: string
+  }
+  transactions: WalletTx[]
+}
+
+export function adminGetUserWalletApi(userId: string): Promise<AdminWalletData> {
+  return apiFetch(`admin/wallets?userId=${encodeURIComponent(userId)}`)
+}
+
+export function adminAdjustWalletApi(userId: string, amount: number, note?: string): Promise<{ balance: number }> {
+  return apiFetch(`admin/wallets/${userId}/adjust`, { method: 'POST', body: JSON.stringify({ amount, note }) })
+}
+
+export type WalletBonusRule = {
+  id: string
+  minTopup: string
+  bonusType: string
+  bonusValue: string
+  maxBonus: string | null
+  active: boolean
+  startsAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function fetchWalletBonusRules(): Promise<WalletBonusRule[]> {
+  return apiFetch('admin/wallet-bonuses')
+}
+
+export function createWalletBonusRuleApi(data: Record<string, unknown>): Promise<WalletBonusRule> {
+  return apiFetch('admin/wallet-bonuses', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateWalletBonusRuleApi(id: string, data: Record<string, unknown>): Promise<WalletBonusRule> {
+  return apiFetch(`admin/wallet-bonuses/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteWalletBonusRuleApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/wallet-bonuses/${id}`, { method: 'DELETE' })
+}
+
+// ── Cashback ──────────────────────────────────────────────────────────────
+
+export type CashbackRule = {
+  id: string
+  type: string
+  value: string
+  maxCashback: string | null
+  minOrderAmount: string
+  scope: string
+  titleAr: string | null
+  titleEn: string | null
+  active: boolean
+  startsAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function previewCashbackApi(items: { productId: string; qty: number }[]): Promise<{ cashbackUsd: number }> {
+  return apiFetch('cashback/preview', { method: 'POST', body: JSON.stringify({ items }) })
+}
+
+export function fetchCashbackRules(): Promise<CashbackRule[]> {
+  return apiFetch('admin/cashback-rules')
+}
+
+export function createCashbackRuleApi(data: Record<string, unknown>): Promise<CashbackRule> {
+  return apiFetch('admin/cashback-rules', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateCashbackRuleApi(id: string, data: Record<string, unknown>): Promise<CashbackRule> {
+  return apiFetch(`admin/cashback-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteCashbackRuleApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/cashback-rules/${id}`, { method: 'DELETE' })
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────
+
+export type ChatConversation = {
+  id: string
+  type: string
+  orderId: string | null
+  lastMessageAt: string | null
+  lastMessage: string | null
+  unread: number
+  otherName: string
+}
+
+export type ChatMessageItem = {
+  id: string
+  conversationId: string
+  senderId: string
+  body: string
+  images: string[]
+  readAt: string | null
+  createdAt: string
+}
+
+export function fetchConversations(page = 1): Promise<ChatConversation[]> {
+  return apiFetch(`conversations?page=${page}`)
+}
+
+export function startOrderConversationApi(orderId: string): Promise<{ id: string }> {
+  return apiFetch('conversations/start', { method: 'POST', body: JSON.stringify({ orderId }) })
+}
+
+export function fetchMessages(conversationId: string, cursor?: string): Promise<{ items: ChatMessageItem[]; nextCursor: string | null }> {
+  return apiFetch(`conversations/${conversationId}/messages${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`)
+}
+
+export function sendMessageApi(conversationId: string, body: string, images: string[] = []): Promise<ChatMessageItem> {
+  return apiFetch(`conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body, images }) })
+}
+
+export function markConversationReadApi(conversationId: string): Promise<{ success: boolean }> {
+  return apiFetch(`conversations/${conversationId}/read`, { method: 'POST' })
+}
+
+export function fetchUnreadChatCount(): Promise<{ count: number }> {
+  return apiFetch('conversations/unread-count')
 }
 
 // ── Account ─────────────────────────────────────────────────────────────────
@@ -141,6 +337,7 @@ export function fetchPartnerOrder(id: string): Promise<Awaited<ReturnType<typeof
   return apiFetch(`partner/orders/${encodeURIComponent(id)}`)
 }
 
+/** Advance an order along the partner fulfilment workflow (or cancel it). */
 export function updatePartnerOrderStatusApi(
   id: string,
   status: string,
@@ -824,6 +1021,362 @@ export function getTopSuppliersApi(limit?: number): Promise<TopSuppliers> {
 
 export function getAnalyticsKpiApi(): Promise<KpiSnapshot> {
   return apiFetch<KpiSnapshot>('admin/analytics/kpi')
+}
+
+export type CouponReport = {
+  totalDiscount: number
+  totalRedemptions: number
+  coupons: { couponId: string; code: string; type: string; redemptions: number; totalDiscount: number }[]
+}
+
+export function getCouponReportApi(): Promise<CouponReport> {
+  return apiFetch<CouponReport>('admin/analytics/coupon-report')
+}
+
+export type WalletReport = {
+  totalBalance: number
+  totalCredit: number
+  totalDebit: number
+  walletCount: number
+  byType: { type: string; total: number; count: number }[]
+}
+
+export function getWalletReportApi(): Promise<WalletReport> {
+  return apiFetch<WalletReport>('admin/analytics/wallet-report')
+}
+
+// ── Admin: SEO ────────────────────────────────────────────────────────────
+
+export type SeoMetaRow = {
+  id: string
+  entityType: string
+  entityId: string
+  titleAr: string | null
+  titleEn: string | null
+  descriptionAr: string | null
+  descriptionEn: string | null
+  keywords: string[]
+  ogImage: string | null
+  canonicalUrl: string | null
+  noIndex: boolean
+  updatedAt: string
+}
+
+export function fetchSeoMeta(entityType?: string): Promise<SeoMetaRow[]> {
+  return apiFetch(`admin/seo${entityType ? `?entityType=${entityType}` : ''}`)
+}
+
+export function upsertSeoMetaApi(data: Record<string, unknown>): Promise<SeoMetaRow> {
+  return apiFetch('admin/seo', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function deleteSeoMetaApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/seo/${id}`, { method: 'DELETE' })
+}
+
+// ── Advertisements ────────────────────────────────────────────────────────
+
+export type AdBanner = {
+  id: string
+  titleAr: string
+  titleEn: string | null
+  type: string
+  imageUrl: string
+  targetUrl: string | null
+  placement: string
+}
+
+export function fetchAdsByPlacement(placement: string): Promise<AdBanner[]> {
+  return apiFetch(`ads?placement=${encodeURIComponent(placement)}`)
+}
+
+export function trackAdApi(id: string, event: 'impression' | 'click'): Promise<{ success: boolean }> {
+  return apiFetch(`ads/${id}/track`, { method: 'POST', body: JSON.stringify({ event }) })
+}
+
+export type AdvertisementRow = {
+  id: string
+  titleAr: string
+  titleEn: string | null
+  type: string
+  imageUrl: string
+  targetUrl: string | null
+  placement: string
+  priority: number
+  impressions: number
+  clicks: number
+  supplierId: string | null
+  status: string
+  active: boolean
+  startsAt: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export function fetchAds(): Promise<AdvertisementRow[]> {
+  return apiFetch('admin/ads')
+}
+
+export function createAdApi(data: Record<string, unknown>): Promise<AdvertisementRow> {
+  return apiFetch('admin/ads', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateAdApi(id: string, data: Record<string, unknown>): Promise<AdvertisementRow> {
+  return apiFetch(`admin/ads/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteAdApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/ads/${id}`, { method: 'DELETE' })
+}
+
+// ── Store Subscriptions ────────────────────────────────────────────────────
+
+export type SubscriptionPlanRow = {
+  id: string
+  nameAr: string
+  nameEn: string | null
+  priceMonthly: string
+  priceYearly: string | null
+  maxProducts: number | null
+  maxOrders: number | null
+  commissionRate: string | null
+  features: string[]
+  active: boolean
+  sortOrder: number
+}
+
+export type StoreSubscriptionRow = {
+  id: string
+  supplierId: string
+  planId: string
+  status: string
+  currentPeriodStart: string
+  currentPeriodEnd: string
+  autoRenew: boolean
+}
+
+export function fetchSubscriptionPlans(): Promise<SubscriptionPlanRow[]> {
+  return apiFetch('subscription-plans')
+}
+
+export function fetchPartnerSubscription(): Promise<{ subscription: StoreSubscriptionRow | null; plan: SubscriptionPlanRow | null }> {
+  return apiFetch('partner/subscription')
+}
+
+export function subscribePartnerApi(planId: string, cycle: 'monthly' | 'yearly'): Promise<StoreSubscriptionRow> {
+  return apiFetch('partner/subscription', { method: 'POST', body: JSON.stringify({ planId, cycle }) })
+}
+
+export function cancelPartnerSubscriptionApi(): Promise<{ success: boolean }> {
+  return apiFetch('partner/subscription', { method: 'DELETE' })
+}
+
+// admin
+export function fetchAllSubscriptionPlans(): Promise<SubscriptionPlanRow[]> {
+  return apiFetch('admin/subscription-plans')
+}
+
+export function createSubscriptionPlanApi(data: Record<string, unknown>): Promise<SubscriptionPlanRow> {
+  return apiFetch('admin/subscription-plans', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export function updateSubscriptionPlanApi(id: string, data: Record<string, unknown>): Promise<SubscriptionPlanRow> {
+  return apiFetch(`admin/subscription-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export function deleteSubscriptionPlanApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`admin/subscription-plans/${id}`, { method: 'DELETE' })
+}
+
+export function fetchStoreSubscriptions(): Promise<(StoreSubscriptionRow & { planName: string; supplierName: string })[]> {
+  return apiFetch('admin/store-subscriptions')
+}
+
+// ── SMS OTP ─────────────────────────────────────────────────────────────────
+
+export function sendOtpApi(phone: string): Promise<{ phone: string; devCode?: string }> {
+  return apiFetch('auth/otp/send', { method: 'POST', body: JSON.stringify({ phone }) })
+}
+
+export function verifyOtpApi(phone: string, code: string): Promise<{ verified: boolean }> {
+  return apiFetch('auth/otp/verify', { method: 'POST', body: JSON.stringify({ phone, code }) })
+}
+
+// ── Shop follow ─────────────────────────────────────────────────────────────
+
+export function fetchFollowStatus(supplierId: string): Promise<{ following: boolean }> {
+  return apiFetch(`shops/${supplierId}/follow`)
+}
+
+export function followShopApi(supplierId: string): Promise<{ following: boolean; followerCount: number }> {
+  return apiFetch(`shops/${supplierId}/follow`, { method: 'POST' })
+}
+
+export function unfollowShopApi(supplierId: string): Promise<{ following: boolean; followerCount: number }> {
+  return apiFetch(`shops/${supplierId}/follow`, { method: 'DELETE' })
+}
+
+export type FollowedShop = {
+  id: string
+  name: string
+  nameAr: string | null
+  logo: string | null
+  rating: string
+  followerCount: number
+  productCount: number
+}
+
+export function fetchFollowedShops(): Promise<FollowedShop[]> {
+  return apiFetch('account/following')
+}
+
+// ── Restock alerts ──────────────────────────────────────────────────────────
+
+export function fetchRestockStatus(productId: string): Promise<{ requested: boolean }> {
+  return apiFetch(`products/${productId}/restock-request`)
+}
+
+export function requestRestockApi(productId: string): Promise<{ requested: boolean }> {
+  return apiFetch(`products/${productId}/restock-request`, { method: 'POST' })
+}
+
+// ── Recommendations (deterministic) ─────────────────────────────────────────
+
+export function fetchRecommendations(
+  type: 'similar' | 'fbt' | 'personalized',
+  productId?: string,
+): Promise<Product[]> {
+  const qs = new URLSearchParams({ type })
+  if (productId) qs.set('productId', productId)
+  return apiFetch<Product[]>(`recommendations?${qs.toString()}`)
+}
+
+// ── Deals of day + Clearance ────────────────────────────────────────────────
+
+export type TodayDeal = {
+  id: string
+  productId: string
+  titleAr: string
+  titleEn: string | null
+  productName: string
+  image: string | null
+  basePrice: number
+  salePrice: number
+  discountType: string
+  discount: number
+} | null
+
+export function fetchTodayDeal(): Promise<TodayDeal> {
+  return apiFetch('deals/today')
+}
+
+export type ClearanceGroup = {
+  id: string
+  titleAr: string
+  titleEn: string | null
+  endsAt: string
+  products: { productId: string; name: string; image: string | null; discountPercent: number; basePrice: number; salePrice: number }[]
+}
+
+export function fetchClearances(): Promise<ClearanceGroup[]> {
+  return apiFetch('clearance')
+}
+
+// admin
+export type DealRow = { id: string; productId: string; titleAr: string; titleEn: string | null; discountType: string; discount: string; date: string; active: boolean }
+export function fetchAdminDeals(): Promise<DealRow[]> { return apiFetch('admin/deals') }
+export function createDealApi(data: Record<string, unknown>): Promise<DealRow> { return apiFetch('admin/deals', { method: 'POST', body: JSON.stringify(data) }) }
+export function deleteDealApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/deals/${id}`, { method: 'DELETE' }) }
+
+export type ClearanceRow = { id: string; titleAr: string; titleEn: string | null; startsAt: string; endsAt: string; active: boolean }
+export function fetchAdminClearances(): Promise<ClearanceRow[]> { return apiFetch('admin/clearance') }
+export function createClearanceApi(data: Record<string, unknown>): Promise<{ id: string }> { return apiFetch('admin/clearance', { method: 'POST', body: JSON.stringify(data) }) }
+export function deleteClearanceApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/clearance/${id}`, { method: 'DELETE' }) }
+
+// ── Blog (admin) ────────────────────────────────────────────────────────────
+
+export type BlogPostRow = {
+  id: string
+  slug: string
+  titleAr: string
+  titleEn: string | null
+  bodyAr: string
+  excerptAr: string | null
+  coverImage: string | null
+  status: string
+  viewCount: number
+  publishedAt: string | null
+  createdAt: string
+}
+
+export function fetchAdminBlogPosts(): Promise<BlogPostRow[]> { return apiFetch('admin/blog') }
+export function createBlogPostApi(data: Record<string, unknown>): Promise<BlogPostRow> { return apiFetch('admin/blog', { method: 'POST', body: JSON.stringify(data) }) }
+export function updateBlogPostApi(id: string, data: Record<string, unknown>): Promise<BlogPostRow> { return apiFetch(`admin/blog/${id}`, { method: 'PATCH', body: JSON.stringify(data) }) }
+export function deleteBlogPostApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/blog/${id}`, { method: 'DELETE' }) }
+
+// ── Email templates (admin) ─────────────────────────────────────────────────
+
+export type EmailTemplateRow = {
+  id: string
+  event: string
+  subjectAr: string
+  bodyAr: string
+  subjectEn: string | null
+  bodyEn: string | null
+  active: boolean
+  updatedAt: string
+}
+
+export function fetchEmailTemplates(): Promise<EmailTemplateRow[]> { return apiFetch('admin/email-templates') }
+export function upsertEmailTemplateApi(data: Record<string, unknown>): Promise<EmailTemplateRow> { return apiFetch('admin/email-templates', { method: 'POST', body: JSON.stringify(data) }) }
+export function deleteEmailTemplateApi(id: string): Promise<{ success: boolean }> { return apiFetch(`admin/email-templates/${id}`, { method: 'DELETE' }) }
+export function testEmailTemplateApi(id: string, to: string): Promise<{ sent: boolean }> { return apiFetch(`admin/email-templates/${id}/test`, { method: 'POST', body: JSON.stringify({ to }) }) }
+
+// ── Search suggestions ──────────────────────────────────────────────────────
+
+export function fetchPopularSearches(): Promise<string[]> { return apiFetch('search/popular') }
+export function fetchRecentSearches(): Promise<string[]> { return apiFetch('search/recent') }
+
+// ── Payments (Moyasar) ──────────────────────────────────────────────────────
+
+export function createPaymentApi(orderId: string): Promise<{ url: string; invoiceId: string | null; dev: boolean }> {
+  return apiFetch('payments/create', { method: 'POST', body: JSON.stringify({ orderId }) })
+}
+
+// ── Guest checkout ──────────────────────────────────────────────────────────
+
+export function createGuestOrderApi(body: {
+  lines: { productId: string; qty: number }[]
+  contact: { fullName: string; email?: string; phone: string }
+  address: { label?: string; line1?: string; city?: string; phone?: string }
+  paymentMethod: 'cod' | 'card' | 'bank'
+}): Promise<Order> {
+  return apiFetch<Order>('orders/guest', { method: 'POST', body: JSON.stringify(body) })
+}
+
+// ── Admin: order editing ────────────────────────────────────────────────────
+
+export type AdminOrderEditDetail = {
+  id: string
+  ref: string
+  status: string
+  editable: boolean
+  subtotal: number
+  shippingFee: number
+  discount: number
+  total: number
+  paymentMethod: string
+  paymentStatus: string
+  lines: { id: string; productName: string; productImage: string | null; qty: number; unitPrice: number; subtotal: number }[]
+  edits: { id: string; editType: string; priceDiff: string; createdAt: string; changeDetails: unknown; payments: { type: string; amount: string; status: string }[] }[]
+}
+
+export function fetchAdminOrderForEdit(id: string): Promise<AdminOrderEditDetail> {
+  return apiFetch(`admin/orders/${id}`)
+}
+
+export function editOrderQuantitiesApi(id: string, changes: { orderLineId: string; newQty: number }[]): Promise<{ priceDiff: number; newTotal: number; settlement: string }> {
+  return apiFetch(`admin/orders/${id}/edit`, { method: 'POST', body: JSON.stringify({ changes }) })
 }
 
 export function calculateShippingApi(params: {

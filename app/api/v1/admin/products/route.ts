@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, badRequest, apiError, requireAdmin } from '@/lib/api-helpers'
+import { ok, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getAdminProducts, createAdminProduct } from '@/services/admin'
 
 export async function GET(req: NextRequest) {

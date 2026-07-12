@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, apiError, badRequest, getApiUser, unauthorized } from '@/lib/api-helpers'
+import { ok, badRequest, getApiUser, unauthorized, apiError } from '@/lib/api-helpers'
 import { getProductReviews, createReview } from '@/services/reviews'
 
 type Params = { params: Promise<{ id: string }> }

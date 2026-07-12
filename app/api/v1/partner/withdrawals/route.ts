@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, apiError, requirePartner, badRequest } from '@/lib/api-helpers'
+import { ok, requirePartner, badRequest, apiError } from '@/lib/api-helpers'
 import { requestWithdrawal, getPartnerWithdrawals } from '@/services/partner'
 
 export async function GET(req: NextRequest) {

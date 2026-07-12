@@ -79,6 +79,7 @@ function mapSupplier(row: DbSupplier): Supplier {
     cityAr: row.city ?? '',
     cityEn: row.city ?? '',
     since: 2020,
+    followerCount: row.followerCount ?? 0,
   }
 }
 

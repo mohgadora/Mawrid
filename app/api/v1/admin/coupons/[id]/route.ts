@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, apiError, requireAdmin } from '@/lib/api-helpers'
+import { ok, requireAdmin, apiError } from '@/lib/api-helpers'
 import { updateCoupon, deleteCoupon } from '@/services/admin'
 
 type Params = { params: Promise<{ id: string }> }

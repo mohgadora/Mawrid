@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Receipt, Store,
   X, LogOut, Menu, TrendingUp, Warehouse, CreditCard,
   Star, Headphones, Bell, BarChart2, ClipboardList,
-  ChevronDown, Building2, Check,
+  ChevronDown, Building2, Check, Crown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
@@ -39,6 +39,7 @@ const NAV = [
   { href: '/partner/withdrawals', icon: CreditCard, labelKey: 'partnerNavWithdrawals' },
   { href: '/partner/reviews', icon: Star, labelKey: 'partnerNavReviews' },
   { href: '/partner/reports', icon: BarChart2, labelKey: 'partnerNavReports' },
+  { href: '/partner/subscription', icon: Crown, labelKey: 'partnerNavSubscription' },
   { href: '/partner/support', icon: Headphones, labelKey: 'partnerNavSupport' },
   { href: '/partner/notifications', icon: Bell, labelKey: 'partnerNavNotifications' },
 ] as const

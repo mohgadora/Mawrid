@@ -39,6 +39,7 @@ import { ProductCard } from '@/components/product-card'
 import { MarketPriceBadge } from '@/components/market-price-badge'
 import { MarketIndicator } from '@/components/market-indicator'
 import { ProductReviews } from '@/components/product-reviews'
+import { ProductRecommendations } from '@/components/product-recommendations'
 import { ShippingDetails } from '@/components/shipping-details'
 import { FlashSaleBadge } from '@/components/flash-sale-badge'
 import { StockCounter } from '@/components/stock-counter'
@@ -486,6 +487,9 @@ export function ProductDetail({
 
       {/* Q&A */}
       <ProductQA productId={product.id} />
+
+      {/* Frequently bought together */}
+      <ProductRecommendations type="fbt" productId={product.id} />
 
       {/* Reviews */}
       <ProductReviews productId={product.id} />

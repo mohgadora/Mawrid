@@ -66,6 +66,7 @@ export type Supplier = {
   cityAr: string
   cityEn: string
   since: number
+  followerCount?: number
 }
 
 export type Product = {
