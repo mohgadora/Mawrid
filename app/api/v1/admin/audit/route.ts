@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
+import { ok, apiError, requireAdmin } from '@/lib/api-helpers'
 import { getAuditLogs } from '@/services/admin'
 
 export async function GET(req: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     return ok(await getAuditLogs())
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

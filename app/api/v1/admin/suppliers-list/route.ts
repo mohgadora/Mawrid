@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin, ok, serverError } from '@/lib/api-helpers'
+import { requireAdmin, ok, apiError } from '@/lib/api-helpers'
 import { db } from '@/lib/db'
 import { supplier } from '@/lib/db/schema'
 import { asc } from 'drizzle-orm'
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       .from(supplier)
       .orderBy(asc(supplier.nameAr))
     return ok(rows.map((r) => ({ id: r.id, name: r.name ?? r.nameEn ?? r.id, status: r.status })))
-  } catch (err) { return serverError(err) }
+  } catch (err) { return apiError(err) }
 }
 
 export function OPTIONS() { return new Response(null, { status: 204 }) }

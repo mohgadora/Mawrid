@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin, badRequest } from '@/lib/api-helpers'
+import { ok, apiError, requireAdmin, badRequest } from '@/lib/api-helpers'
 import { approveWithdrawal, rejectWithdrawal, markWithdrawalPaid } from '@/services/admin'
 
 type Params = { params: Promise<{ id: string }> }
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     return badRequest('action must be: approve, reject, or paid')
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin, ok, serverError, badRequest } from '@/lib/api-helpers'
+import { requireAdmin, ok, apiError, badRequest } from '@/lib/api-helpers'
 import { db } from '@/lib/db'
 import { supplier, user, product, order, orderLine, sellerEarning } from '@/lib/db/schema'
 import { eq, count, sum, desc, inArray } from 'drizzle-orm'
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         totalRevenue,
       },
     })
-  } catch (err) { return serverError(err) }
+  } catch (err) { return apiError(err) }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -113,7 +113,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await db.update(supplier).set(updates as never).where(eq(supplier.id, id))
     await writeAuditLog({ userId: guard.id, action: 'supplier.update', entity: 'supplier', entityId: id })
     return ok({ updated: true })
-  } catch (err) { return serverError(err) }
+  } catch (err) { return apiError(err) }
 }
 
 export function OPTIONS() { return new Response(null, { status: 204 }) }

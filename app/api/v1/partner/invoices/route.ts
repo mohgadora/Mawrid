@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { ok, serverError, requirePartner } from '@/lib/api-helpers'
+import { ok, apiError, requirePartner } from '@/lib/api-helpers'
 import { getPartnerInvoices } from '@/services/partner'
 
 export async function GET() {
@@ -8,7 +8,7 @@ export async function GET() {
   try {
     return ok(await getPartnerInvoices(guard))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
