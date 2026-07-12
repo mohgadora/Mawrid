@@ -130,6 +130,17 @@ export function fetchPartnerOrder(id: string): Promise<Awaited<ReturnType<typeof
   return apiFetch(`partner/orders/${encodeURIComponent(id)}`)
 }
 
+export function updatePartnerOrderStatusApi(
+  id: string,
+  status: string,
+  note?: string,
+): Promise<{ success: boolean; status: string }> {
+  return apiFetch(`partner/orders/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, ...(note ? { note } : {}) }),
+  })
+}
+
 export function fetchPartnerInvoice(id: string): Promise<Awaited<ReturnType<typeof import('@/services/partner').getPartnerInvoiceDetail>>> {
   return apiFetch(`partner/invoices/${encodeURIComponent(id)}`)
 }
