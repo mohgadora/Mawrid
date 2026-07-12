@@ -18,12 +18,15 @@ import {
   BookmarkCheck,
   ChevronDown,
   ChevronUp,
+  Ticket,
+  X,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useCart, toCartSnapshot, priceForRoleSnapshot, marketSavingsSnapshot, type CartProductSnapshot } from '@/lib/cart'
 import { useRole } from '@/lib/role'
 import { SHIPPING } from '@/lib/config'
 import { useSaveForLater } from '@/lib/save-for-later'
+import { applyVoucher } from '@/lib/voucher'
 
 export function CartView() {
   const { t, lang, formatPrice } = useI18n()
@@ -33,6 +36,9 @@ export function CartView() {
   const { saved, saveItem, removeFromSaved, isSaved } = useSaveForLater()
   const [placed, setPlaced] = useState(false)
   const [savedOpen, setSavedOpen] = useState(true)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponCode, setCouponCode] = useState<string | null>(null)
+  const [couponError, setCouponError] = useState<'invalid_code' | 'min_order' | null>(null)
 
   const lines = useMemo(
     () =>
@@ -67,7 +73,32 @@ export function CartView() {
 
   const shippingUsd =
     subtotalUsd > 0 && subtotalUsd < SHIPPING.freeOverUsd ? SHIPPING.flatUsd : 0
-  const totalUsd = subtotalUsd + shippingUsd
+
+  // Recompute the coupon against the current subtotal every render so the
+  // discount stays correct as quantities change (and auto-drops if the
+  // minimum-order threshold is no longer met).
+  const couponResult = couponCode ? applyVoucher(couponCode, subtotalUsd) : null
+  const appliedVoucher = couponResult && couponResult.valid ? couponResult.voucher : null
+  const discountUsd = couponResult && couponResult.valid ? couponResult.discountUsd : 0
+  const totalUsd = Math.max(0, subtotalUsd + shippingUsd - discountUsd)
+
+  function handleApplyCoupon() {
+    const res = applyVoucher(couponInput, subtotalUsd)
+    if (!res.valid) {
+      setCouponError(res.error)
+      setCouponCode(null)
+      return
+    }
+    setCouponError(null)
+    setCouponCode(res.voucher.code)
+    setCouponInput(res.voucher.code)
+  }
+
+  function handleRemoveCoupon() {
+    setCouponCode(null)
+    setCouponError(null)
+    setCouponInput('')
+  }
 
   if (placed) {
     return (
@@ -384,6 +415,15 @@ export function CartView() {
                     )}
                   </dd>
                 </div>
+                {appliedVoucher && discountUsd > 0 && (
+                  <div className="flex justify-between">
+                    <dt className="flex items-center gap-1.5 text-success">
+                      <Ticket className="size-4" />
+                      {t('couponDiscount')} ({appliedVoucher.code})
+                    </dt>
+                    <dd className="font-semibold text-success">−{formatPrice(discountUsd)}</dd>
+                  </div>
+                )}
                 <div className="my-1 border-t border-border" />
                 <div className="flex items-center justify-between">
                   <dt className="font-bold text-foreground">{t('total')}</dt>
@@ -397,6 +437,64 @@ export function CartView() {
                   {t('save')} {formatPrice(savingsUsd)} {t('savedVsMarket')}
                 </p>
               )}
+
+              {/* Coupon / discount code */}
+              <div className="mt-4 border-t border-border pt-4">
+                <label htmlFor="coupon" className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Ticket className="size-4 text-primary" />
+                  {t('couponTitle')}
+                </label>
+                {appliedVoucher ? (
+                  <div className="flex items-center justify-between rounded-lg bg-success/10 px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
+                      <Check className="size-4" />
+                      {t('couponApplied')}: {appliedVoucher.code}
+                    </span>
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={t('couponRemove')}
+                    >
+                      <X className="size-3.5" />
+                      {t('couponRemove')}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        id="coupon"
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value)
+                          if (couponError) setCouponError(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleApplyCoupon()
+                          }
+                        }}
+                        placeholder={t('couponPlaceholder')}
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <button
+                        onClick={handleApplyCoupon}
+                        disabled={couponInput.trim().length === 0}
+                        className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-100 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {t('couponApply')}
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="mt-2 text-xs font-medium text-destructive">
+                        {couponError === 'min_order' ? t('couponMinNotMet') : t('couponInvalid')}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
 
               <button
                 onClick={() => router.push('/checkout')}
