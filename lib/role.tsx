@@ -7,6 +7,10 @@ import { authClient } from '@/lib/auth-client'
 type RoleContextValue = {
   role: Role
   isMerchant: boolean
+  /** هل المستخدم مسجّل دخوله (جلسة صالحة)؟ */
+  isLoggedIn: boolean
+  /** الجلسة قيد التحميل — لا تُظهر حالة الضيف بعد حتى لا يومض زر الدخول للمسجّلين. */
+  isPending: boolean
   /** يُستخدم فقط عند تسجيل الخروج لإعادة الضيف */
   setRole: (r: Role) => void
 }
@@ -19,7 +23,7 @@ function roleFromSession(sessionRole?: string | null, isLoggedIn?: boolean): Rol
 }
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const { data: session } = authClient.useSession()
+  const { data: session, isPending } = authClient.useSession()
   const sessionRole = (session?.user as { role?: string } | undefined)?.role
   const isLoggedIn = Boolean(session?.user)
 
@@ -33,8 +37,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ role, isMerchant: role === 'merchant', setRole }),
-    [role, setRole],
+    () => ({ role, isMerchant: role === 'merchant', isLoggedIn, isPending, setRole }),
+    [role, isLoggedIn, isPending, setRole],
   )
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>
