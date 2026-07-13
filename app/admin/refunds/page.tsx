@@ -35,7 +35,8 @@ function StatusChip({ status }: { status: string }) {
   )
 }
 
-function truncate(str: string, n = 12) {
+function truncate(str: string | null | undefined, n = 12) {
+  if (!str) return '—'
   return str.length > n ? str.slice(0, n) + '…' : str
 }
 

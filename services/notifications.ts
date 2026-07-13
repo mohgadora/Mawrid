@@ -1,7 +1,7 @@
 import 'server-only'
 import { db } from '@/lib/db'
 import { notification, user } from '@/lib/db/schema'
-import { eq, desc, and, count } from 'drizzle-orm'
+import { eq, desc, and, count, asc } from 'drizzle-orm'
 
 export async function createNotification(
   userId: string,
@@ -66,7 +66,7 @@ export async function broadcastNotification(
     let offset = 0
     targetUserIds = []
     while (true) {
-      const page = await db.select({ id: user.id }).from(user).limit(PAGE).offset(offset)
+      const page = await db.select({ id: user.id }).from(user).orderBy(asc(user.id)).limit(PAGE).offset(offset)
       if (!page.length) break
       targetUserIds.push(...page.map((u) => u.id))
       if (page.length < PAGE) break

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
+import { ok, requireAdmin, apiError } from '@/lib/api-helpers'
 import { updateCoupon, deleteCoupon } from '@/services/admin'
 
 type Params = { params: Promise<{ id: string }> }
@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const body = await req.json()
     return ok(await updateCoupon(id, body, guard.id))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
@@ -24,7 +24,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     await deleteCoupon(id, guard.id)
     return ok({ success: true })
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

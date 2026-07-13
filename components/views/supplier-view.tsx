@@ -7,6 +7,7 @@ import { BadgeCheck, Star, MapPin, CalendarDays, Package, Store, ChevronLeft } f
 import { useI18n } from '@/lib/i18n'
 import { getSupplierWithProducts, type SupplierResult } from '@/lib/api-client'
 import { ProductBrowser } from '@/components/product-browser'
+import { FollowButton } from '@/components/follow-button'
 import { AsyncContent } from '@/components/async-content'
 import { EmptyState } from '@/components/empty-state'
 import { ProductGridSkeleton } from '@/components/skeletons'
@@ -85,6 +86,14 @@ export function SupplierView({ id }: { id: string }) {
                     <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground text-pretty">
                       {description}
                     </p>
+                  </div>
+                  <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                    <FollowButton supplierId={s.id} />
+                    {typeof s.followerCount === 'number' && s.followerCount > 0 && (
+                      <span className="text-center text-xs text-muted-foreground sm:text-end">
+                        {s.followerCount} {lang === 'ar' ? 'متابِع' : 'followers'}
+                      </span>
+                    )}
                   </div>
                 </div>
 

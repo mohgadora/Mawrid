@@ -255,7 +255,7 @@ export async function getAdminOrders() {
     .orderBy(desc(order.createdAt))
     .limit(200)
 
-  const orderUserIds = [...new Set(rows.map((o) => o.userId).filter(Boolean))] as string[]
+  const orderUserIds = [...new Set(rows.map((o) => o.userId).filter((id): id is string => Boolean(id)))]
   const userRows = orderUserIds.length
     ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, orderUserIds))
     : []
@@ -279,7 +279,7 @@ export async function getAdminOrders() {
 
   return rows.map((o) => ({
     id: o.ref,
-    buyer: o.userId ? (userMap[o.userId] ?? o.userId) : 'ضيف',
+    buyer: (o.userId ? userMap[o.userId] : null) ?? o.userId ?? 'ضيف',
     supplier: o.supplierId ? (supMap[o.supplierId] ?? '') : '',
     amount: Number(o.total),
     items: itemsMap[o.id] ?? 0,

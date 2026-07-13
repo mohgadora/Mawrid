@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin, badRequest, apiError } from '@/lib/api-helpers'
+import { ok, requireAdmin, badRequest, apiError } from '@/lib/api-helpers'
 import { rejectProduct } from '@/services/approvals'
 
 type Params = { params: Promise<{ id: string }> }

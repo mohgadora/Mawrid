@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Minus,
   Plus,
@@ -18,7 +18,7 @@ import {
   BookmarkCheck,
   ChevronDown,
   ChevronUp,
-  TicketPercent,
+  Ticket,
   X,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
@@ -26,8 +26,7 @@ import { useCart, toCartSnapshot, priceForRoleSnapshot, marketSavingsSnapshot, t
 import { useRole } from '@/lib/role'
 import { SHIPPING } from '@/lib/config'
 import { useSaveForLater } from '@/lib/save-for-later'
-import { useCoupon } from '@/lib/coupon'
-import { validateCouponApi } from '@/lib/api-client'
+import { applyVoucher } from '@/lib/voucher'
 
 export function CartView() {
   const { t, lang, formatPrice } = useI18n()
@@ -37,6 +36,9 @@ export function CartView() {
   const { saved, saveItem, removeFromSaved, isSaved } = useSaveForLater()
   const [placed, setPlaced] = useState(false)
   const [savedOpen, setSavedOpen] = useState(true)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponCode, setCouponCode] = useState<string | null>(null)
+  const [couponError, setCouponError] = useState<'invalid_code' | 'min_order' | null>(null)
 
   const lines = useMemo(
     () =>
@@ -72,54 +74,31 @@ export function CartView() {
   const shippingUsd =
     subtotalUsd > 0 && subtotalUsd < SHIPPING.freeOverUsd ? SHIPPING.flatUsd : 0
 
-  // Coupon
-  const { coupon, applyCoupon, clearCoupon } = useCoupon()
-  const [couponInput, setCouponInput] = useState('')
-  const [couponLoading, setCouponLoading] = useState(false)
-  const [couponError, setCouponError] = useState<string | null>(null)
-
-  const discountUsd = coupon
-    ? coupon.freeShipping
-      ? shippingUsd
-      : Math.min(coupon.discountUsd, subtotalUsd)
-    : 0
+  // Recompute the coupon against the current subtotal every render so the
+  // discount stays correct as quantities change (and auto-drops if the
+  // minimum-order threshold is no longer met).
+  const couponResult = couponCode ? applyVoucher(couponCode, subtotalUsd) : null
+  const appliedVoucher = couponResult && couponResult.valid ? couponResult.voucher : null
+  const discountUsd = couponResult && couponResult.valid ? couponResult.discountUsd : 0
   const totalUsd = Math.max(0, subtotalUsd + shippingUsd - discountUsd)
 
-  async function handleApplyCoupon() {
-    const code = couponInput.trim()
-    if (!code || couponLoading) return
-    setCouponLoading(true)
-    setCouponError(null)
-    try {
-      const res = await validateCouponApi({ code, subtotal: subtotalUsd, shipping: shippingUsd })
-      applyCoupon({ code: res.code, discountUsd: res.discountUsd, freeShipping: res.freeShipping })
-      setCouponInput('')
-    } catch (err) {
-      setCouponError(err instanceof Error ? err.message : t('errorTitle'))
-    } finally {
-      setCouponLoading(false)
+  function handleApplyCoupon() {
+    const res = applyVoucher(couponInput, subtotalUsd)
+    if (!res.valid) {
+      setCouponError(res.error)
+      setCouponCode(null)
+      return
     }
+    setCouponError(null)
+    setCouponCode(res.voucher.code)
+    setCouponInput(res.voucher.code)
   }
 
-  // Keep the applied coupon's discount in sync as the cart total changes.
-  useEffect(() => {
-    if (!coupon || subtotalUsd <= 0) return
-    let cancelled = false
-    validateCouponApi({ code: coupon.code, subtotal: subtotalUsd, shipping: shippingUsd })
-      .then((res) => {
-        if (cancelled) return
-        if (res.discountUsd !== coupon.discountUsd || res.freeShipping !== coupon.freeShipping) {
-          applyCoupon({ code: res.code, discountUsd: res.discountUsd, freeShipping: res.freeShipping })
-        }
-      })
-      .catch(() => {
-        if (!cancelled) clearCoupon()
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotalUsd, shippingUsd])
+  function handleRemoveCoupon() {
+    setCouponCode(null)
+    setCouponError(null)
+    setCouponInput('')
+  }
 
   if (placed) {
     return (
@@ -228,7 +207,7 @@ export function CartView() {
                 const alreadySaved = isSaved(product.id)
                 return (
                   <div
-                    key={item.productId}
+                    key={`${item.productId}::${item.variantId ?? ''}`}
                     className="flex gap-3 rounded-xl border border-border bg-card p-3"
                   >
                     <Link
@@ -262,7 +241,7 @@ export function CartView() {
                       <div className="mt-auto flex items-center justify-between pt-2">
                         <div className="flex items-center rounded-lg border border-border">
                           <button
-                            onClick={() => updateQty(item.productId, item.qty - 1)}
+                            onClick={() => updateQty(item.productId, item.qty - 1, item.variantId)}
                             className="grid size-8 place-items-center transition-colors hover:bg-accent disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             disabled={item.qty <= minQty}
                             aria-label={t('remove')}
@@ -273,7 +252,7 @@ export function CartView() {
                             {item.qty}
                           </span>
                           <button
-                            onClick={() => updateQty(item.productId, item.qty + 1)}
+                            onClick={() => updateQty(item.productId, item.qty + 1, item.variantId)}
                             className="grid size-8 place-items-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={t('addToCart')}
                           >
@@ -290,7 +269,7 @@ export function CartView() {
                             onClick={() => {
                               if (!alreadySaved) {
                                 saveItem(product.id, item.qty, product)
-                                removeItem(product.id)
+                                removeItem(product.id, item.variantId)
                               }
                             }}
                             disabled={alreadySaved}
@@ -305,7 +284,7 @@ export function CartView() {
                             )}
                           </button>
                           <button
-                            onClick={() => removeItem(item.productId)}
+                            onClick={() => removeItem(item.productId, item.variantId)}
                             className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={t('remove')}
                           >
@@ -436,11 +415,11 @@ export function CartView() {
                     )}
                   </dd>
                 </div>
-                {discountUsd > 0 && (
+                {appliedVoucher && discountUsd > 0 && (
                   <div className="flex justify-between">
-                    <dt className="text-success">
-                      {t('discount')}
-                      {coupon ? <span className="text-muted-foreground"> ({coupon.code})</span> : null}
+                    <dt className="flex items-center gap-1.5 text-success">
+                      <Ticket className="size-4" />
+                      {t('couponDiscount')} ({appliedVoucher.code})
                     </dt>
                     <dd className="font-semibold text-success">−{formatPrice(discountUsd)}</dd>
                   </div>
@@ -452,37 +431,45 @@ export function CartView() {
                 </div>
               </dl>
 
-              {/* Coupon */}
-              <div className="mt-3 border-t border-border pt-3">
-                {coupon ? (
-                  <div className="flex items-center justify-between gap-2 rounded-lg bg-success/10 px-3 py-2">
+              {savingsUsd > 0 && (
+                <p className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm font-semibold text-success">
+                  <TrendingDown className="size-4 shrink-0" />
+                  {t('save')} {formatPrice(savingsUsd)} {t('savedVsMarket')}
+                </p>
+              )}
+
+              {/* Coupon / discount code */}
+              <div className="mt-4 border-t border-border pt-4">
+                <label htmlFor="coupon" className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Ticket className="size-4 text-primary" />
+                  {t('couponTitle')}
+                </label>
+                {appliedVoucher ? (
+                  <div className="flex items-center justify-between rounded-lg bg-success/10 px-3 py-2">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
-                      <TicketPercent className="size-4" />
-                      {coupon.code}
+                      <Check className="size-4" />
+                      {t('couponApplied')}: {appliedVoucher.code}
                     </span>
                     <button
-                      type="button"
-                      onClick={clearCoupon}
-                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={handleRemoveCoupon}
+                      className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={t('couponRemove')}
                     >
                       <X className="size-3.5" />
                       {t('couponRemove')}
                     </button>
                   </div>
                 ) : (
-                  <div>
-                    <label
-                      htmlFor="coupon-code"
-                      className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-                    >
-                      <TicketPercent className="size-3.5" />
-                      {t('couponTitle')}
-                    </label>
+                  <>
                     <div className="flex gap-2">
                       <input
-                        id="coupon-code"
+                        id="coupon"
+                        type="text"
                         value={couponInput}
-                        onChange={(e) => setCouponInput(e.target.value)}
+                        onChange={(e) => {
+                          setCouponInput(e.target.value)
+                          if (couponError) setCouponError(null)
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault()
@@ -490,31 +477,24 @@ export function CartView() {
                           }
                         }}
                         placeholder={t('couponPlaceholder')}
-                        autoComplete="off"
                         className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <button
-                        type="button"
                         onClick={handleApplyCoupon}
-                        disabled={couponLoading || !couponInput.trim()}
-                        className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        disabled={couponInput.trim().length === 0}
+                        className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-100 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {couponLoading ? '…' : t('couponApply')}
+                        {t('couponApply')}
                       </button>
                     </div>
                     {couponError && (
-                      <p className="mt-1.5 text-xs text-destructive">{couponError}</p>
+                      <p className="mt-2 text-xs font-medium text-destructive">
+                        {couponError === 'min_order' ? t('couponMinNotMet') : t('couponInvalid')}
+                      </p>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
-
-              {savingsUsd > 0 && (
-                <p className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm font-semibold text-success">
-                  <TrendingDown className="size-4 shrink-0" />
-                  {t('save')} {formatPrice(savingsUsd)} {t('savedVsMarket')}
-                </p>
-              )}
 
               <button
                 onClick={() => router.push('/checkout')}

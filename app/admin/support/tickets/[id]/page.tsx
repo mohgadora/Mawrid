@@ -55,7 +55,8 @@ export default function TicketDetailPage() {
   async function reload() {
     const res = await fetch(`/api/v1/admin/tickets/${id}/detail`)
     if (!res.ok) throw new Error()
-    setDetail(await res.json())
+    const json = await res.json()
+    setDetail(json?.data ?? json)
   }
 
   useEffect(() => {

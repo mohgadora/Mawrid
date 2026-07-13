@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
+import { ok, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getTicketDetail } from '@/services/admin'
 
 type Params = { params: Promise<{ id: string }> }
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const { id } = await params
     return ok(await getTicketDetail(id))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

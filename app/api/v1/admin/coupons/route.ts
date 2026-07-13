@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, badRequest, serverError, requireAdmin } from '@/lib/api-helpers'
+import { ok, badRequest, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getAdminCoupons, createCoupon } from '@/services/admin'
 
 export async function GET(req: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     return ok(await getAdminCoupons())
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (!body.code || !body.type || body.value === undefined) return badRequest('code, type, value are required')
     return ok(await createCoupon(body, guard.id), 201)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

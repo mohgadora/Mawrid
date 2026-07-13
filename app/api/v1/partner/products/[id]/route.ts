@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requirePartner, apiError } from '@/lib/api-helpers'
+import { ok, requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/services/partner'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

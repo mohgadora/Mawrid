@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePartner, ok, badRequest, serverError } from '@/lib/api-helpers'
+import { requirePartner, ok, badRequest, apiError } from '@/lib/api-helpers'
 import { adjustPartnerStock } from '@/services/partner'
 import { writeAuditLog } from '@/lib/audit'
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const result = await adjustPartnerStock({ ...body, delta })
     await writeAuditLog({ userId: guard.id, action: 'stock_adjustment', entity: 'product', entityId: body.productId, meta: { delta: body.delta, reason: body.reason } })
     return ok(result)
-  } catch (err) { return serverError(err) }
+  } catch (err) { return apiError(err) }
 }
 
 export function OPTIONS() { return new Response(null, { status: 204 }) }

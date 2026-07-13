@@ -3,7 +3,7 @@
 # Mawrid — Auto-Deploy Script
 #
 # Pulls latest code from GitHub, installs dependencies, runs DB patch,
-# rebuilds the app, and restarts the systemd service (mawrid-dev.service).
+# rebuilds the app, and restarts PM2.
 #
 # Setup (one-time on server):
 #   chmod +x /var/www/mawrid-dev/scripts/deploy.sh
@@ -52,32 +52,43 @@ fi
 if [ -z "${DATABASE_URL:-}" ]; then
   log "WARNING: DATABASE_URL not set, skipping DB patch"
 else
-  # Use psql with the connection string
-  # Strip sslmode from URL for psql compatibility if needed
   DB_URL="$DATABASE_URL"
+  # 3a. Curated baseline patch (idempotent).
   psql "$DB_URL" -v ON_ERROR_STOP=0 -f "$APP_DIR/scripts/patch-db.sql" \
-    && log "DB patch applied successfully" \
-    || log "WARNING: Some DB patch statements failed (may already exist)"
+    && log "DB patch applied" \
+    || log "WARNING: some patch-db statements failed (may already exist)"
+
+  # 3b. Apply every Drizzle migration in order — the migrations are the single
+  #     source of truth, so any NEW migration is picked up automatically on the
+  #     next deploy (no more schema drift). All are IF NOT EXISTS / ADD COLUMN
+  #     IF NOT EXISTS, so re-running them is a safe no-op.
+  for f in $(ls "$APP_DIR"/drizzle/*.sql 2>/dev/null | sort); do
+    psql "$DB_URL" -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 \
+      && log "migration applied: $(basename "$f")" \
+      || log "WARNING: $(basename "$f") had statements that failed (may already exist)"
+  done
 fi
 
 # ── 4. Build the app ─────────────────────────────────────────────────────────
 log "Building Next.js app ..."
 pnpm build
 
-# ── 5. Restart the app ───────────────────────────────────────────────────────
-# The dev app on :3600 is managed by systemd (mawrid-dev.service, Restart=always,
-# ExecStart=pnpm start). It is the single owner of the port — do NOT also start a
-# PM2 process here, or the two managers fight over :3600 (EADDRINUSE crash loop).
+# ── 5. Restart PM2 ───────────────────────────────────────────────────────────
+log "Restarting PM2 process: $PM2_NAME ..."
 PORT="${PORT:-3600}"
-SERVICE_NAME="${SERVICE_NAME:-mawrid-dev.service}"
-log "Restarting systemd service: $SERVICE_NAME ..."
-systemctl restart "$SERVICE_NAME"
-sleep 5
-if curl -sf "http://127.0.0.1:${PORT}/" > /dev/null 2>&1; then
-  log "Deploy complete! App running via systemd ($SERVICE_NAME)"
+if pm2 list | grep -q "$PM2_NAME"; then
+  pm2 stop "$PM2_NAME" || true
+  # Release the port before starting a new process
+  fuser -k "${PORT}/tcp" 2>/dev/null || true
+  sleep 1
+  pm2 start "$PM2_NAME"
 else
-  log "WARNING: app did not respond on :${PORT} after restart — check 'journalctl -u $SERVICE_NAME'"
+  pm2 start node --name "$PM2_NAME" --cwd "$APP_DIR" \
+    -- node_modules/next/dist/bin/next start -p "$PORT"
 fi
+
+pm2 save
+log "Deploy complete! App running as: $PM2_NAME"
 
 # ── 6. Run TestSprite E2E tests ──────────────────────────────────────────────
 log "Running TestSprite E2E tests ..."

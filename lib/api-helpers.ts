@@ -1,4 +1,5 @@
 import { isValidationError, isNotFoundError, isUnauthorizedError } from '@/lib/errors'
+import { captureError } from '@/lib/observability'
 /**
  * lib/api-helpers.ts — Shared utilities for /api/v1 route handlers.
  * Supports both cookie-based (web) and Bearer token (mobile) authentication.
@@ -97,14 +98,15 @@ export function badRequest(message: string) {
  * تُسجَّل التفاصيل الكاملة في سجل الخادم فقط؛ العميل يرى رسالة عامة في الإنتاج.
  */
 export function serverError(err: unknown) {
-  console.error('[api]', err)
+  const eventId = captureError(err, { scope: 'api' })
   const message =
     process.env.NODE_ENV === 'production'
       ? 'Internal server error'
       : err instanceof Error
         ? err.message
         : 'Internal server error'
-  return NextResponse.json({ error: message }, { status: 500 })
+  // eventId يُمكّن ربط شكوى المستخدم بالسجلّ دون كشف التفاصيل.
+  return NextResponse.json({ error: message, eventId }, { status: 500 })
 }
 
 /**

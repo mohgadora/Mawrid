@@ -283,7 +283,7 @@ export function SiteHeader() {
   const { count } = useCart()
   const { openCart } = useMiniCart()
   const { count: wishlistCount } = useWishlist()
-  const { role } = useRole()
+  const { role, isLoggedIn, isPending: authPending } = useRole()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const roleMeta = ROLE_META[role] ?? ROLE_META.consumer
@@ -414,19 +414,24 @@ export function SiteHeader() {
               )}
             </Link>
 
-            <Link
-              href="/account"
-              className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent lg:flex"
-            >
-              <User className="size-4" />
-              {t('account')}
-            </Link>
-            <Link
-              href="/auth"
-              className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent md:flex"
-            >
-              {t('login')}
-            </Link>
+            {/* أثناء تحميل الجلسة لا نُظهر أي حالة حتى لا يومض زر الدخول للمسجّلين */}
+            {!authPending && (isLoggedIn ? (
+              <Link
+                href="/account"
+                className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent lg:flex"
+              >
+                <User className="size-4" />
+                {t('account')}
+              </Link>
+            ) : (
+              <Link
+                href="/auth"
+                className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent md:flex"
+              >
+                <User className="size-4" />
+                {t('login')}
+              </Link>
+            ))}
             <button
               onClick={openCart}
               className="relative flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -458,14 +463,25 @@ export function SiteHeader() {
       {mobileOpen && (
         <div className="border-b border-border bg-card lg:hidden">
           <div className="mx-auto max-w-7xl px-4 py-3">
-            <Link
-              href="/auth"
-              className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-accent"
-              onClick={() => setMobileOpen(false)}
-            >
-              <User className="size-4" />
-              {t('login')} / {t('signup')}
-            </Link>
+            {!authPending && (isLoggedIn ? (
+              <Link
+                href="/account"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-accent"
+                onClick={() => setMobileOpen(false)}
+              >
+                <User className="size-4" />
+                {t('account')}
+              </Link>
+            ) : (
+              <Link
+                href="/auth"
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-accent"
+                onClick={() => setMobileOpen(false)}
+              >
+                <User className="size-4" />
+                {t('login')} / {t('signup')}
+              </Link>
+            ))}
             <Link
               href="/partner/sign-up"
               className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-accent"

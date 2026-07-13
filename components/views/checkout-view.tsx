@@ -18,11 +18,8 @@ import {
   Plus,
   AlertCircle,
   RefreshCw,
-  User,
-  Mail,
-  Phone,
-  Home,
-  TicketPercent,
+  Ticket,
+  X,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import {
@@ -35,14 +32,14 @@ import { useRole } from '@/lib/role'
 import { useToast } from '@/lib/toast'
 import { SHIPPING } from '@/lib/config'
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money'
-import { fetchAddresses, createOrderApi, type Address } from '@/lib/api-client'
-import { authClient } from '@/lib/auth-client'
-import { useCoupon } from '@/lib/coupon'
+import { fetchAddresses, createOrderApi, validateCouponApi, fetchWallet, previewCashbackApi, type Address, type CouponValidation, type WalletSummary } from '@/lib/api-client'
 import { EmptyState } from '@/components/empty-state'
 import { ListSkeleton } from '@/components/skeletons'
 import { cn } from '@/lib/utils'
+import { authClient } from '@/lib/auth-client'
+import { GuestCheckout } from '@/components/views/guest-checkout'
 
-type PaymentMethod = 'cod' | 'card' | 'bank'
+type PaymentMethod = 'cod' | 'card' | 'bank' | 'wallet'
 
 const STEP_KEYS = ['stepAddress', 'stepDelivery', 'stepPayment'] as const
 
@@ -53,17 +50,16 @@ export function CheckoutView() {
   const toast = useToast()
   const router = useRouter()
 
-  const { data: session, isPending: sessionLoading } = authClient.useSession()
-  const isGuest = !sessionLoading && !session?.user
+  const { data: session, isPending: sessionPending } = authClient.useSession()
 
   const {
     data: addresses,
     error: addressError,
     isLoading: addressesLoading,
     mutate: reloadAddresses,
-  } = useSWR<Address[]>(isGuest ? null : 'addresses', fetchAddresses)
+  } = useSWR<Address[]>('addresses', fetchAddresses)
 
-  const { coupon, clearCoupon } = useCoupon()
+  const { data: wallet } = useSWR<WalletSummary>('wallet', fetchWallet)
 
   const [step, setStep] = useState(0)
   const [addressId, setAddressId] = useState<string | null>(null)
@@ -71,15 +67,10 @@ export function CheckoutView() {
   const [slot, setSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning')
   const [payment, setPayment] = useState<PaymentMethod>('cod')
   const [placing, setPlacing] = useState(false)
-  const [guestOrderRef, setGuestOrderRef] = useState<string | null>(null)
-  const [guest, setGuest] = useState({ name: '', email: '', phone: '', line1: '', city: '' })
-
-  const guestValid =
-    guest.name.trim().length > 0 &&
-    /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim()) &&
-    /^\+?[0-9]{7,20}$/.test(guest.phone.trim()) &&
-    guest.line1.trim().length > 0 &&
-    guest.city.trim().length > 0
+  const [couponInput, setCouponInput] = useState('')
+  const [coupon, setCoupon] = useState<CouponValidation | null>(null)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [applyingCoupon, setApplyingCoupon] = useState(false)
 
   const lines = useMemo(
     () =>
@@ -119,34 +110,25 @@ export function CheckoutView() {
     }
   }, [lines, role])
 
+  const couponDiscountUsd = coupon?.valid ? coupon.discountUsd : 0
+  const couponFreeShipping = coupon?.valid ? coupon.freeShipping : false
+  const effectiveShippingUsd = couponFreeShipping ? 0 : totals.shippingUsd
+  const grandTotalUsd = Math.max(
+    0,
+    fromCents(toCents(totals.subtotalUsd) + toCents(effectiveShippingUsd) - toCents(couponDiscountUsd)),
+  )
+  const walletInsufficient = payment === 'wallet' && (wallet?.balance ?? 0) < grandTotalUsd
+
+  const cartKey = lines.map(({ item }) => `${item.productId}:${item.qty}`).join(',')
+  const { data: cashback } = useSWR(
+    cartKey ? `cashback:${cartKey}` : null,
+    () => previewCashbackApi(lines.map(({ item }) => ({ productId: item.productId, qty: item.qty }))),
+  )
+
   const selectedAddress = useMemo(() => {
     if (!addresses?.length) return null
     return addresses.find((a) => a.id === addressId) ?? addresses.find((a) => a.isDefault) ?? addresses[0]
   }, [addresses, addressId])
-
-  const discountUsd = coupon
-    ? coupon.freeShipping
-      ? totals.shippingUsd
-      : Math.min(coupon.discountUsd, totals.subtotalUsd)
-    : 0
-  const grandTotalUsd = Math.max(0, totals.subtotalUsd + totals.shippingUsd - discountUsd)
-
-  // Unified address for the review step + order payload (guest form or saved).
-  const displayAddress = isGuest
-    ? {
-        label: guest.name.trim() || t('guestName'),
-        line1: guest.line1.trim(),
-        city: guest.city.trim(),
-        phone: guest.phone.trim(),
-      }
-    : selectedAddress
-      ? {
-          label: selectedAddress.label,
-          line1: selectedAddress.line1,
-          city: selectedAddress.city,
-          phone: selectedAddress.phone ?? '',
-        }
-      : null
 
   const slotLabels = {
     morning: t('morning'),
@@ -154,25 +136,9 @@ export function CheckoutView() {
     evening: t('evening'),
   }
 
-  if (guestOrderRef) {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-20 text-center">
-        <span className="grid size-16 place-items-center rounded-full bg-success/15 text-success">
-          <Check className="size-8" />
-        </span>
-        <h1 className="text-2xl font-bold text-foreground">{t('guestOrderPlacedTitle')}</h1>
-        <p className="text-sm text-muted-foreground text-pretty">{t('guestOrderPlacedDesc')}</p>
-        <p className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-foreground">
-          {t('guestOrderRef')}: <span dir="ltr" className="font-mono">{guestOrderRef}</span>
-        </p>
-        <Link
-          href="/"
-          className="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground"
-        >
-          {t('continueShopping')}
-        </Link>
-      </div>
-    )
+  // زوّار بلا حساب → مسار الشراء كضيف (لا يمسّ تدفّق المسجّلين)
+  if (!sessionPending && !session?.user) {
+    return <GuestCheckout />
   }
 
   if (items.length > 0 && lines.length === 0 && !placing) {
@@ -207,8 +173,41 @@ export function CheckoutView() {
     )
   }
 
+  async function applyCouponCode() {
+    const code = couponInput.trim()
+    if (!code || applyingCoupon) return
+    setApplyingCoupon(true)
+    setCouponError(null)
+    try {
+      const items = lines.map(({ item }) => ({
+        productId: item.productId,
+        qty: item.qty,
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+      }))
+      const res = await validateCouponApi({ code, items })
+      if (res.valid) {
+        setCoupon(res)
+        setCouponError(null)
+      } else {
+        setCoupon(null)
+        setCouponError(res.message)
+      }
+    } catch (err) {
+      setCoupon(null)
+      setCouponError(err instanceof Error ? err.message : t('errorTitle'))
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
+  function removeCoupon() {
+    setCoupon(null)
+    setCouponInput('')
+    setCouponError(null)
+  }
+
   async function placeOrder() {
-    if (isGuest ? !guestValid : !displayAddress) return
+    if (!selectedAddress) return
     setPlacing(true)
     const orderLines = lines.map(({ item }) => ({
       productId: item.productId,
@@ -219,23 +218,15 @@ export function CheckoutView() {
       const order = await createOrderApi({
         lines: orderLines,
         address: {
-          label: displayAddress!.label,
-          line1: displayAddress!.line1,
-          city: displayAddress!.city,
-          phone: displayAddress!.phone,
+          label: selectedAddress.label,
+          line1: selectedAddress.line1,
+          city: selectedAddress.city,
+          phone: selectedAddress.phone ?? '',
         },
         paymentMethod: payment,
-        ...(coupon ? { couponCode: coupon.code } : {}),
-        ...(isGuest
-          ? { guest: { name: guest.name.trim(), email: guest.email.trim(), phone: guest.phone.trim() } }
-          : {}),
+        ...(coupon?.valid ? { couponCode: coupon.code } : {}),
       })
       clear()
-      clearCoupon()
-      if (isGuest) {
-        setGuestOrderRef(order.ref)
-        return
-      }
       toast.success(t('toastOrderPlaced'))
       router.push(`/orders/${order.id}`)
     } catch (err) {
@@ -245,8 +236,7 @@ export function CheckoutView() {
     }
   }
 
-  const canContinue =
-    step === 0 ? (isGuest ? guestValid : Boolean(selectedAddress) && !addressesLoading) : true
+  const canContinue = step === 0 ? Boolean(selectedAddress) && !addressesLoading : true
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -290,92 +280,7 @@ export function CheckoutView() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          {step === 0 && (sessionLoading ? (
-            <section className="rounded-2xl border border-border bg-card p-4">
-              <ListSkeleton count={3} />
-            </section>
-          ) : isGuest ? (
-            <section className="rounded-2xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
-                  <MapPin className="size-5 text-primary" />
-                  {t('guestInfoTitle')}
-                </h2>
-                <Link href="/sign-in" className="text-xs font-medium text-primary hover:underline">
-                  {t('signInToContinue')}
-                </Link>
-              </div>
-              <div className="flex flex-col gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <User className="size-3.5" />
-                    {t('guestName')}
-                  </span>
-                  <input
-                    value={guest.name}
-                    onChange={(e) => setGuest((g) => ({ ...g, name: e.target.value }))}
-                    autoComplete="name"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <Mail className="size-3.5" />
-                      {t('guestEmail')}
-                    </span>
-                    <input
-                      type="email"
-                      dir="ltr"
-                      value={guest.email}
-                      onChange={(e) => setGuest((g) => ({ ...g, email: e.target.value }))}
-                      autoComplete="email"
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <Phone className="size-3.5" />
-                      {t('guestPhone')}
-                    </span>
-                    <input
-                      type="tel"
-                      dir="ltr"
-                      value={guest.phone}
-                      onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))}
-                      autoComplete="tel"
-                      placeholder="+9665XXXXXXXX"
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  </label>
-                </div>
-                <label className="flex flex-col gap-1">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <Home className="size-3.5" />
-                    {t('guestAddressLine')}
-                  </span>
-                  <input
-                    value={guest.line1}
-                    onChange={(e) => setGuest((g) => ({ ...g, line1: e.target.value }))}
-                    autoComplete="street-address"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <MapPin className="size-3.5" />
-                    {t('guestCity')}
-                  </span>
-                  <input
-                    value={guest.city}
-                    onChange={(e) => setGuest((g) => ({ ...g, city: e.target.value }))}
-                    autoComplete="address-level2"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </label>
-              </div>
-            </section>
-          ) : (
+          {step === 0 && (
             <section className="rounded-2xl border border-border bg-card p-4">
               <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
                 <MapPin className="size-5 text-primary" />
@@ -451,7 +356,7 @@ export function CheckoutView() {
                 {t('addNewAddress')}
               </Link>
             </section>
-          ))}
+          )}
 
           {step === 1 && (
             <section className="rounded-2xl border border-border bg-card p-4">
@@ -536,10 +441,43 @@ export function CheckoutView() {
                       </span>
                     </button>
                   ))}
+                  {/* Wallet */}
+                  <button
+                    type="button"
+                    onClick={() => setPayment('wallet')}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border p-3 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      payment === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-accent',
+                    )}
+                  >
+                    <Wallet className="size-5 text-primary" />
+                    <span className="flex-1 font-medium text-foreground">
+                      {lang === 'ar' ? 'الدفع من المحفظة' : 'Pay from wallet'}
+                      <span className="ms-2 text-xs text-muted-foreground">
+                        ({lang === 'ar' ? 'الرصيد' : 'balance'}: {formatPrice(wallet?.balance ?? 0)})
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'grid size-5 place-items-center rounded-full border-2',
+                        payment === 'wallet' ? 'border-primary' : 'border-muted-foreground/40',
+                      )}
+                    >
+                      {payment === 'wallet' && <span className="size-2.5 rounded-full bg-primary" />}
+                    </span>
+                  </button>
                 </div>
                 {payment === 'bank' && (
                   <p className="mt-3 rounded-lg bg-accent/60 px-3 py-2 text-xs text-accent-foreground">
                     {t('bankNote')}
+                  </p>
+                )}
+                {payment === 'wallet' && walletInsufficient && (
+                  <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    {lang === 'ar'
+                      ? `الرصيد غير كافٍ. المطلوب ${formatPrice(grandTotalUsd)} والرصيد ${formatPrice(wallet?.balance ?? 0)}.`
+                      : `Insufficient balance. Need ${formatPrice(grandTotalUsd)}, have ${formatPrice(wallet?.balance ?? 0)}.`}
                   </p>
                 )}
               </section>
@@ -549,12 +487,9 @@ export function CheckoutView() {
                 <div className="mb-3 flex flex-col gap-1 rounded-xl bg-accent/40 p-3 text-sm">
                   <span className="flex items-center gap-1.5 font-semibold text-foreground">
                     <MapPin className="size-4 text-primary" />
-                    {displayAddress?.label}
+                    {selectedAddress?.label}
                   </span>
-                  <span className="text-muted-foreground">
-                    {displayAddress?.line1}
-                    {displayAddress?.city ? `، ${displayAddress.city}` : ''}
-                  </span>
+                  <span className="text-muted-foreground">{selectedAddress?.line1}</span>
                   <span className="flex items-center gap-1.5 pt-1 font-semibold text-foreground">
                     <Truck className="size-4 text-primary" />
                     {t(day)}، {slotLabels[slot]}
@@ -608,7 +543,7 @@ export function CheckoutView() {
             ) : (
               <button
                 type="button"
-                disabled={placing || (isGuest ? !guestValid : !selectedAddress)}
+                disabled={placing || !selectedAddress || walletInsufficient}
                 onClick={placeOrder}
                 className="ms-auto flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.01] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
@@ -622,37 +557,96 @@ export function CheckoutView() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="mb-3 text-base font-bold text-foreground">{t('orderSummary')}</h2>
+
+            {/* Coupon */}
+            <div className="mb-3">
+              {coupon?.valid ? (
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-success/40 bg-success/10 px-3 py-2">
+                  <span className="flex items-center gap-2 text-sm font-bold text-success">
+                    <Ticket className="size-4 shrink-0" />
+                    <span dir="ltr">{coupon.code}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="grid size-6 place-items-center rounded-full text-success/70 transition-colors hover:bg-success/20 hover:text-success"
+                    aria-label={lang === 'ar' ? 'إزالة الكوبون' : 'Remove coupon'}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        applyCouponCode()
+                      }
+                    }}
+                    placeholder={lang === 'ar' ? 'كود الكوبون' : 'Coupon code'}
+                    className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium uppercase text-foreground placeholder:normal-case placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    dir="ltr"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCouponCode}
+                    disabled={!couponInput.trim() || applyingCoupon}
+                    className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {applyingCoupon ? t('loading') : lang === 'ar' ? 'تطبيق' : 'Apply'}
+                  </button>
+                </div>
+              )}
+              {couponError && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  {couponError}
+                </p>
+              )}
+            </div>
+
             <dl className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t('subtotal')}</dt>
                 <dd className="font-semibold text-foreground">{formatPrice(totals.subtotalUsd)}</dd>
               </div>
+              {couponDiscountUsd > 0 && (
+                <div className="flex justify-between">
+                  <dt className="flex items-center gap-1.5 text-success">
+                    <Ticket className="size-3.5" />
+                    {lang === 'ar' ? 'خصم الكوبون' : 'Coupon discount'}
+                  </dt>
+                  <dd className="font-semibold text-success">− {formatPrice(couponDiscountUsd)}</dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">{t('shipping')}</dt>
                 <dd className="font-semibold text-foreground">
-                  {totals.shippingUsd === 0 ? (
+                  {effectiveShippingUsd === 0 ? (
                     <span className="text-success">{t('freeShipping')}</span>
                   ) : (
-                    formatPrice(totals.shippingUsd)
+                    formatPrice(effectiveShippingUsd)
                   )}
                 </dd>
               </div>
-              {discountUsd > 0 && (
-                <div className="flex justify-between">
-                  <dt className="flex items-center gap-1 text-success">
-                    <TicketPercent className="size-3.5" />
-                    {t('discount')}
-                    {coupon ? <span className="text-muted-foreground"> ({coupon.code})</span> : null}
-                  </dt>
-                  <dd className="font-semibold text-success">−{formatPrice(discountUsd)}</dd>
-                </div>
-              )}
               <div className="my-1 border-t border-border" />
               <div className="flex items-center justify-between">
                 <dt className="font-bold text-foreground">{t('total')}</dt>
                 <dd className="text-xl font-black text-primary">{formatPrice(grandTotalUsd)}</dd>
               </div>
             </dl>
+            {cashback && cashback.cashbackUsd > 0 && (
+              <p className="mt-3 flex items-center gap-2 rounded-lg bg-chart-3/10 px-3 py-2 text-sm font-semibold text-chart-3">
+                <Wallet className="size-4 shrink-0" />
+                {lang === 'ar'
+                  ? `ستربح استرجاعاً ${formatPrice(cashback.cashbackUsd)} في محفظتك`
+                  : `You'll earn ${formatPrice(cashback.cashbackUsd)} cashback to your wallet`}
+              </p>
+            )}
             <p className="mt-3 text-xs text-muted-foreground">
               {lang === 'ar'
                 ? 'السعر النهائي يُحسب من الخادم عند تأكيد الطلب.'

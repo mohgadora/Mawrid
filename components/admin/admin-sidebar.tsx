@@ -10,7 +10,7 @@ import {
   Key, ScrollText, Wifi, Bell, Activity, FileText, UserCircle,
   Layers, ToggleLeft, Image, Smartphone, RefreshCw, BookOpen,
   HelpCircle, Megaphone, PieChart, ShieldCheck, X, Package,
-  BarChart2, CreditCard,
+  BarChart2, CreditCard, Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authClient } from '@/lib/auth-client'
@@ -77,6 +77,9 @@ const NAV: Section[] = [
     items: [
       { labelKey: 'adminSegments', href: '/admin/segments', icon: PieChart },
       { labelKey: 'adminCampaigns', href: '/admin/campaigns', icon: Megaphone },
+      { labelKey: 'adminAds', href: '/admin/ads', icon: Image },
+      { labelKey: 'adminDeals', href: '/admin/deals', icon: Megaphone },
+      { labelKey: 'adminClearance', href: '/admin/clearance', icon: Tag },
       { labelKey: 'adminLoyalty', href: '/admin/loyalty', icon: Star },
       { labelKey: 'adminReferrals', href: '/admin/referrals', icon: Gift },
     ],
@@ -94,6 +97,8 @@ const NAV: Section[] = [
     titleKey: 'adminReports',
     items: [
       { labelKey: 'adminReports', href: '/admin/reports', icon: BarChart2 },
+      { labelKey: 'adminSeo', href: '/admin/seo', icon: Globe },
+      { labelKey: 'adminBlog', href: '/admin/blog', icon: BookOpen },
     ],
   },
   {
@@ -123,6 +128,7 @@ const NAV: Section[] = [
   {
     titleKey: 'adminContent',
     items: [
+      { labelKey: 'adminEmailTemplates', href: '/admin/email-templates', icon: FileText },
       { labelKey: 'adminPages', href: '/admin/content/pages', icon: BookOpen },
       { labelKey: 'adminFaq', href: '/admin/content/faq', icon: HelpCircle },
       { labelKey: 'adminAnnouncements', href: '/admin/content/announcements', icon: Bell },
@@ -152,6 +158,10 @@ const NAV: Section[] = [
       { labelKey: 'adminSettings', href: '/admin/settings', icon: ToggleLeft },
       { labelKey: 'adminCommission', href: '/admin/finance/commissions', icon: PieChart },
       { labelKey: 'adminCoupons', href: '/admin/coupons', icon: Gift },
+      { labelKey: 'adminWallets', href: '/admin/wallets', icon: Wallet },
+      { labelKey: 'adminWalletBonuses', href: '/admin/wallet-bonuses', icon: Gift },
+      { labelKey: 'adminCashback', href: '/admin/cashback', icon: DollarSign },
+      { labelKey: 'adminSubscriptions', href: '/admin/subscription-plans', icon: Star },
       { labelKey: 'adminRefunds', href: '/admin/refunds', icon: AlertTriangle },
     ],
   },

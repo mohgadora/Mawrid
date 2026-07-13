@@ -1,4 +1,4 @@
-import { getApiUser, ok, unauthorized, serverError } from '@/lib/api-helpers'
+import { getApiUser, ok, unauthorized, apiError } from '@/lib/api-helpers'
 import { getOrCreateReferralCode, getReferralsByUser } from '@/services/referrals'
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
 
     return ok({ code: codeRow.code, usageCount: codeRow.usageCount, referrals })
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

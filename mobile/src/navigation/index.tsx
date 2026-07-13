@@ -108,9 +108,32 @@ function AuthStack() {
   )
 }
 
+// Web deep-linking: map URL paths to screens so direct URLs (e.g. /ProductDetail) resolve.
+const linking: any = {
+  prefixes: [],
+  config: {
+    screens: {
+      Main: {
+        screens: {
+          Home: 'Home',
+          Products: 'Products',
+          Cart: 'Cart',
+          Orders: 'Orders',
+          Profile: 'Profile',
+        },
+      },
+      ProductDetail: 'ProductDetail/:productId?',
+      Checkout: 'Checkout',
+      OrderDetail: 'OrderDetail/:orderId?',
+      Auth: 'Auth',
+      Search: 'Search',
+    },
+  },
+}
+
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ presentation: 'card' }} />

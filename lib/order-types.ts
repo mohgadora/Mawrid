@@ -42,9 +42,6 @@ export type OrderAddress = {
   line1: string
   city: string
   phone: string
-  /** Present only on guest orders. */
-  name?: string
-  email?: string
 }
 
 export type Order = {
@@ -57,12 +54,12 @@ export type Order = {
   subtotalUsd: number
   shippingUsd: number
   savingsUsd: number
-  discountUsd: number
   totalUsd: number
   totalCents: number
   address: OrderAddress
   addressLabel: string
   deliverySlotAr: string
   deliverySlotEn: string
-  paymentMethod: 'cod' | 'card' | 'bank'
+  paymentMethod: 'cod' | 'card' | 'bank' | 'wallet'
+  paymentStatus: 'unpaid' | 'paid' | 'refunded'
 }

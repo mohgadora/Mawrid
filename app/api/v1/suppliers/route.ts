@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { ok, serverError } from '@/lib/api-helpers'
+import { ok, apiError } from '@/lib/api-helpers'
 import { getSuppliers, getSupplierWithProducts } from '@/services/catalog'
 
 export async function GET(req: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const data = slug ? await getSupplierWithProducts(slug) : await getSuppliers()
     return ok(data)
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

@@ -29,6 +29,7 @@ import { eq, desc, and, inArray, asc, sum, count, max } from 'drizzle-orm'
 import { getSystemSettings } from '@/lib/settings'
 import { resolveActor, type Actor } from '@/lib/actor'
 import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors'
+import { notifyRestocked } from '@/services/restock'
 
 const clip = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n)
 
@@ -337,6 +338,11 @@ export async function updatePartnerProduct(id: string, data: PartnerProductInput
     }
   }
 
+  // إشعار المنتظرين إذا عاد المنتج للمخزون — لا يُسقط التحديث عند الفشل
+  if (data.stock !== undefined && row.stock > 0) {
+    await notifyRestocked(id).catch((err) => console.error('[restock] notify failed:', err))
+  }
+
   return row
 }
 
@@ -559,6 +565,13 @@ export async function getPartnerEarnings(actor?: Actor) {
     .from(sellerEarning)
     .where(and(eq(sellerEarning.supplierId, sup.id), eq(sellerEarning.status, 'settled')))
 
+  // الرصيد المتاح يجب أن يحجز أيضاً طلبات السحب المعلّقة/المعتمدة، لا المكتملة فقط،
+  // وإلا أمكن للمورد تقديم عدة طلبات سحب معلّقة يتجاوز مجموعها رصيده.
+  const [reservedAgg] = await db
+    .select({ reserved: sum(payoutTable.amount) })
+    .from(payoutTable)
+    .where(and(eq(payoutTable.supplierId, sup.id), inArray(payoutTable.status, ['pending', 'approved', 'completed'])))
+
   const [payoutsAgg] = await db
     .select({ paid: sum(payoutTable.amount) })
     .from(payoutTable)
@@ -566,7 +579,8 @@ export async function getPartnerEarnings(actor?: Actor) {
 
   const totalNet    = Number(earningsAgg?.totalNet ?? 0)
   const totalPaid   = Number(payoutsAgg?.paid ?? 0)
-  const available   = Math.max(0, totalNet - totalPaid)
+  const totalReserved = Number(reservedAgg?.reserved ?? 0)
+  const available   = Math.max(0, totalNet - totalReserved)
 
   const recentEarnings = await db
     .select()
@@ -628,12 +642,13 @@ export async function requestWithdrawal(
       .from(sellerEarning)
       .where(eq(sellerEarning.supplierId, sup.id))
 
-    const [paidAgg] = await tx
-      .select({ paid: sum(payoutTable.amount) })
+    // احجز المكتملة والمعلّقة والمعتمدة معاً حتى لا يتجاوز مجموع الطلبات الرصيد.
+    const [reservedAgg] = await tx
+      .select({ reserved: sum(payoutTable.amount) })
       .from(payoutTable)
-      .where(and(eq(payoutTable.supplierId, sup.id), eq(payoutTable.status, 'completed')))
+      .where(and(eq(payoutTable.supplierId, sup.id), inArray(payoutTable.status, ['pending', 'approved', 'completed'])))
 
-    const available = Math.max(0, Number(netAgg?.totalNet ?? 0) - Number(paidAgg?.paid ?? 0))
+    const available = Math.max(0, Number(netAgg?.totalNet ?? 0) - Number(reservedAgg?.reserved ?? 0))
     if (data.amount > available) {
       throw new ValidationError(`الرصيد المتاح (${available.toFixed(2)}) أقل من المبلغ المطلوب`)
     }
@@ -836,6 +851,9 @@ export async function adjustPartnerStock(
     type: 'manual', delta: data.delta, stockAfter: newStock,
     reason: clip(data.reason, 200), createdBy: actorId, createdAt: new Date(),
   })
+  if (newStock > 0 && prod.stock <= 0) {
+    await notifyRestocked(data.productId).catch((err) => console.error('[restock] notify failed:', err))
+  }
   return { stock: newStock }
 }
 

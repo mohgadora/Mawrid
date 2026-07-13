@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { ok, serverError, requirePartner } from '@/lib/api-helpers'
+import { ok, requirePartner, apiError } from '@/lib/api-helpers'
 import { getPartnerDashboard } from '@/services/partner'
 
 export async function GET() {
@@ -8,7 +8,7 @@ export async function GET() {
   try {
     return ok(await getPartnerDashboard(guard))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 

@@ -6,28 +6,40 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native'
 import { colors, spacing, radius, typography, shadow } from '../theme'
 import { useStore } from '../store'
 import { Button, StatusBadge } from '../components/common'
-import { getProduct } from '../api'
+import { getProduct, getProducts } from '../api'
 import { t } from '../i18n'
 import { formatPrice } from '../utils/format'
 
 export default function ProductDetailScreen({ navigation, route }: { navigation: any; route: any }) {
-  const { productId } = route.params
+  const productId = route.params?.productId
   const { lang, currency, addToCart } = useStore()
   const isRTL = lang === 'ar'
   const [product, setProduct] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [qty, setQty] = useState(1)
+  const [added, setAdded] = useState(false)
 
   useEffect(() => {
-    getProduct(productId)
-      .then(setProduct)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    let active = true
+    async function load() {
+      try {
+        let p = productId ? await getProduct(productId) : null
+        // Opened as a direct page (no id) or not found — fall back to the catalog.
+        if (!p) {
+          const all = await getProducts()
+          p = (productId && all.find((x: any) => x.id === productId)) || all[0] || null
+        }
+        if (active) setProduct(p)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => { active = false }
   }, [productId])
 
   if (loading) {
@@ -62,7 +74,13 @@ export default function ProductDetailScreen({ navigation, route }: { navigation:
       unit: product.unit ?? (lang === 'ar' ? 'قطعة' : 'unit'),
       quantity: qty,
     })
-    Alert.alert('', lang === 'ar' ? 'تمت الإضافة إلى السلة ✓' : 'Added to cart ✓')
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
+
+  function handleBuyNow() {
+    handleAddToCart()
+    navigation.navigate('Main', { screen: 'Cart' })
   }
 
   return (
@@ -112,8 +130,8 @@ export default function ProductDetailScreen({ navigation, route }: { navigation:
             </View>
           )}
 
-          {/* Qty picker */}
-          {inStock && (
+          {/* Qty picker (always shown so shoppers can choose quantity) */}
+          {(
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.lg }}>
               <Text style={{ fontFamily: typography.fontFamily.medium, color: colors.textSecondary }}>{t('quantity')}:</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 4 }}>
@@ -144,13 +162,18 @@ export default function ProductDetailScreen({ navigation, route }: { navigation:
         </View>
       </ScrollView>
 
-      {/* Bottom Action Bar */}
-      {inStock && (
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.card, borderTopWidth: 1, borderColor: colors.border, padding: spacing.md, paddingBottom: 30, flexDirection: isRTL ? 'row-reverse' : 'row', gap: spacing.sm }}>
-          <Button label={t('addToCart')} onPress={handleAddToCart} variant="outline" style={{ flex: 1 }} fullWidth={false} />
-          <Button label={t('buyNow')} onPress={() => { handleAddToCart(); navigation.navigate('Cart') }} style={{ flex: 1 }} fullWidth={false} />
+      {/* Bottom Action Bar (always visible) */}
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.card, borderTopWidth: 1, borderColor: colors.border, padding: spacing.md, paddingBottom: 30, gap: spacing.sm }}>
+        {added && (
+          <Text style={{ color: colors.success, fontFamily: typography.fontFamily.semiBold, fontSize: typography.size.sm, textAlign: 'center', marginBottom: spacing.sm }}>
+            {lang === 'ar' ? 'تمت الإضافة إلى السلة ✓' : 'Added to cart ✓'}
+          </Text>
+        )}
+        <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', gap: spacing.sm }}>
+          <Button label={t('addToCart')} onPress={handleAddToCart} variant="outline" style={{ flex: 1 }} fullWidth={false} disabled={!inStock} />
+          <Button label={t('buyNow')} onPress={handleBuyNow} style={{ flex: 1 }} fullWidth={false} disabled={!inStock} />
         </View>
-      )}
+      </View>
     </View>
   )
 }

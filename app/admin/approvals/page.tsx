@@ -43,7 +43,8 @@ export default function ApprovalsPage() {
   async function productAction(id: string, action: 'approve' | 'reject') {
     setActing(id)
     try {
-      await fetch(`/api/v1/admin/products/${id}/${action}`, { method: 'POST' })
+      const res = await fetch(`/api/v1/admin/products/${id}/${action}`, { method: 'POST' })
+      if (!res.ok) throw new Error(await res.text())
       await mutatePending()
       success(t('toastApprovalUpdated'))
     } catch {
@@ -82,7 +83,7 @@ export default function ApprovalsPage() {
   }
 
   function toggleSelect(id: string) {
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
 
   const TABS: { key: ApprovalCategory | 'all'; labelKey: string }[] = [

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ok, serverError, requireAdmin } from '@/lib/api-helpers'
+import { ok, requireAdmin, apiError } from '@/lib/api-helpers'
 import { getRevenueSummary, type Period } from '@/services/analytics'
 
 export async function GET(req: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const safePeriod: Period = validPeriods.includes(period) ? period : '30d'
     return ok(await getRevenueSummary(safePeriod))
   } catch (err) {
-    return serverError(err)
+    return apiError(err)
   }
 }
 
