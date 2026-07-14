@@ -42,12 +42,20 @@ type AppStore = {
 
   // Cart
   cart: CartItem[]
+  setCart: (cart: CartItem[]) => void
   addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, qty: number) => void
   clearCart: () => void
   cartTotal: () => number
   cartCount: () => number
+}
+
+const CART_KEY = 'app_cart'
+
+/** Persist the cart so it survives a page reload / app restart (like auth + currency). */
+function persistCart(cart: CartItem[]) {
+  AsyncStorage.setItem(CART_KEY, JSON.stringify(cart)).catch(() => {})
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -67,6 +75,7 @@ export const useStore = create<AppStore>((set, get) => ({
     set({ user: null, token: null, isAuthenticated: false, cart: [] })
     AsyncStorage.removeItem('auth_token')
     AsyncStorage.removeItem('auth_user')
+    AsyncStorage.removeItem(CART_KEY)
   },
 
   lang: 'ar',
@@ -83,24 +92,26 @@ export const useStore = create<AppStore>((set, get) => ({
 
   cart: [],
 
+  setCart: (cart) => set({ cart }),
+
   addToCart: (item) => {
     const { cart } = get()
     const existing = cart.find((c) => c.productId === item.productId)
-    if (existing) {
-      set({
-        cart: cart.map((c) =>
+    const next = existing
+      ? cart.map((c) =>
           c.productId === item.productId
             ? { ...c, quantity: c.quantity + (item.quantity ?? 1) }
             : c
-        ),
-      })
-    } else {
-      set({ cart: [...cart, { ...item, quantity: item.quantity ?? 1 }] })
-    }
+        )
+      : [...cart, { ...item, quantity: item.quantity ?? 1 }]
+    set({ cart: next })
+    persistCart(next)
   },
 
   removeFromCart: (productId) => {
-    set({ cart: get().cart.filter((c) => c.productId !== productId) })
+    const next = get().cart.filter((c) => c.productId !== productId)
+    set({ cart: next })
+    persistCart(next)
   },
 
   updateQuantity: (productId, qty) => {
@@ -108,14 +119,17 @@ export const useStore = create<AppStore>((set, get) => ({
       get().removeFromCart(productId)
       return
     }
-    set({
-      cart: get().cart.map((c) =>
-        c.productId === productId ? { ...c, quantity: qty } : c
-      ),
-    })
+    const next = get().cart.map((c) =>
+      c.productId === productId ? { ...c, quantity: qty } : c
+    )
+    set({ cart: next })
+    persistCart(next)
   },
 
-  clearCart: () => set({ cart: [] }),
+  clearCart: () => {
+    set({ cart: [] })
+    persistCart([])
+  },
 
   cartTotal: () =>
     get().cart.reduce((sum, item) => sum + item.price * item.quantity, 0),

@@ -74,8 +74,14 @@ export default function ProductDetailScreen({ navigation, route }: { navigation:
       unit: product.unit ?? (lang === 'ar' ? 'قطعة' : 'unit'),
       quantity: qty,
     })
+    // Keep the confirmation visible until the shopper changes the quantity again
+    // (a 2s flash was easy to miss and prompted repeat taps that over-counted).
     setAdded(true)
-    setTimeout(() => setAdded(false), 2000)
+  }
+
+  function setQtyAndResetAdded(next: number) {
+    setQty(next)
+    setAdded(false)
   }
 
   function handleBuyNow() {
@@ -135,11 +141,11 @@ export default function ProductDetailScreen({ navigation, route }: { navigation:
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.lg }}>
               <Text style={{ fontFamily: typography.fontFamily.medium, color: colors.textSecondary }}>{t('quantity')}:</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 4 }}>
-                <TouchableOpacity onPress={() => setQty(Math.max(1, qty - 1))} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <TouchableOpacity onPress={() => setQtyAndResetAdded(Math.max(1, qty - 1))} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontSize: 20, color: colors.primary, fontFamily: typography.fontFamily.bold }}>−</Text>
                 </TouchableOpacity>
                 <Text style={{ fontFamily: typography.fontFamily.bold, fontSize: typography.size.md, color: colors.text, minWidth: 30, textAlign: 'center' }}>{qty}</Text>
-                <TouchableOpacity onPress={() => setQty(qty + 1)} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <TouchableOpacity onPress={() => setQtyAndResetAdded(qty + 1)} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontSize: 20, color: colors.primary, fontFamily: typography.fontFamily.bold }}>+</Text>
                 </TouchableOpacity>
               </View>

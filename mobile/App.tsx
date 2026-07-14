@@ -17,23 +17,28 @@ const queryClient = new QueryClient({
 })
 
 function AppContent() {
-  const { setUser, setLang, setCurrency } = useStore()
+  const { setUser, setLang, setCurrency, setCart } = useStore()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     async function restore() {
       try {
-        const [token, userJson, lang, currency] = await Promise.all([
+        const [token, userJson, lang, currency, cartJson] = await Promise.all([
           AsyncStorage.getItem('auth_token'),
           AsyncStorage.getItem('auth_user'),
           AsyncStorage.getItem('app_lang'),
           AsyncStorage.getItem('app_currency'),
+          AsyncStorage.getItem('app_cart'),
         ])
         if (token && userJson) setUser(JSON.parse(userJson), token)
         const resolvedLang = (lang as 'ar' | 'en' | null) ?? 'ar'
         setLang(resolvedLang)
         setLocale(resolvedLang)
         if (currency) setCurrency(currency as any)
+        if (cartJson) {
+          const saved = JSON.parse(cartJson)
+          if (Array.isArray(saved)) setCart(saved)
+        }
         if (resolvedLang === 'ar' && !I18nManager.isRTL) I18nManager.forceRTL(true)
       } catch {
         // ignore restore errors
