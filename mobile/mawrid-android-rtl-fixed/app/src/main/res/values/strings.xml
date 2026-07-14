@@ -1,0 +1,117 @@
+<resources>
+    <string name="app_name">Mawrid</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_categories">Categories</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_cart">Cart</string>
+    <string name="nav_account">Account</string>
+
+    <!-- Common actions -->
+    <string name="retry">Retry</string>
+    <string name="back">Back</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="delete">Delete</string>
+    <string name="send">Send</string>
+    <string name="search">Search</string>
+    <string name="filter">Filter</string>
+    <string name="apply">Apply</string>
+    <string name="share">Share</string>
+    <string name="copy">Copy</string>
+    <string name="refresh">Refresh</string>
+    <string name="done">Done</string>
+    <string name="loading">Loading…</string>
+    <string name="error_occurred">An error occurred</string>
+
+    <!-- Empty states -->
+    <string name="empty_products">No products</string>
+    <string name="empty_cart">Your cart is empty</string>
+    <string name="empty_orders">No orders yet</string>
+    <string name="empty_wishlist">No products in wishlist</string>
+    <string name="empty_notifications">No notifications</string>
+    <string name="empty_categories">No categories</string>
+    <string name="empty_results">No results</string>
+    <string name="empty_addresses">No saved addresses</string>
+
+    <!-- Product -->
+    <string name="per_carton">/ carton</string>
+    <string name="retail_price_label">Retail price · per carton</string>
+    <string name="wholesale_prices">Wholesale prices</string>
+    <string name="min_order_qty">Min. order</string>
+    <string name="add_to_cart">Add to cart</string>
+    <string name="verified_supplier">Verified supplier</string>
+    <string name="add_to_favorites">Add to favorites</string>
+    <string name="remove_from_favorites">Remove from favorites</string>
+
+    <!-- Auth -->
+    <string name="sign_in">Sign in</string>
+    <string name="sign_up">Create account</string>
+    <string name="sign_out">Sign out</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="staff_portal">Staff and partner portal</string>
+    <string name="staff_login">Staff login</string>
+
+    <!-- Header -->
+    <string name="search_hint">Search products, suppliers…</string>
+    <string name="favorites">Favorites</string>
+    <string name="currency_country">SAR · Saudi Arabia</string>
+    <string name="language">English</string>
+
+    <!-- Home -->
+    <string name="tagline_pill">#1 Wholesale marketplace</string>
+    <string name="hero_title">Buy wholesale, save more</string>
+    <string name="hero_subtitle">Compare wholesale prices to market average and buy from verified suppliers</string>
+    <string name="shop_now">Shop now</string>
+    <string name="discover_offers">Discover offers</string>
+    <string name="ai_picks_title">AI picks for you</string>
+    <string name="ai_picks_subtitle">Best sellers on the platform</string>
+    <string name="trust_fast_delivery">Fast delivery</string>
+    <string name="trust_order_protection">Order protection</string>
+    <string name="trust_secure_payment">Secure payment</string>
+    <string name="trust_verified_supplier">Verified supplier</string>
+
+    <!-- Cart & Checkout -->
+    <string name="checkout">Checkout</string>
+    <string name="subtotal">Subtotal</string>
+    <string name="shipping">Shipping</string>
+    <string name="free_shipping">Free</string>
+    <string name="total">Total</string>
+    <string name="savings">Savings</string>
+    <string name="coupon_code">Coupon code</string>
+    <string name="coupon_discount">Coupon discount</string>
+    <string name="payment_method">Payment method</string>
+    <string name="cod">Cash on delivery</string>
+    <string name="card_payment">Credit card</string>
+    <string name="bank_transfer">Bank transfer</string>
+
+    <!-- Orders -->
+    <string name="my_orders">My orders</string>
+    <string name="order">Order</string>
+    <string name="cancel_order">Cancel order</string>
+    <string name="refund_request">Refund request</string>
+
+    <!-- Account -->
+    <string name="edit_profile">Edit profile</string>
+    <string name="addresses">Addresses</string>
+    <string name="notifications">Notifications</string>
+    <string name="loyalty_points">Loyalty points</string>
+    <string name="refer_friends">Refer friends</string>
+    <string name="my_wallet">My wallet</string>
+    <string name="account_type">Account type</string>
+    <string name="conversations">Conversations</string>
+    <string name="offers_deals">Offers and deals</string>
+    <string name="blog">Blog</string>
+    <string name="order_templates">Order templates</string>
+    <string name="refund_requests">Refund requests</string>
+    <string name="verify_phone">Verify phone</string>
+    <string name="kyc">Business verification</string>
+
+    <!-- Admin -->
+    <string name="admin_dashboard">Admin dashboard</string>
+    <string name="partner_portal">Partner portal</string>
+</resources>

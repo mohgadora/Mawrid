@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مورِد</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_categories">الفئات</string>
+    <string name="nav_search">البحث</string>
+    <string name="nav_cart">السلة</string>
+    <string name="nav_account">حسابي</string>
+
+    <!-- Common actions -->
+    <string name="retry">إعادة المحاولة</string>
+    <string name="back">رجوع</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="confirm">تأكيد</string>
+    <string name="delete">حذف</string>
+    <string name="send">إرسال</string>
+    <string name="search">بحث</string>
+    <string name="filter">تصفية</string>
+    <string name="apply">تطبيق</string>
+    <string name="share">مشاركة</string>
+    <string name="copy">نسخ</string>
+    <string name="refresh">تحديث</string>
+    <string name="done">تم</string>
+    <string name="loading">جارٍ التحميل…</string>
+    <string name="error_occurred">حدث خطأ</string>
+
+    <!-- Empty states -->
+    <string name="empty_products">لا توجد منتجات</string>
+    <string name="empty_cart">سلتك فارغة</string>
+    <string name="empty_orders">لا توجد طلبات بعد</string>
+    <string name="empty_wishlist">لا توجد منتجات في المفضلة</string>
+    <string name="empty_notifications">لا توجد إشعارات</string>
+    <string name="empty_categories">لا توجد فئات</string>
+    <string name="empty_results">لا توجد نتائج</string>
+    <string name="empty_addresses">لا توجد عناوين محفوظة</string>
+
+    <!-- Product -->
+    <string name="per_carton">/ كرتون</string>
+    <string name="retail_price_label">سعر التجزئة · للكرتون</string>
+    <string name="wholesale_prices">أسعار الجملة</string>
+    <string name="min_order_qty">أقل كمية</string>
+    <string name="add_to_cart">أضف إلى السلة</string>
+    <string name="verified_supplier">مورد موثّق</string>
+    <string name="add_to_favorites">إضافة إلى المفضلة</string>
+    <string name="remove_from_favorites">إزالة من المفضلة</string>
+
+    <!-- Auth -->
+    <string name="sign_in">تسجيل الدخول</string>
+    <string name="sign_up">إنشاء حساب</string>
+    <string name="sign_out">تسجيل الخروج</string>
+    <string name="email">البريد الإلكتروني</string>
+    <string name="password">كلمة المرور</string>
+    <string name="forgot_password">نسيت كلمة المرور؟</string>
+    <string name="staff_portal">بوابة الإدارة والشركاء</string>
+    <string name="staff_login">دخول الفريق</string>
+
+    <!-- Header -->
+    <string name="search_hint">ابحث عن منتج، مورّد…</string>
+    <string name="favorites">المفضلة</string>
+    <string name="currency_country">SAR · السعودية</string>
+    <string name="language">العربية</string>
+
+    <!-- Home -->
+    <string name="tagline_pill">منصة تجارة الجملة رقم 1</string>
+    <string name="hero_title">اشترِ بالجملة، وفّر أكثر</string>
+    <string name="hero_subtitle">قارن أسعار الجملة بمتوسط السوق واشترِ من موردين موثوقين بأفضل الأسعار</string>
+    <string name="shop_now">تسوّق الآن</string>
+    <string name="discover_offers">اكتشف العروض</string>
+    <string name="ai_picks_title">مختار لك بالذكاء الاصطناعي</string>
+    <string name="ai_picks_subtitle">الأكثر مبيعاً في المنصة</string>
+    <string name="trust_fast_delivery">توصيل سريع</string>
+    <string name="trust_order_protection">حماية الطلب</string>
+    <string name="trust_secure_payment">دفع آمن</string>
+    <string name="trust_verified_supplier">مورد موثّق</string>
+
+    <!-- Cart & Checkout -->
+    <string name="checkout">إتمام الطلب</string>
+    <string name="subtotal">المجموع الفرعي</string>
+    <string name="shipping">الشحن</string>
+    <string name="free_shipping">مجاني</string>
+    <string name="total">الإجمالي</string>
+    <string name="savings">التوفير</string>
+    <string name="coupon_code">كوبون الخصم</string>
+    <string name="coupon_discount">خصم الكوبون</string>
+    <string name="payment_method">طريقة الدفع</string>
+    <string name="cod">الدفع عند الاستلام</string>
+    <string name="card_payment">بطاقة مصرفية</string>
+    <string name="bank_transfer">تحويل بنكي</string>
+
+    <!-- Orders -->
+    <string name="my_orders">طلباتي</string>
+    <string name="order">الطلب</string>
+    <string name="cancel_order">إلغاء الطلب</string>
+    <string name="refund_request">طلب استرجاع</string>
+
+    <!-- Account -->
+    <string name="edit_profile">تعديل الملف الشخصي</string>
+    <string name="addresses">العناوين</string>
+    <string name="notifications">الإشعارات</string>
+    <string name="loyalty_points">نقاط الولاء</string>
+    <string name="refer_friends">ادعُ أصدقاءك</string>
+    <string name="my_wallet">محفظتي</string>
+    <string name="account_type">نوع الحساب</string>
+    <string name="conversations">المحادثات</string>
+    <string name="offers_deals">عروض وتخفيضات</string>
+    <string name="blog">المدونة</string>
+    <string name="order_templates">قوالب إعادة الطلب</string>
+    <string name="refund_requests">طلبات الاسترجاع</string>
+    <string name="verify_phone">توثيق رقم الجوال</string>
+    <string name="kyc">توثيق المنشأة</string>
+
+    <!-- Admin -->
+    <string name="admin_dashboard">لوحة الإدارة</string>
+    <string name="partner_portal">بوابة الشركاء</string>
+</resources>
