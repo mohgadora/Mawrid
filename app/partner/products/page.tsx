@@ -51,7 +51,7 @@ export default function PartnerProductsPage() {
       name: p.name,
       nameEn: p.nameEn,
       description: p.description ?? '',
-      descriptionEn: (p as unknown as { descriptionEn?: string }).descriptionEn ?? '',
+      descriptionEn: p.descriptionEn ?? '',
       sku: p.sku,
       stock: String(p.stock),
       price: String(p.price),
@@ -152,8 +152,8 @@ export default function PartnerProductsPage() {
                     <td className="px-4 py-3 text-xs">{p.stock}</td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
-                        const rejectionReason = (p as unknown as { rejectionReason?: string | null }).rejectionReason
+                        const pStatus = p.status ?? 'approved'
+                        const rejectionReason = p.rejectionReason
                         const cfg = STATUS_CONFIG[pStatus]
                         if (!cfg) return <span className="text-xs text-muted-foreground">{pStatus}</span>
                         const Icon = cfg.icon

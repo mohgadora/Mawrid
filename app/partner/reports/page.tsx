@@ -189,7 +189,7 @@ function SalesTab() {
     return json.data
   })
 
-  useEffect(() => { if (error) toastError('فشل تحميل تقرير المبيعات') }, [error])
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير المبيعات') }, [error, toastError])
 
   function handleExport() {
     if (!data) return
@@ -272,7 +272,7 @@ function ProductsTab() {
     return json.data
   })
 
-  useEffect(() => { if (error) toastError('فشل تحميل تقرير المنتجات') }, [error])
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير المنتجات') }, [error, toastError])
 
   const sorted = data ? [...data].sort((a, b) => b.totalRevenue - a.totalRevenue) : []
 
@@ -335,7 +335,7 @@ function EarningsTab() {
     return json.data
   })
 
-  useEffect(() => { if (error) toastError('فشل تحميل تقرير الأرباح') }, [error])
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير الأرباح') }, [error, toastError])
 
   return (
     <div className="space-y-5">
@@ -407,7 +407,7 @@ function StockTab() {
     return json.data
   })
 
-  useEffect(() => { if (error) toastError('فشل تحميل تقرير المخزون') }, [error])
+  useEffect(() => { if (error) toastError('فشل تحميل تقرير المخزون') }, [error, toastError])
 
   if (isLoading) return <AdminPageSkeleton cards={0} rows={6} />
   if (error || !data) return <ErrorState message="تعذّر تحميل تقرير المخزون" />

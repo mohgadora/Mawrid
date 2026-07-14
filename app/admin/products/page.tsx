@@ -176,7 +176,7 @@ export default function AdminProductsPage() {
         {(products) => {
           const filtered = products.filter((p) => {
             const matchQ = !q || p.name.toLowerCase().includes(q.toLowerCase()) || (p.sku ?? '').toLowerCase().includes(q.toLowerCase())
-            const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+            const pStatus = p.status ?? 'approved'
             const matchTab =
               tab === 'all'
               || (tab === 'active' ? p.active : false)
@@ -241,7 +241,7 @@ export default function AdminProductsPage() {
                               {p.active ? t('enabledLabel') : 'معطّل'}
                             </span>
                             {(() => {
-                              const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+                              const pStatus = p.status ?? 'approved'
                               return pStatus !== 'approved' ? (
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${APPROVAL_STATUS_COLOR[pStatus] ?? ''}`}>
                                   {APPROVAL_STATUS_LABEL[pStatus] ?? pStatus}
@@ -256,7 +256,7 @@ export default function AdminProductsPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             {(() => {
-                              const pStatus = (p as unknown as { status?: string }).status ?? 'approved'
+                              const pStatus = p.status ?? 'approved'
                               return pStatus === 'pending_approval' ? (
                                 <>
                                   <button
