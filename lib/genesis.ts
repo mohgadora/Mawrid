@@ -145,6 +145,33 @@ export async function resolveMawridUser(identity: GenesisIdentity): Promise<Reso
 }
 
 /**
+ * يزامن ملف المستخدم من جينيسيس عند كل دخول — جينيسيس مصدر الحقيقة للهوية،
+ * فتحديث الاسم أو البريد هناك يظهر في مورِد دون إعادة تسجيل.
+ *
+ * البريد فريد في المخطّط وهو مفتاح دخول كلمة المرور، فلا نكتبه إن كان مملوكًا
+ * لحساب آخر — تغيير هوية حساب قائم أسوأ من بريد قديم. نكتب مباشرةً لأن
+ * الحقول (image/‏name/‏email) خارج ما يمرّره better-auth عبر additionalFields.
+ */
+export async function syncProfileFromGenesis(
+  userId: string,
+  profile: GenesisUserInfo,
+): Promise<void> {
+  const update: {name?: string; email?: string; image?: string; updatedAt: Date} = {
+    updatedAt: new Date(),
+  }
+  if (profile.name) update.name = profile.name
+  if (profile.picture) update.image = profile.picture
+  if (profile.email) {
+    const [taken] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, profile.email))
+    if (!taken || taken.id === userId) update.email = profile.email
+  }
+  await db.update(user).set(update).where(eq(user.id, userId))
+}
+
+/**
  * يثبّت توثيق الجوال للحساب المُنشأ من جينيسيس — فالرقم موثّق أصلًا برمز OTP
  * في جينيسيس قبل إصدار الرمز.
  *

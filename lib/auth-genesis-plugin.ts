@@ -6,6 +6,7 @@ import {
   genesisSsoEnabled,
   markPhoneVerified,
   resolveMawridUser,
+  syncProfileFromGenesis,
   toE164,
   verifyGenesisToken,
 } from '@/lib/genesis'
@@ -65,16 +66,18 @@ export const genesisSso = () =>
           }
 
           const adapter = ctx.context.internalAdapter
+          // جينيسيس مصدر الحقيقة للهوية: نقرأ الملف عند كل دخول، لا عند
+          // الإنشاء فقط، وإلا بقي الاسم/البريد المحدَّث في جينيسيس غير ظاهر.
+          // الفشل هنا لا يمنع الدخول — الملف تحسين لا شرط.
+          const profile = await fetchGenesisUserInfo(body.token)
+
           let userId: string
           if (resolved.ok) {
             userId = resolved.userId
+            if (profile) await syncProfileFromGenesis(userId, profile)
           } else {
             // لا حساب بهذا الرقم → ننشئ حساب مستهلك، تمامًا كالدخول السريع
             // برمز OTP: لا تسجيل مسبق في مورِد مطلوب.
-            //
-            // الاسم يُقرأ من جينيسيس عبر UserInfo القياسية بدل قيمة ثابتة.
-            // نطلبه بعد التحقّق فقط، والفشل فيه لا يمنع الدخول.
-            const profile = await fetchGenesisUserInfo(body.token)
             // البريد إلزامي وفريد في المخطّط، وجينيسيس هوية قائمة على الجوال
             // فقط، لذا نشتقّ بريدًا اصطناعيًا لا يصل إليه بريد حقيقي أبدًا.
             const created = await adapter.createUser({

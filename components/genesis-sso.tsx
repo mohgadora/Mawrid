@@ -51,12 +51,15 @@ function waitForBridge(): Promise<GenesisBridge | null> {
 }
 
 export function GenesisSso() {
-  const { data: session, isPending, refetch } = authClient.useSession()
+  const { refetch } = authClient.useSession()
   // محاولة واحدة لكل تحميل: الفشل يعني بقاء المستخدم ضيفًا، لا حلقة إعادة.
   const attempted = useRef(false)
 
   useEffect(() => {
-    if (isPending || session?.user || attempted.current) return
+    // لا نتخطّى عند وجود جلسة: الجلسة تعيش أسبوعًا، ولو اكتفينا بالدخول
+    // الأول لبقي الاسم/البريد المحدَّث في جينيسيس غير ظاهر طوال تلك المدة.
+    // كل فتح للصفحة داخل التطبيق يعيد المزامنة من المضيف.
+    if (attempted.current) return
     attempted.current = true
 
     void (async () => {
@@ -77,7 +80,7 @@ export function GenesisSso() {
         // الجسر أو التبادل فشل — نبقى ضيوفًا بصمت بدل تعطيل الصفحة.
       }
     })()
-  }, [isPending, session, refetch])
+  }, [refetch])
 
   return null
 }
