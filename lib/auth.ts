@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { admin } from 'better-auth/plugins'
+import { genesisSso } from '@/lib/auth-genesis-plugin'
 import { pool } from '@/lib/db'
 import { sendEmail, buildPasswordResetEmail } from '@/lib/email'
 
@@ -71,6 +72,9 @@ export const auth = betterAuth({
       defaultRole: 'consumer',
       adminRole: 'admin',
     }),
+    // الدخول الموحّد عند فتح مورِد داخل تطبيق جينيسيس. معطّلة تلقائيًا ما لم
+    // تُضبط GENESIS_API_URL و GENESIS_INTROSPECTION_SECRET.
+    genesisSso(),
   ],
 
   ...(Object.keys(socialProviders).length ? { socialProviders } : {}),

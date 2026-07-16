@@ -17,6 +17,7 @@ import { MiniCart } from '@/components/mini-cart'
 import { BottomNav } from '@/components/bottom-nav'
 import { CompareBar } from '@/components/compare-bar'
 import { RouteTransition } from '@/components/route-transition'
+import { GenesisSso } from '@/components/genesis-sso'
 import { LiveChat } from '@/components/live-chat'
 import { DEMO_FEATURES_ENABLED } from '@/lib/feature-flags'
 
@@ -41,6 +42,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <I18nProvider>
           <SubscriptionProvider>
             <RoleProvider>
+              <GenesisSso />
               <CartProvider>
                 <ToastProvider>
                   <NotificationsProvider>

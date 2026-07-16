@@ -19,3 +19,10 @@ mobile/.expo/
 mobile/dist/
 mobile/.claude/
 *.tsbuildinfo
+
+testsprite_tests/tmp/config.json
+
+# أسرار حقيقية — لا يدخل git سوى .env.example.
+# .env.production يحمل DATABASE_URL و BETTER_AUTH_SECRET ومفاتيح المزوّدين.
+.env*
+!.env.example
