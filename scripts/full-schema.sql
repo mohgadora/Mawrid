@@ -189,10 +189,22 @@ CREATE TABLE IF NOT EXISTS "delivery_zone" (
   "createdAt"      timestamp with time zone NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS "guest_user" (
+  "id"        text PRIMARY KEY,
+  "email"     text,
+  "phone"     text,
+  "fullName"  text,
+  "createdAt" timestamp with time zone NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS "order" (
   "id"              text PRIMARY KEY,
   "ref"             text NOT NULL UNIQUE,
-  "userId"          text NOT NULL REFERENCES "user"("id") ON DELETE RESTRICT,
+  -- Nullable to support guest checkout — guest orders carry "guestId" instead.
+  "userId"          text REFERENCES "user"("id") ON DELETE RESTRICT,
+  "guestId"         text,
+  "couponId"        text,
+  "couponCode"      text,
   "supplierId"      text REFERENCES "supplier"("id"),
   "status"          text NOT NULL DEFAULT 'pending',
   "addressId"       text REFERENCES "address"("id"),
@@ -378,11 +390,12 @@ CREATE TABLE IF NOT EXISTS "coupon" (
 );
 
 CREATE TABLE IF NOT EXISTS "coupon_usage" (
-  "id"        text PRIMARY KEY,
-  "couponId"  text NOT NULL REFERENCES "coupon"("id") ON DELETE CASCADE,
-  "userId"    text NOT NULL,
-  "orderId"   text REFERENCES "order"("id"),
-  "createdAt" timestamp with time zone NOT NULL DEFAULT now()
+  "id"             text PRIMARY KEY,
+  "couponId"       text NOT NULL REFERENCES "coupon"("id") ON DELETE CASCADE,
+  "userId"         text NOT NULL,
+  "orderId"        text REFERENCES "order"("id"),
+  "discountAmount" numeric(12,2) NOT NULL DEFAULT '0',
+  "createdAt"      timestamp with time zone NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS "seller_earning" (
